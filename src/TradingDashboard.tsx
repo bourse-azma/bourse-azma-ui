@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import type { Theme } from './hooks/useTheme';
+import { appConfig } from './config/appConfig';
 
 type LiveValueOptions = {
   min: number;
@@ -52,6 +53,20 @@ type TradingDashboardProps = {
   onToggleTheme: () => void;
 };
 
+type MarketOverviewResult = {
+  marketId: string;
+  indexValue: number;
+  indexChange: number;
+  totalTrades: number;
+  totalTradeValue: number;
+  totalTradeVolume: number;
+};
+
+type MarketOverviewApiResponse = {
+  code: number;
+  result?: MarketOverviewResult;
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const toRoundedPrice = (value: number) => Math.round(value / 10) * 10;
 
@@ -60,15 +75,27 @@ export const randomInt = (min: number, max: number) =>
 
 export const randomFloat = (min: number, max: number) => Math.random() * (max - min) + min;
 
+const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
+
 export const formatNumberFa = (value: number, digits = 0) =>
-  new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value);
+  toLtrIsolated(
+    new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value)
+  );
 
 export const formatPercentFa = (value: number, digits = 2) => {
   const sign = value > 0 ? '+' : '';
-  return `${sign}${formatNumberFa(value, digits)}%`;
+  return toLtrIsolated(`${sign}${new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value)}%`);
+};
+
+const formatCompactValue = (value: number, unit: 'T' | 'B') => {
+  const divisor = unit === 'T' ? 1_000_000_000_000 : 1_000_000_000;
+  return `${formatNumberFa(value / divisor, 2)}${unit}`;
 };
 
 export function useClock() {
@@ -203,6 +230,43 @@ export function useLiveOrderBook(basePrice: number) {
   return state;
 }
 
+function useMarketOverview(marketId: '1' | '2') {
+  const [data, setData] = useState<MarketOverviewResult | null>(null);
+
+  useEffect(() => {
+    let timer = 0;
+    let active = true;
+
+    const fetchOverview = async () => {
+      try {
+        const response = await fetch(`${appConfig.marketOverviewApiBaseUrl}/${marketId}`);
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as MarketOverviewApiResponse;
+        if (!active || payload.code !== 200 || !payload.result) return;
+        setData(payload.result);
+      } catch {
+        // Keep previously rendered data on transient network failures.
+      }
+    };
+
+    const tick = async () => {
+      await fetchOverview();
+      if (!active) return;
+      timer = window.setTimeout(tick, appConfig.marketOverviewRefreshMs);
+    };
+
+    void tick();
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [marketId]);
+
+  return data;
+}
+
 const cardClass = 'rounded-2xl border border-border/70 bg-surface shadow-card dark:shadow-none';
 const actionBtnClass =
   'inline-flex h-10 items-center justify-center rounded-xl border border-border/80 bg-surface-2 px-3 text-muted transition hover:border-primary/35 hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45';
@@ -287,33 +351,13 @@ function WatchlistPanel({
 export default function TradingDashboard({ theme, onToggleTheme }: TradingDashboardProps) {
   const clock = useClock();
 
-  const marketIndex = useLiveValue(3_891_243, {
-    min: 3_780_000,
-    max: 3_980_000,
-    step: 2_900,
-    intervalMs: 1100,
-  });
+  const bourseOverview = useMarketOverview('1');
+  const farabourseOverview = useMarketOverview('2');
 
-  const marketDelta = useLiveValue(-94_861, {
-    min: -130_000,
-    max: 130_000,
-    step: 2_500,
-    intervalMs: 1100,
-  });
-
-  const farabourseIndex = useLiveValue(48_236, {
-    min: 46_100,
-    max: 51_800,
-    step: 145,
-    intervalMs: 1100,
-  });
-
-  const farabourseDelta = useLiveValue(-1_246, {
-    min: -5_300,
-    max: 5_300,
-    step: 160,
-    intervalMs: 1100,
-  });
+  const marketIndex = bourseOverview?.indexValue ?? 0;
+  const marketDelta = bourseOverview?.indexChange ?? 0;
+  const farabourseIndex = farabourseOverview?.indexValue ?? 0;
+  const farabourseDelta = farabourseOverview?.indexChange ?? 0;
 
   const symbolPrice = useLiveValue(28_160, {
     min: 27_300,
@@ -444,7 +488,9 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
         indexValue: marketIndex,
         deltaValue: marketDelta,
         percentValue: marketPercent,
-        turnover: tradeValue,
+        totalTrades: bourseOverview?.totalTrades ?? 0,
+        tradeValue: bourseOverview?.totalTradeValue ?? 0,
+        tradeVolume: bourseOverview?.totalTradeVolume ?? 0,
         positive: marketPositive,
       },
       {
@@ -453,20 +499,27 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
         indexValue: farabourseIndex,
         deltaValue: farabourseDelta,
         percentValue: faraboursePercent,
-        turnover: tradeValue * 0.38,
+        totalTrades: farabourseOverview?.totalTrades ?? 0,
+        tradeValue: farabourseOverview?.totalTradeValue ?? 0,
+        tradeVolume: farabourseOverview?.totalTradeVolume ?? 0,
         positive: faraboursePositive,
       },
     ],
     [
+      bourseOverview?.totalTrades,
+      bourseOverview?.totalTradeValue,
+      bourseOverview?.totalTradeVolume,
       farabourseDelta,
       farabourseIndex,
       faraboursePercent,
       faraboursePositive,
+      farabourseOverview?.totalTrades,
+      farabourseOverview?.totalTradeValue,
+      farabourseOverview?.totalTradeVolume,
       marketDelta,
       marketIndex,
       marketPercent,
       marketPositive,
-      tradeValue,
     ]
   );
 
@@ -602,16 +655,37 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
                             </span>
                           </div>
 
-                          <div className="text-lg font-bold tabular-nums text-text sm:text-xl">
-                            {formatNumberFa(item.indexValue)}
-                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px]">
+                            <span className="text-muted">شاخص کل</span>
+                            <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
+                              {formatNumberFa(item.indexValue)}
+                            </span>
 
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted sm:text-[11px]">
-                            <span>ارزش معاملات</span>
-                            <span className="tabular-nums">
-                              {formatNumberFa(item.turnover / 1_000_000_000_000, 2)} T
+                            <span className="text-muted">تغییرات</span>
+                            <span
+                              className={`text-left font-semibold tabular-nums [direction:ltr] ${
+                                item.positive ? 'text-positive' : 'text-negative'
+                              }`}
+                            >
+                              {formatNumberFa(item.deltaValue)} ({formatPercentFa(item.percentValue)})
+                            </span>
+
+                            <span className="text-muted">تعداد معاملات</span>
+                            <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
+                              {formatNumberFa(item.totalTrades)}
+                            </span>
+
+                            <span className="text-muted">ارزش معاملات</span>
+                            <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
+                              {formatCompactValue(item.tradeValue, 'T')}
+                            </span>
+
+                            <span className="text-muted">حجم معاملات</span>
+                            <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
+                              {formatCompactValue(item.tradeVolume, 'B')}
                             </span>
                           </div>
+
                         </div>
                       ))}
                     </div>
