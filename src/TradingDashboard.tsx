@@ -61,14 +61,14 @@ export const randomInt = (min: number, max: number) =>
 export const randomFloat = (min: number, max: number) => Math.random() * (max - min) + min;
 
 export const formatNumberFa = (value: number, digits = 0) =>
-  new Intl.NumberFormat('fa-IR', {
+  new Intl.NumberFormat('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   }).format(value);
 
 export const formatPercentFa = (value: number, digits = 2) => {
   const sign = value > 0 ? '+' : '';
-  return `${sign}${formatNumberFa(value, digits)}٪`;
+  return `${sign}${formatNumberFa(value, digits)}%`;
 };
 
 export function useClock() {
@@ -301,6 +301,20 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
     intervalMs: 1100,
   });
 
+  const farabourseIndex = useLiveValue(48_236, {
+    min: 46_100,
+    max: 51_800,
+    step: 145,
+    intervalMs: 1100,
+  });
+
+  const farabourseDelta = useLiveValue(-1_246, {
+    min: -5_300,
+    max: 5_300,
+    step: 160,
+    intervalMs: 1100,
+  });
+
   const symbolPrice = useLiveValue(28_160, {
     min: 27_300,
     max: 29_600,
@@ -378,6 +392,7 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [marketPanelOpen, setMarketPanelOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('فولاد - فولاد مبارکه اصفهان - بورس');
 
   const marketPercent = useMemo(
@@ -385,7 +400,13 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
     [marketDelta, marketIndex]
   );
 
+  const faraboursePercent = useMemo(
+    () => (farabourseIndex !== 0 ? (farabourseDelta / farabourseIndex) * 100 : 0),
+    [farabourseDelta, farabourseIndex]
+  );
+
   const marketPositive = marketDelta >= 0;
+  const faraboursePositive = farabourseDelta >= 0;
   const symbolPositive = symbolPercent >= 0;
 
   const dailyMin = 27_650;
@@ -400,18 +421,64 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
       { label: 'ارزش معاملات', value: `${formatNumberFa(tradeValue / 1_000_000_000_000, 2)} همت` },
       {
         label: 'زمان آخرین معامله',
-        value: clock.toLocaleTimeString('fa-IR', {
+        value: clock.toLocaleTimeString('en-GB', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
+          hour12: false,
         }),
       },
       { label: 'NAV ابطال', value: formatNumberFa(navAbtal) },
-      { label: 'زمان اعلام NAV', value: '۱۰:۴۵' },
+      { label: 'زمان اعلام NAV', value: '10:45' },
       { label: 'EPS', value: formatNumberFa(1150) },
       { label: 'P/E', value: formatNumberFa(7.12, 2) },
     ],
     [baseVolume, clock, navAbtal, tradeValue, tradeVolume]
+  );
+
+  const marketDetails = useMemo(
+    () => [
+      {
+        id: 'bourse',
+        label: 'بورس',
+        indexValue: marketIndex,
+        deltaValue: marketDelta,
+        percentValue: marketPercent,
+        turnover: tradeValue,
+        positive: marketPositive,
+      },
+      {
+        id: 'farabourse',
+        label: 'فرابورس',
+        indexValue: farabourseIndex,
+        deltaValue: farabourseDelta,
+        percentValue: faraboursePercent,
+        turnover: tradeValue * 0.38,
+        positive: faraboursePositive,
+      },
+    ],
+    [
+      farabourseDelta,
+      farabourseIndex,
+      faraboursePercent,
+      faraboursePositive,
+      marketDelta,
+      marketIndex,
+      marketPercent,
+      marketPositive,
+      tradeValue,
+    ]
+  );
+
+  const clockValue = useMemo(
+    () =>
+      clock.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
+    [clock]
   );
 
   const footerStats = useMemo(
@@ -427,21 +494,21 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
 
   const messages = useMemo(
     () => [
-      { title: 'اطلاعیه ناظر درباره توقف نماد خپارس', time: '۱۰:۴۹', tag: 'ناظر' },
-      { title: 'تغییر دامنه نوسان در گروه خودرو', time: '۱۰:۳۲', tag: 'بازار' },
-      { title: 'پیام نظارتی جدید برای نماد فولاد', time: '۱۰:۱۸', tag: 'کدال' },
-      { title: 'زمان پیش‌گشایش برای بازار پایه اعلام شد', time: '۰۹:۵۹', tag: '' },
-      { title: 'بازگشایی نماد شستا پس از توقف کوتاه', time: '۰۹:۴۱', tag: 'خبر' },
-      { title: 'هشدار: سفارش شما به‌روزرسانی شد', time: '۰۹:۲۸', tag: 'سفارش' },
+      { title: 'اطلاعیه ناظر درباره توقف نماد خپارس', time: '10:49', tag: 'ناظر' },
+      { title: 'تغییر دامنه نوسان در گروه خودرو', time: '10:32', tag: 'بازار' },
+      { title: 'پیام نظارتی جدید برای نماد فولاد', time: '10:18', tag: 'کدال' },
+      { title: 'زمان پیش‌گشایش برای بازار پایه اعلام شد', time: '09:59', tag: '' },
+      { title: 'بازگشایی نماد شستا پس از توقف کوتاه', time: '09:41', tag: 'خبر' },
+      { title: 'هشدار: سفارش شما به‌روزرسانی شد', time: '09:28', tag: 'سفارش' },
     ],
     []
   );
 
   const orderFilters: Array<{ key: OrderFilter; label: string }> = [
-    { key: 'open', label: 'باز ۰' },
-    { key: 'done', label: 'انجام شده ۰' },
-    { key: 'failed', label: 'ناموفق ۰' },
-    { key: 'all', label: 'همه ۰' },
+    { key: 'open', label: 'باز 0' },
+    { key: 'done', label: 'انجام شده 0' },
+    { key: 'failed', label: 'ناموفق 0' },
+    { key: 'all', label: 'همه 0' },
   ];
 
   const orderbookTabs: Array<{ key: OrderbookTab; label: string }> = [
@@ -464,9 +531,7 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
             <div dir="rtl" className="flex items-center gap-2 lg:col-span-3 lg:justify-start">
               <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-2 px-3 py-1.5 text-xs text-muted">
                 <Clock3 className="h-3.5 w-3.5" />
-                <span className="tabular-nums">
-                  {clock.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <span className="tabular-nums">{clockValue}</span>
               </div>
 
               <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-1.5 text-xs font-medium text-text">
@@ -476,24 +541,82 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
             </div>
 
             <div dir="rtl" className="lg:col-span-6">
-              <div
-                className={`flex items-center justify-between rounded-2xl border px-4 py-2.5 ${
-                  marketPositive
-                    ? 'border-positive/35 bg-positive/10'
-                    : 'border-negative/35 bg-negative/10'
-                }`}
-              >
-                <span className="text-xs text-muted">شاخص کل بورس</span>
-                <div className="flex items-end gap-3">
-                  <span className="text-xl font-bold tabular-nums text-text">{formatNumberFa(marketIndex)}</span>
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      marketPositive ? 'text-positive' : 'text-negative'
-                    }`}
-                  >
-                    {formatNumberFa(marketDelta)} ({formatPercentFa(marketPercent)})
-                  </span>
-                </div>
+              <div className="relative mx-auto w-full max-w-[520px]">
+                <button
+                  type="button"
+                  onClick={() => setMarketPanelOpen((prev) => !prev)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-1.5 transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                    marketPositive
+                      ? 'border-positive/30 bg-positive/[0.08]'
+                      : 'border-negative/35 bg-negative/[0.08]'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs text-muted">
+                    <span className="font-medium sm:text-sm">شاخص کل بورس</span>
+                    <span className="text-[11px] text-muted/80">بورس • فرابورس</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 [direction:ltr]">
+                    <span className="text-xl leading-none font-extrabold tracking-tight tabular-nums text-text sm:text-2xl">
+                      {formatNumberFa(marketIndex)}
+                    </span>
+
+                    <span
+                      className={`text-xs font-semibold tabular-nums sm:text-sm ${
+                        marketPositive ? 'text-positive' : 'text-negative'
+                      }`}
+                    >
+                      {formatNumberFa(marketDelta)}
+                    </span>
+
+                    <span
+                      className={`text-xs font-semibold tabular-nums sm:text-sm ${
+                        marketPositive ? 'text-positive' : 'text-negative'
+                      }`}
+                    >
+                      ({formatPercentFa(marketPercent)})
+                    </span>
+
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-muted transition ${marketPanelOpen ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+                </button>
+
+                {marketPanelOpen ? (
+                  <div className="mt-2 rounded-xl border border-border/70 bg-surface p-1.5 shadow-card lg:absolute lg:left-0 lg:right-0 lg:top-full lg:z-30">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {marketDetails.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-border/70 bg-surface-2 p-2.5"
+                        >
+                          <div className="mb-1.5 flex items-center justify-between">
+                            <span className="text-xs font-semibold text-text sm:text-sm">{item.label}</span>
+                            <span
+                              className={`text-[11px] font-semibold tabular-nums ${
+                                item.positive ? 'text-positive' : 'text-negative'
+                              }`}
+                            >
+                              {formatNumberFa(item.deltaValue)} ({formatPercentFa(item.percentValue)})
+                            </span>
+                          </div>
+
+                          <div className="text-lg font-bold tabular-nums text-text sm:text-xl">
+                            {formatNumberFa(item.indexValue)}
+                          </div>
+
+                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted sm:text-[11px]">
+                            <span>ارزش معاملات</span>
+                            <span className="tabular-nums">
+                              {formatNumberFa(item.turnover / 1_000_000_000_000, 2)} T
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -676,11 +799,19 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
             <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
               {depth.map((row) => (
                 <div key={row.id} className="mb-2 last:mb-0">
-                  <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-                    <span>{row.label}</span>
-                    <span>
-                      فروش {formatPercentFa(row.sellPercent, 0)} | خرید {formatPercentFa(row.buyPercent, 0)}
+                  <div className="mb-1 grid grid-cols-[80px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
+                    <span />
+                    <span className="text-center [direction:rtl] text-muted">
+                      فروش{' '}
+                      <bdi dir="ltr" className="inline-block tabular-nums">
+                        {formatPercentFa(row.sellPercent, 0)}
+                      </bdi>{' '}
+                      | خرید{' '}
+                      <bdi dir="ltr" className="inline-block tabular-nums">
+                        {formatPercentFa(row.buyPercent, 0)}
+                      </bdi>
                     </span>
+                    <span className="text-right [direction:rtl] text-muted">{row.label}</span>
                   </div>
 
                   <div className="grid grid-cols-[80px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
