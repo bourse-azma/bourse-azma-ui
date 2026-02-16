@@ -54,17 +54,28 @@ type TradingDashboardProps = {
 };
 
 type MarketOverviewResult = {
-  marketId: string;
   indexValue: number;
   indexChange: number;
   totalTrades: number;
   totalTradeValue: number;
   totalTradeVolume: number;
+  marketStateTitle: string;
+};
+
+type MarketOverviewApiResult = {
+  marketOverview?: {
+    totalIndexValue: number;
+    totalIndexChange: number;
+    totalTradeCount: number;
+    totalTradeValue: number;
+    totalTradeVolume: number;
+    marketStateTitle: string;
+  };
 };
 
 type MarketOverviewApiResponse = {
   code: number;
-  result?: MarketOverviewResult;
+  result?: MarketOverviewApiResult;
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -243,8 +254,17 @@ function useMarketOverview(marketId: '1' | '2') {
         if (!response.ok) return;
 
         const payload = (await response.json()) as MarketOverviewApiResponse;
-        if (!active || payload.code !== 200 || !payload.result) return;
-        setData(payload.result);
+        const overview = payload.result?.marketOverview;
+        if (!active || payload.code !== 200 || !overview) return;
+
+        setData({
+          indexValue: overview.totalIndexValue,
+          indexChange: overview.totalIndexChange,
+          totalTrades: overview.totalTradeCount,
+          totalTradeValue: overview.totalTradeValue,
+          totalTradeVolume: overview.totalTradeVolume,
+          marketStateTitle: overview.marketStateTitle,
+        });
       } catch {
         // Keep previously rendered data on transient network failures.
       }
