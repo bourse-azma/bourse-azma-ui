@@ -4,8 +4,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const marketOverviewProxyTarget = env.VITE_MARKET_OVERVIEW_PROXY_TARGET;
+  const codalProxyTarget = env.VITE_CODAL_PROXY_TARGET ?? marketOverviewProxyTarget;
   if (!marketOverviewProxyTarget) {
     throw new Error('Missing required env: VITE_MARKET_OVERVIEW_PROXY_TARGET');
+  }
+  if (!codalProxyTarget) {
+    throw new Error('Missing required env: VITE_CODAL_PROXY_TARGET');
   }
 
   return {
@@ -17,6 +21,12 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path.replace(/^\/api\/tsetmc/, '/tsetmc/api/v1'),
+        },
+        '/api/codal': {
+          target: codalProxyTarget,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/codal/, '/codal/api/v1'),
         },
       },
     },
