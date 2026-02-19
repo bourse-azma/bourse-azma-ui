@@ -12,6 +12,6 @@ FROM nginxinc/nginx-unprivileged:1.27-alpine-slim
 WORKDIR /usr/share/nginx/html
 
 COPY --from=build /app/dist ./
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=101:101 --chmod=644 nginx.conf /etc/nginx/conf.d/default.conf
 
 CMD ["nginx", "-g", "daemon off;"]
