@@ -10,10 +10,8 @@ import {
   LineChart,
   Loader2,
   Menu,
-  Moon,
   Search,
   Star,
-  Sun,
   UserRound,
   Wallet,
   X,
@@ -54,6 +52,9 @@ type OrderFilter = 'open' | 'done' | 'failed' | 'all';
 type TradingDashboardProps = {
   theme: Theme;
   onToggleTheme: () => void;
+  profileDisplayName: string;
+  onOpenProfile: () => void;
+  onLogout: () => void;
 };
 
 type MarketOverviewResult = {
@@ -811,8 +812,15 @@ function WatchlistPanel({
   );
 }
 
-export default function TradingDashboard({ theme, onToggleTheme }: TradingDashboardProps) {
+export default function TradingDashboard({
+  theme,
+  onToggleTheme,
+  profileDisplayName,
+  onOpenProfile,
+  onLogout,
+}: TradingDashboardProps) {
   const clock = useClock();
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   const bourseOverview = useMarketOverview('1');
   const farabourseOverview = useMarketOverview('2');
@@ -916,6 +924,7 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
   });
   const [noticeFilterOpen, setNoticeFilterOpen] = useState(false);
   const [activeNoticeGroup, setActiveNoticeGroup] = useState<NoticeGroup | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const {
     notices: codalNotices,
@@ -1287,6 +1296,20 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
     technical: 'نمای تکنیکال در این تب به‌صورت خلاصه قابل نمایش است.',
   };
 
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+
+    const onClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (profileMenuRef.current?.contains(target)) return;
+      setProfileMenuOpen(false);
+    };
+
+    window.addEventListener('mousedown', onClickOutside);
+    return () => window.removeEventListener('mousedown', onClickOutside);
+  }, [profileMenuOpen]);
+
   return (
     <div className="min-h-screen bg-bg text-text transition-colors duration-300">
       <div className="sticky top-0 z-50 border-b border-border/70 bg-surface/85 shadow-card backdrop-blur-xl dark:shadow-none">
@@ -1298,9 +1321,40 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
                 <span className="tabular-nums">{clockValue}</span>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-1.5 text-xs font-medium text-text">
-                <UserRound className="h-4 w-4 text-muted" />
-                عرفان داوودی
+              <div ref={profileMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setProfileMenuOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface px-3 py-1.5 text-xs font-medium text-text transition hover:border-primary/35"
+                >
+                  <UserRound className="h-4 w-4 text-muted" />
+                  {profileDisplayName}
+                </button>
+
+                {profileMenuOpen ? (
+                  <div className="absolute left-0 top-[calc(100%+8px)] z-40 w-44 rounded-xl border border-border/80 bg-surface p-1.5 shadow-card">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        onOpenProfile();
+                      }}
+                      className="flex w-full items-center justify-start rounded-lg px-3 py-2 text-xs text-text transition hover:bg-surface-2"
+                    >
+                      نمایش/ویرایش پروفایل
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        onLogout();
+                      }}
+                      className="flex w-full items-center justify-start rounded-lg px-3 py-2 text-xs text-negative transition hover:bg-negative/10"
+                    >
+                      خروج از حساب
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -1431,10 +1485,22 @@ export default function TradingDashboard({ theme, onToggleTheme }: TradingDashbo
                 <button
                   type="button"
                   onClick={onToggleTheme}
-                  aria-label="Toggle theme"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/80 bg-surface-2 text-muted transition hover:text-text focus-visible:ring-2 focus-visible:ring-primary/50"
+                  className="inline-flex h-9 items-center gap-1 rounded-xl border border-border/80 bg-surface-2 px-2 text-xs text-muted transition hover:border-primary/35 hover:text-text focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
-                  {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  <span
+                    className={`rounded-md px-2 py-1 transition ${
+                      theme === 'light' ? 'bg-surface text-text shadow-sm' : ''
+                    }`}
+                  >
+                    روشن
+                  </span>
+                  <span
+                    className={`rounded-md px-2 py-1 transition ${
+                      theme === 'dark' ? 'bg-surface text-text shadow-sm' : ''
+                    }`}
+                  >
+                    تاریک
+                  </span>
                 </button>
               </div>
             </div>

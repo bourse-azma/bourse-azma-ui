@@ -33,4 +33,5 @@ export const appConfig = Object.freeze({
     getOptionalEnv('VITE_CODAL_NOTICES_REFRESH_MS', '15000'),
     'VITE_CODAL_NOTICES_REFRESH_MS'
   ),
+  authApiBaseUrl: getOptionalEnv('VITE_AUTH_API_BASE_URL', '/api/auth'),
 });

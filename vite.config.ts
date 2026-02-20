@@ -5,6 +5,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const marketOverviewProxyTarget = env.VITE_MARKET_OVERVIEW_PROXY_TARGET;
   const codalProxyTarget = env.VITE_CODAL_PROXY_TARGET ?? marketOverviewProxyTarget;
+  const authProxyTarget = env.VITE_AUTH_PROXY_TARGET ?? 'http://localhost:9003';
   if (!marketOverviewProxyTarget) {
     throw new Error('Missing required env: VITE_MARKET_OVERVIEW_PROXY_TARGET');
   }
@@ -27,6 +28,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/api\/codal/, '/codal/api/v1'),
+        },
+        '/api/auth': {
+          target: authProxyTarget,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api\/auth/, '/api/v1/auth'),
+        },
+        '/api/v1/users': {
+          target: authProxyTarget,
+          changeOrigin: true,
+          secure: false,
         },
       },
     },
