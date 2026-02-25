@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { appConfig } from './config/appConfig';
 
@@ -17,6 +18,7 @@ export type AuthSession = {
   accessToken: string;
   userId: number;
   role: string;
+  rememberMe?: boolean;
 };
 
 type ApiErrorResult = {
@@ -71,13 +73,32 @@ const toApiErrorMessage = (data: unknown, fallback: string) => {
   return fallback;
 };
 
-const loginDescription = 'با ایمیل یا شماره موبایل وارد شوید.';
+const loginDescription = 'با نام کاربری یا ایمیل وارد شوید.';
 const registerDescription = 'حساب جدید بسازید و مستقیم وارد داشبورد شوید.';
+
+type FieldLabelProps = {
+  title: string;
+  required?: boolean;
+  showRequirement?: boolean;
+};
+
+function FieldLabel({ title, required = false, showRequirement = true }: FieldLabelProps) {
+  return (
+    <div className="mb-1.5 flex items-baseline justify-between">
+      <span className="text-xs font-semibold text-text">
+        {title}
+        {showRequirement && required ? <span className="mr-1 text-negative">*</span> : null}
+      </span>
+    </div>
+  );
+}
 
 export default function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [nationalCode, setNationalCode] = useState('');
@@ -159,11 +180,12 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
           identifier: identifier.trim(),
           password: trimmedPassword,
         });
-        onAuthenticated(session);
+        onAuthenticated({ ...session, rememberMe });
         return;
       }
 
       const session = await submitAuthRequest('register', {
+        username: username.trim().toLowerCase(),
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         nationalCode: toEnglishDigits(nationalCode).trim(),
@@ -211,62 +233,108 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
         <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
           {mode === 'register' ? (
             <>
-              <input
-                value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
-                placeholder="نام"
-                required
-                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-              />
-              <input
-                value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
-                placeholder="نام خانوادگی"
-                required
-                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-              />
-              <input
-                value={nationalCode}
-                onChange={(event) => setNationalCode(event.target.value)}
-                placeholder="کد ملی (۱۰ رقم)"
-                required
-                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-              />
-              <input
-                value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value)}
-                placeholder="شماره موبایل (مثل 0912... یا +98912...)"
-                required
-                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-              />
-              <input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="ایمیل Gmail"
-                required
-                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-              />
+              <div>
+                <FieldLabel title="نام کاربری" required />
+                <input
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="نام کاربری (انگلیسی)"
+                  required
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+              <div>
+                <FieldLabel title="نام" required />
+                <input
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                  placeholder="نام"
+                  required
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+              <div>
+                <FieldLabel title="نام خانوادگی" required />
+                <input
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                  placeholder="نام خانوادگی"
+                  required
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+              <div>
+                <FieldLabel title="کد ملی" />
+                <input
+                  value={nationalCode}
+                  onChange={(event) => setNationalCode(event.target.value)}
+                  placeholder="کد ملی (۱۰ رقم)"
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+              <div>
+                <FieldLabel title="شماره موبایل" />
+                <input
+                  value={phoneNumber}
+                  onChange={(event) => setPhoneNumber(event.target.value)}
+                  placeholder="شماره موبایل (مثل 0912... یا +98912...)"
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+              <div>
+                <FieldLabel title="ایمیل" />
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="ایمیل"
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
             </>
           ) : (
-            <input
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
-              placeholder="ایمیل یا شماره موبایل"
-              required
-              className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-            />
+            <div>
+              <FieldLabel title="نام کاربری یا ایمیل" required showRequirement={false} />
+              <input
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
+                placeholder="نام کاربری یا ایمیل"
+                required
+                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+              />
+            </div>
           )}
 
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            type="password"
-            placeholder="رمز عبور"
-            required
-            minLength={8}
-            maxLength={24}
-            className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-          />
+          <div>
+            <FieldLabel title="رمز عبور" required showRequirement={mode === 'register'} />
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              type="password"
+              placeholder="رمز عبور"
+              required
+              minLength={8}
+              maxLength={24}
+              className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+            />
+          </div>
+
+          {mode === 'login' ? (
+            <label className="group flex cursor-pointer items-center justify-between px-1 py-1.5">
+              <div className="flex items-center gap-2">
+                <span className="relative inline-flex h-5 w-5 items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                    className="peer sr-only"
+                  />
+                  <span className="h-5 w-5 rounded-md border border-border bg-bg transition peer-checked:border-primary peer-checked:bg-primary/20" />
+                  <Check className="pointer-events-none absolute h-3.5 w-3.5 scale-75 text-primary opacity-0 transition peer-checked:scale-100 peer-checked:opacity-100" />
+                </span>
+                <span className="text-xs font-semibold text-text">مرا به خاطر بسپار</span>
+              </div>
+            </label>
+          ) : null}
 
           {error ? (
             <p className="rounded-xl border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">

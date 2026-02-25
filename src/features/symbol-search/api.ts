@@ -1,0 +1,179 @@
+import { appConfig } from '../../config/appConfig';
+import type {
+  ApiResponse,
+  FipiranFundDetails,
+  FipiranFundSummary,
+  FipiranInstrumentSnapshot,
+  SymbolSearchRow,
+  TsetmcBestLimitLevel,
+  TsetmcClientType,
+  TsetmcClosingPriceInfo,
+  TsetmcInstrumentInfo,
+} from './types';
+
+type TsetmcBestLimitsResult = {
+  orderBookLevels: TsetmcBestLimitLevel[];
+};
+
+type TsetmcClientTypeResult = TsetmcClientType;
+
+type FipiranFundsResult = {
+  funds: {
+    items: FipiranFundSummary[];
+    page: number;
+    pageSize: number;
+    totalCount: number;
+  };
+};
+
+const SESSION_STORAGE_KEY = 'boors-azma-session';
+const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'boors-azma-access-token';
+
+const getAccessToken = () => {
+  if (typeof window === 'undefined') return null;
+
+  const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
+  if (rawSession) {
+    try {
+      const parsed = JSON.parse(rawSession) as { accessToken?: unknown };
+      if (typeof parsed.accessToken === 'string' && parsed.accessToken.trim() !== '') {
+        return parsed.accessToken.trim();
+      }
+    } catch {
+      // Ignore invalid localStorage payload.
+    }
+  }
+
+  const legacyToken = window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
+  if (typeof legacyToken === 'string' && legacyToken.trim() !== '') {
+    return legacyToken.trim();
+  }
+
+  return null;
+};
+
+const buildHeaders = () => {
+  const headers: Record<string, string> = {
+    accept: '*/*',
+  };
+  const accessToken = getAccessToken();
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  return headers;
+};
+
+const normalizePath = (value: string) => (value.startsWith('/') ? value : `/${value}`);
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+const joinUrl = (baseUrl: string, path: string) => `${trimTrailingSlash(baseUrl)}${normalizePath(path)}`;
+const applyTemplate = (template: string, values: Record<string, string>) => {
+  let resolved = template;
+  Object.entries(values).forEach(([key, value]) => {
+    resolved = resolved.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+  });
+  return resolved;
+};
+
+const fetchApi = async <T>(url: string, signal?: AbortSignal): Promise<T> => {
+  const response = await fetch(url, {
+    headers: buildHeaders(),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  const payload = (await response.json()) as ApiResponse<T>;
+  if (payload.code !== 200 || payload.result === undefined) {
+    throw new Error(payload.message || 'Invalid response payload');
+  }
+
+  return payload.result;
+};
+
+const buildSymbolSearchUrl = (query: string) => {
+  return joinUrl(
+    appConfig.symbolSearchApiBaseUrl,
+    applyTemplate(appConfig.symbolSearchApiPath, {
+      query: encodeURIComponent(query),
+    })
+  );
+};
+
+const buildFundsSearchUrl = (query: string, pageSize: number) => {
+  return joinUrl(
+    appConfig.fipiranApiBaseUrl,
+    applyTemplate(appConfig.fipiranFundsApiPath, {
+      pageIndex: '1',
+      pageSize: encodeURIComponent(String(pageSize)),
+      search: encodeURIComponent(query),
+    })
+  );
+};
+
+const buildFundDetailsUrl = (registrationNumber: string) => {
+  return joinUrl(
+    appConfig.fipiranApiBaseUrl,
+    applyTemplate(appConfig.fipiranFundDetailsApiPath, {
+      registrationNumber: encodeURIComponent(registrationNumber),
+    })
+  );
+};
+
+export const searchSymbols = async (query: string, signal?: AbortSignal) =>
+  fetchApi<SymbolSearchRow[]>(buildSymbolSearchUrl(query), signal);
+
+export const getTsetmcClosingPriceInfo = async (instrumentCode: string, signal?: AbortSignal) =>
+  fetchApi<TsetmcClosingPriceInfo>(joinUrl(
+    appConfig.tsetmcApiBaseUrl,
+    applyTemplate(appConfig.tsetmcClosingPriceApiPath, {
+      instrumentCode: encodeURIComponent(instrumentCode),
+    })
+  ), signal);
+
+export const getTsetmcInstrumentInfo = async (instrumentCode: string, signal?: AbortSignal) =>
+  fetchApi<TsetmcInstrumentInfo>(joinUrl(
+    appConfig.tsetmcApiBaseUrl,
+    applyTemplate(appConfig.tsetmcInstrumentInfoApiPath, {
+      instrumentCode: encodeURIComponent(instrumentCode),
+    })
+  ), signal);
+
+export const getTsetmcBestLimits = async (instrumentCode: string, signal?: AbortSignal) =>
+  fetchApi<TsetmcBestLimitsResult>(joinUrl(
+    appConfig.tsetmcApiBaseUrl,
+    applyTemplate(appConfig.tsetmcBestLimitsApiPath, {
+      instrumentCode: encodeURIComponent(instrumentCode),
+    })
+  ), signal);
+
+export const getTsetmcClientType = async (instrumentCode: string, signal?: AbortSignal) =>
+  fetchApi<TsetmcClientTypeResult>(joinUrl(
+    appConfig.tsetmcApiBaseUrl,
+    applyTemplate(appConfig.tsetmcClientTypeApiPath, {
+      instrumentCode: encodeURIComponent(instrumentCode),
+    })
+  ), signal);
+
+export const getFipiranInstrumentSnapshot = async (instrumentCode: string, signal?: AbortSignal) =>
+  fetchApi<FipiranInstrumentSnapshot>(joinUrl(
+    appConfig.fipiranApiBaseUrl,
+    applyTemplate(appConfig.fipiranSnapshotApiPath, {
+      instrumentCode: encodeURIComponent(instrumentCode),
+    })
+  ), signal);
+
+export const searchFunds = async (query: string, pageSize: number, signal?: AbortSignal) =>
+  fetchApi<FipiranFundsResult>(buildFundsSearchUrl(query, pageSize), signal);
+
+export const getFundDetails = async (registrationNumber: string, signal?: AbortSignal) =>
+  fetchApi<FipiranFundDetails>(buildFundDetailsUrl(registrationNumber), signal);
+
+export const getCodalNotices = async <T>(queryString: string, signal?: AbortSignal) =>
+  fetchApi<T>(joinUrl(
+    appConfig.codalApiBaseUrl,
+    applyTemplate(appConfig.codalNoticesApiPath, {
+      queryString,
+    })
+  ), signal);

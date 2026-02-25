@@ -5,16 +5,21 @@ import { appConfig } from './config/appConfig';
 import { useTheme } from './hooks/useTheme';
 
 const SESSION_STORAGE_KEY = 'boors-azma-session';
+const SESSION_STORAGE_KEY_TEMP = 'boors-azma-session-temp';
 const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'boors-azma-access-token';
 
 type SessionState = {
   accessToken: string;
   userId: number;
   role: string;
+  rememberMe: boolean;
 };
+
+type AuthState = 'checking' | 'authenticated' | 'unauthenticated';
 
 type UserProfile = {
   id: number;
+  username: string;
   firstName: string;
   lastName: string;
   nationalCode: string;
@@ -32,6 +37,23 @@ type ApiErrorResult = {
   detail?: string;
   errors?: Record<string, string>;
 };
+
+type FieldLabelProps = {
+  title: string;
+  required?: boolean;
+};
+
+function FieldLabel({ title, required = false }: FieldLabelProps) {
+  return (
+    <div className="mb-1.5 flex items-baseline justify-between">
+      <span className="text-xs font-semibold text-text">
+        {title}
+        {required ? <span className="mr-1 text-negative">*</span> : null}
+      </span>
+      <span className="text-[11px] text-muted">{required ? 'الزامی' : 'اختیاری'}</span>
+    </div>
+  );
+}
 
 const toEnglishDigits = (value: string) =>
   value
@@ -90,10 +112,10 @@ const tryExtractUserIdFromToken = (token: string) => {
 const getInitialSession = (): SessionState | null => {
   if (typeof window === 'undefined') return null;
 
-  const storedSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
-  if (storedSession) {
+  const parseStoredSession = (raw: string | null, rememberMe: boolean): SessionState | null => {
+    if (!raw) return null;
     try {
-      const parsed = JSON.parse(storedSession) as SessionState;
+      const parsed = JSON.parse(raw) as SessionState;
       if (
         typeof parsed.accessToken === 'string' &&
         parsed.accessToken.trim() !== '' &&
@@ -103,12 +125,24 @@ const getInitialSession = (): SessionState | null => {
         typeof parsed.role === 'string' &&
         parsed.role.trim() !== ''
       ) {
-        return parsed;
+        return {
+          accessToken: parsed.accessToken,
+          userId: parsed.userId,
+          role: parsed.role,
+          rememberMe,
+        };
       }
     } catch {
-      // Ignore invalid localStorage content.
+      return null;
     }
-  }
+    return null;
+  };
+
+  const sessionStored = parseStoredSession(window.sessionStorage.getItem(SESSION_STORAGE_KEY_TEMP), false);
+  if (sessionStored) return sessionStored;
+
+  const localStored = parseStoredSession(window.localStorage.getItem(SESSION_STORAGE_KEY), true);
+  if (localStored) return localStored;
 
   const legacyToken = window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
   if (!legacyToken || legacyToken.trim() === '') {
@@ -122,12 +156,14 @@ const getInitialSession = (): SessionState | null => {
     accessToken: legacyToken,
     userId,
     role: 'USER',
+    rememberMe: true,
   };
 };
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const [session, setSession] = useState<SessionState | null>(getInitialSession);
+  const [authState, setAuthState] = useState<AuthState>(() => (getInitialSession() ? 'checking' : 'unauthenticated'));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
@@ -138,6 +174,7 @@ export default function App() {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
+  const [editUsername, setEditUsername] = useState('');
   const [editNationalCode, setEditNationalCode] = useState('');
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editEmail, setEditEmail] = useState('');
@@ -145,8 +182,10 @@ export default function App() {
 
   const clearSession = useCallback(() => {
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    window.sessionStorage.removeItem(SESSION_STORAGE_KEY_TEMP);
     window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
     setSession(null);
+    setAuthState('unauthenticated');
     setProfile(null);
     setProfileModalOpen(false);
     setProfileEditMode(false);
@@ -166,6 +205,9 @@ export default function App() {
       const text = await response.text();
       const data = text ? (JSON.parse(text) as unknown) : null;
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          clearSession();
+        }
         throw new Error(toApiErrorMessage(data, 'دریافت اطلاعات پروفایل ناموفق بود.'));
       }
       const api = data as ApiResponse<UserProfile>;
@@ -173,17 +215,29 @@ export default function App() {
         throw new Error('پاسخ پروفایل معتبر نیست.');
       }
       setProfile(api.result);
+      setAuthState('authenticated');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'دریافت اطلاعات پروفایل با خطا مواجه شد.';
       setProfileError(message);
+      setAuthState('unauthenticated');
     } finally {
       setProfileLoading(false);
     }
-  }, []);
+  }, [clearSession]);
 
   useEffect(() => {
-    if (!session) return;
-    window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    if (!session) {
+      setAuthState('unauthenticated');
+      return;
+    }
+    setAuthState('checking');
+    if (session.rememberMe) {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY_TEMP);
+    } else {
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY_TEMP, JSON.stringify(session));
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
     window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
     void fetchProfile(session);
   }, [fetchProfile, session]);
@@ -193,7 +247,9 @@ export default function App() {
       accessToken: authSession.accessToken,
       userId: authSession.userId,
       role: authSession.role,
+      rememberMe: authSession.rememberMe ?? true,
     });
+    setAuthState('checking');
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -218,6 +274,7 @@ export default function App() {
     if (profile) {
       setEditFirstName(profile.firstName);
       setEditLastName(profile.lastName);
+      setEditUsername(profile.username);
       setEditNationalCode(profile.nationalCode);
       setEditPhoneNumber(profile.phoneNumber);
       setEditEmail(profile.email);
@@ -237,6 +294,7 @@ export default function App() {
 
     const payload = {
       id: profile.id,
+      username: editUsername.trim().toLowerCase(),
       firstName: editFirstName.trim(),
       lastName: editLastName.trim(),
       nationalCode: toEnglishDigits(editNationalCode).trim(),
@@ -277,7 +335,11 @@ export default function App() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-bg text-text font-sans transition-colors duration-300">
-      {session ? (
+      {authState === 'checking' ? (
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-sm text-muted">در حال بررسی ورود...</p>
+        </div>
+      ) : authState === 'authenticated' && session ? (
         <TradingDashboard
           theme={theme}
           onToggleTheme={toggleTheme}
@@ -291,9 +353,12 @@ export default function App() {
 
       {profileModalOpen ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/35 p-4">
-          <section className="w-full max-w-lg rounded-2xl border border-border/80 bg-surface p-5 shadow-card">
+          <section className="w-full max-w-2xl rounded-3xl border border-border/80 bg-surface p-6 shadow-card sm:p-7">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-text">پروفایل کاربری</h2>
+              <div>
+                <h2 className="text-xl font-black text-text">پروفایل کاربری</h2>
+                <p className="mt-1 text-xs text-muted">فیلدهای علامت‌دار با برچسب اجباری باید مقدار داشته باشند.</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setProfileModalOpen(false)}
@@ -307,53 +372,82 @@ export default function App() {
             {profileError ? <p className="text-sm text-negative">{profileError}</p> : null}
 
             {profile ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input
-                    value={editFirstName}
-                    onChange={(event) => setEditFirstName(event.target.value)}
-                    disabled={!profileEditMode}
-                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                    placeholder="نام"
-                  />
-                  <input
-                    value={editLastName}
-                    onChange={(event) => setEditLastName(event.target.value)}
-                    disabled={!profileEditMode}
-                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                    placeholder="نام خانوادگی"
-                  />
+                  <div>
+                    <FieldLabel title="نام کاربری" required />
+                    <input
+                      value={editUsername}
+                      onChange={(event) => setEditUsername(event.target.value)}
+                      disabled={!profileEditMode}
+                      className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                      placeholder="نام کاربری"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel title="نام" required />
+                    <input
+                      value={editFirstName}
+                      onChange={(event) => setEditFirstName(event.target.value)}
+                      disabled={!profileEditMode}
+                      className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                      placeholder="نام"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel title="نام خانوادگی" required />
+                    <input
+                      value={editLastName}
+                      onChange={(event) => setEditLastName(event.target.value)}
+                      disabled={!profileEditMode}
+                      className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                      placeholder="نام خانوادگی"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel title="کد ملی" />
+                    <input
+                      value={editNationalCode}
+                      onChange={(event) => setEditNationalCode(event.target.value)}
+                      disabled={!profileEditMode}
+                      className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                      placeholder="کد ملی"
+                    />
+                  </div>
                 </div>
 
-                <input
-                  value={editNationalCode}
-                  onChange={(event) => setEditNationalCode(event.target.value)}
-                  disabled={!profileEditMode}
-                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                  placeholder="کد ملی"
-                />
-                <input
-                  value={editPhoneNumber}
-                  onChange={(event) => setEditPhoneNumber(event.target.value)}
-                  disabled={!profileEditMode}
-                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                  placeholder="شماره موبایل"
-                />
-                <input
-                  value={editEmail}
-                  onChange={(event) => setEditEmail(event.target.value)}
-                  disabled={!profileEditMode}
-                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                  placeholder="ایمیل"
-                />
-                {profileEditMode ? (
+                <div>
+                  <FieldLabel title="شماره موبایل" />
                   <input
-                    value={editPassword}
-                    onChange={(event) => setEditPassword(event.target.value)}
-                    type="password"
-                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                    placeholder="رمز جدید (اختیاری)"
+                    value={editPhoneNumber}
+                    onChange={(event) => setEditPhoneNumber(event.target.value)}
+                    disabled={!profileEditMode}
+                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                    placeholder="شماره موبایل"
                   />
+                </div>
+                <div>
+                  <FieldLabel title="ایمیل" />
+                  <input
+                    value={editEmail}
+                    onChange={(event) => setEditEmail(event.target.value)}
+                    disabled={!profileEditMode}
+                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
+                    placeholder="ایمیل"
+                  />
+                </div>
+                {profileEditMode ? (
+                  <div className="rounded-xl border border-border/70 bg-surface-2/60 p-3">
+                    <FieldLabel title="رمز عبور جدید" />
+                    <input
+                      value={editPassword}
+                      onChange={(event) => setEditPassword(event.target.value)}
+                      type="password"
+                      className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                      placeholder="رمز جدید (در صورت نیاز وارد کنید)"
+                    />
+                    <p className="mt-1 text-[11px] text-muted">اگر این فیلد خالی بماند، رمز عبور تغییر نمی‌کند.</p>
+                  </div>
                 ) : null}
 
                 {saveError ? (

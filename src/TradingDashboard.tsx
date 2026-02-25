@@ -10,39 +10,20 @@ import {
   LineChart,
   Loader2,
   Menu,
-  Search,
+  Moon,
   Star,
+  Sun,
   UserRound,
   Wallet,
   X,
 } from 'lucide-react';
 import type { Theme } from './hooks/useTheme';
 import { appConfig } from './config/appConfig';
-
-type LiveValueOptions = {
-  min: number;
-  max: number;
-  step: number;
-  intervalMs: number;
-};
-
-type OrderBookSide = 'buy' | 'sell';
-
-type OrderBookRow = {
-  id: string;
-  count: number;
-  volume: number;
-  price: number;
-};
-
-type DepthRow = {
-  id: 'real' | 'legal';
-  label: string;
-  sellPercent: number;
-  buyPercent: number;
-  sellValue: number;
-  buyValue: number;
-};
+import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
+import { getCodalNotices } from './features/symbol-search/api';
+import { toMarketLabel } from './features/symbol-search/mappers';
+import type { SymbolSearchSuggestion } from './features/symbol-search/types';
+import { useSymbolDetails } from './features/symbol-search/useSymbolDetails';
 
 type SidebarTab = 'watchlist' | 'industries';
 type SymbolTab = 'chart' | 'details';
@@ -51,7 +32,7 @@ type OrderFilter = 'open' | 'done' | 'failed' | 'all';
 
 type TradingDashboardProps = {
   theme: Theme;
-  onToggleTheme: () => void;
+  onToggleTheme: (origin?: { x: number; y: number }) => void;
   profileDisplayName: string;
   onOpenProfile: () => void;
   onLogout: () => void;
@@ -111,12 +92,6 @@ type CodalNoticesResult = {
   totalCount: number;
   page: number;
   notices: CodalNotice[];
-};
-
-type CodalNoticesApiResponse = {
-  code: number;
-  message?: string;
-  result?: CodalNoticesResult;
 };
 
 type CodalNoticesQuery = {
@@ -200,13 +175,17 @@ const DEFAULT_CODAL_NOTICE_QUERY: CodalNoticesQuery = {
   tracingNumber: -1,
 };
 
+const DEFAULT_SELECTED_SYMBOL: SymbolSearchSuggestion = {
+  key: 'TSE:فولاد:46348559193224090',
+  type: 'TSE',
+  symbol: 'فولاد',
+  name: 'فولاد مبارکه اصفهان',
+  instrumentCode: '46348559193224090',
+  isin: 'IRO1FOLD0001',
+  oldInstrumentCodes: [],
+};
+
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-const toRoundedPrice = (value: number) => Math.round(value / 10) * 10;
-
-export const randomInt = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
-export const randomFloat = (min: number, max: number) => Math.random() * (max - min) + min;
 
 const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
 
@@ -226,9 +205,33 @@ export const formatPercentFa = (value: number, digits = 2) => {
   }).format(value)}%`);
 };
 
+const formatNumberOrDash = (value: number | null | undefined, digits = 0) =>
+  value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatNumberFa(value, digits);
+
+const formatPercentOrDash = (value: number | null | undefined, digits = 2) =>
+  value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatPercentFa(value, digits);
+
 const formatCompactValue = (value: number, unit: 'T' | 'B') => {
   const divisor = unit === 'T' ? 1_000_000_000_000 : 1_000_000_000;
   return `${formatNumberFa(value / divisor, 2)}${unit}`;
+};
+
+const formatCompactAmountFa = (value: number | null | undefined) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return 'ناموجود';
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000_000) {
+    return `${formatNumberFa(value / 1_000_000_000_000, 2)}T`;
+  }
+  if (absolute >= 1_000_000_000) {
+    return `${formatNumberFa(value / 1_000_000_000, 2)}B`;
+  }
+  if (absolute >= 1_000_000) {
+    return `${formatNumberFa(value / 1_000_000, 2)}M`;
+  }
+  if (absolute >= 1_000) {
+    return `${formatNumberFa(value / 1_000, 2)}K`;
+  }
+  return formatNumberFa(value);
 };
 
 const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
@@ -286,6 +289,17 @@ const stripHtml = (value: string) =>
     .replace(/\s+\n/g, '\n')
     .replace(/\n\s+/g, '\n')
     .trim();
+
+const normalizePath = (value: string) => (value.startsWith('/') ? value : `/${value}`);
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+const joinUrl = (baseUrl: string, path: string) => `${trimTrailingSlash(baseUrl)}${normalizePath(path)}`;
+const applyTemplate = (template: string, values: Record<string, string>) => {
+  let resolved = template;
+  Object.entries(values).forEach(([key, value]) => {
+    resolved = resolved.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+  });
+  return resolved;
+};
 
 const buildCodalNoticeParams = (query: CodalNoticesQuery) => {
   const params = new URLSearchParams();
@@ -414,127 +428,6 @@ export function useClock() {
   return now;
 }
 
-export function useLiveValue(initial: number, options: LiveValueOptions) {
-  const { min, max, step, intervalMs } = options;
-  const [value, setValue] = useState(initial);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setValue((prev) => clamp(prev + randomFloat(-step, step), min, max));
-    }, intervalMs);
-
-    return () => window.clearInterval(id);
-  }, [intervalMs, max, min, step]);
-
-  return value;
-}
-
-const makeDepthRows = (): DepthRow[] => {
-  const realBuy = randomInt(35, 78);
-  const realSell = randomInt(20, 66);
-  const legalBuy = randomInt(28, 72);
-  const legalSell = randomInt(22, 62);
-
-  return [
-    {
-      id: 'real',
-      label: 'حقیقی',
-      buyPercent: realBuy,
-      sellPercent: realSell,
-      buyValue: randomInt(120_000, 630_000),
-      sellValue: randomInt(120_000, 630_000),
-    },
-    {
-      id: 'legal',
-      label: 'حقوقی',
-      buyPercent: legalBuy,
-      sellPercent: legalSell,
-      buyValue: randomInt(120_000, 630_000),
-      sellValue: randomInt(120_000, 630_000),
-    },
-  ];
-};
-
-const buildSideRows = (side: OrderBookSide, base: number): OrderBookRow[] =>
-  Array.from({ length: 5 }, (_, idx) => {
-    const ladder = randomInt(30, 120) * (idx + 1);
-    const signed = side === 'sell' ? ladder : -ladder;
-
-    return {
-      id: `${side}-${idx + 1}`,
-      count: randomInt(3, 94),
-      volume: randomInt(8_000, 640_000),
-      price: toRoundedPrice(base + signed),
-    };
-  });
-
-type LiveOrderBookState = {
-  asks: OrderBookRow[];
-  bids: OrderBookRow[];
-  depth: DepthRow[];
-};
-
-const createInitialOrderBook = (basePrice: number): LiveOrderBookState => {
-  const asks = buildSideRows('sell', basePrice).sort((a, b) => a.price - b.price);
-  const bids = buildSideRows('buy', basePrice).sort((a, b) => b.price - a.price);
-  return { asks, bids, depth: makeDepthRows() };
-};
-
-const mutateRows = (rows: OrderBookRow[], side: OrderBookSide, base: number) => {
-  const updated = rows.map((row, idx) => {
-    const shouldChange = Math.random() > 0.35 || idx === randomInt(0, 4);
-    if (!shouldChange) return row;
-
-    const gap = randomInt(18, 110) * (idx + 1);
-    const offset = side === 'sell' ? gap : -gap;
-
-    return {
-      ...row,
-      count: clamp(row.count + randomInt(-6, 9), 1, 99),
-      volume: clamp(row.volume + randomInt(-34_000, 52_000), 2_000, 920_000),
-      price: toRoundedPrice(base + offset + randomInt(-18, 18)),
-    };
-  });
-
-  return side === 'sell'
-    ? [...updated].sort((a, b) => a.price - b.price)
-    : [...updated].sort((a, b) => b.price - a.price);
-};
-
-export function useLiveOrderBook(basePrice: number) {
-  const baseRef = useRef(basePrice);
-  const [state, setState] = useState<LiveOrderBookState>(() => createInitialOrderBook(basePrice));
-
-  useEffect(() => {
-    baseRef.current = basePrice;
-  }, [basePrice]);
-
-  useEffect(() => {
-    let timer = 0;
-    let active = true;
-
-    const tick = () => {
-      setState((prev) => ({
-        asks: mutateRows(prev.asks, 'sell', baseRef.current),
-        bids: mutateRows(prev.bids, 'buy', baseRef.current),
-        depth: makeDepthRows(),
-      }));
-
-      if (!active) return;
-      timer = window.setTimeout(tick, randomInt(800, 1800));
-    };
-
-    timer = window.setTimeout(tick, randomInt(800, 1800));
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  return state;
-}
-
 function useMarketOverview(marketId: '1' | '2') {
   const [data, setData] = useState<MarketOverviewResult | null>(null);
 
@@ -544,7 +437,12 @@ function useMarketOverview(marketId: '1' | '2') {
 
     const fetchOverview = async () => {
       try {
-        const response = await fetch(`${appConfig.marketOverviewApiBaseUrl}/${marketId}`);
+        const response = await fetch(
+          joinUrl(
+            appConfig.marketOverviewApiBaseUrl,
+            applyTemplate(appConfig.marketOverviewApiPath, { marketId })
+          )
+        );
         if (!response.ok) return;
 
         const payload = (await response.json()) as MarketOverviewApiResponse;
@@ -658,27 +556,13 @@ function useCodalNotices(query: CodalNoticesQuery) {
     const fetchNotices = async () => {
       try {
         const queryString = buildCodalNoticeParams(requestQuery).toString();
-        const response = await fetch(`${appConfig.codalNoticesApiBaseUrl}?${queryString}`, {
-          headers: { accept: '*/*' },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
-
-        const payload = (await response.json()) as CodalNoticesApiResponse;
+        const payload = await getCodalNotices<CodalNoticesResult>(queryString, controller.signal);
         if (!active) return;
-
-        if (payload.code !== 200 || !payload.result) {
-          throw new Error(payload.message ?? 'Invalid response payload');
-        }
-
-        const incoming = payload.result.notices ?? [];
+        const incoming = payload.notices ?? [];
 
         setState((prev) => {
           const notices = isFirstPage ? incoming : mergeUniqueNotices(prev.notices, incoming);
-          const totalCount = payload.result?.totalCount ?? prev.totalCount;
+          const totalCount = payload.totalCount ?? prev.totalCount;
           const hasMore = totalCount > 0 ? notices.length < totalCount : incoming.length >= requestLength;
 
           return {
@@ -727,6 +611,15 @@ function useCodalNotices(query: CodalNoticesQuery) {
     setPageToLoad(1);
     setReloadKey((prev) => prev + 1);
   };
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setPageToLoad(1);
+      setReloadKey((prev) => prev + 1);
+    }, appConfig.codalNoticesRefreshMs);
+
+    return () => window.clearInterval(timer);
+  }, [querySignature]);
 
   return { ...state, loadMore, refresh };
 }
@@ -829,78 +722,16 @@ export default function TradingDashboard({
   const marketDelta = bourseOverview?.indexChange ?? 0;
   const farabourseIndex = farabourseOverview?.indexValue ?? 0;
   const farabourseDelta = farabourseOverview?.indexChange ?? 0;
-
-  const symbolPrice = useLiveValue(28_160, {
-    min: 27_300,
-    max: 29_600,
-    step: 48,
-    intervalMs: 1000,
-  });
-
-  const symbolPercent = useLiveValue(-1.84, {
-    min: -4.2,
-    max: 4.2,
-    step: 0.18,
-    intervalMs: 1000,
-  });
-
-  const tradeVolume = useLiveValue(188_200_000, {
-    min: 120_000_000,
-    max: 360_000_000,
-    step: 2_100_000,
-    intervalMs: 1350,
-  });
-
-  const baseVolume = useLiveValue(98_500_000, {
-    min: 70_000_000,
-    max: 180_000_000,
-    step: 800_000,
-    intervalMs: 1600,
-  });
-
-  const tradeValue = useLiveValue(5_320_000_000_000, {
-    min: 3_500_000_000_000,
-    max: 8_200_000_000_000,
-    step: 110_000_000_000,
-    intervalMs: 1800,
-  });
-
-  const navAbtal = useLiveValue(107_320, {
-    min: 104_000,
-    max: 113_000,
-    step: 120,
-    intervalMs: 1700,
-  });
-
-  const netAsset = useLiveValue(142_800_000, {
-    min: 120_000_000,
-    max: 190_000_000,
-    step: 850_000,
-    intervalMs: 1200,
-  });
-
-  const buyingPower = useLiveValue(56_200_000, {
-    min: 30_000_000,
-    max: 80_000_000,
-    step: 480_000,
-    intervalMs: 1350,
-  });
-
-  const customerBalance = useLiveValue(28_900_000, {
-    min: 10_000_000,
-    max: 50_000_000,
-    step: 260_000,
-    intervalMs: 1450,
-  });
-
-  const blockedAmount = useLiveValue(8_300_000, {
-    min: 1_000_000,
-    max: 16_000_000,
-    step: 140_000,
-    intervalMs: 1300,
-  });
-
-  const { asks, bids, depth } = useLiveOrderBook(symbolPrice);
+  const [selectedSymbol, setSelectedSymbol] = useState<SymbolSearchSuggestion>(DEFAULT_SELECTED_SYMBOL);
+  const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
+  const activeSymbol = previewSymbol ?? selectedSymbol;
+  const {
+    data: activeSymbolData,
+    loading: symbolLoading,
+    refreshing: symbolRefreshing,
+    error: symbolError,
+    refresh: refreshSymbolDetails,
+  } = useSymbolDetails(activeSymbol);
 
   const [orderbookTab, setOrderbookTab] = useState<OrderbookTab>('info');
   const [symbolTab, setSymbolTab] = useState<SymbolTab>('details');
@@ -908,16 +739,18 @@ export default function TradingDashboard({
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [marketPanelOpen, setMarketPanelOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('فولاد - فولاد مبارکه اصفهان - بورس');
-  const [codalQuery, setCodalQuery] = useState<CodalNoticesQuery>(() => DEFAULT_CODAL_NOTICE_QUERY);
+  const [codalQuery, setCodalQuery] = useState<CodalNoticesQuery>(() => ({
+    ...DEFAULT_CODAL_NOTICE_QUERY,
+    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
+  }));
   const [noticeFilters, setNoticeFilters] = useState<NoticeUiFilters>({
-    symbol: '',
+    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
     fromDate: null,
     toDate: null,
     underSupervisionOnly: false,
   });
   const [noticeFilterDraft, setNoticeFilterDraft] = useState<NoticeUiFilters>({
-    symbol: '',
+    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
     fromDate: null,
     toDate: null,
     underSupervisionOnly: false,
@@ -941,6 +774,23 @@ export default function TradingDashboard({
   const noticeListRef = useRef<HTMLDivElement | null>(null);
   const noticeLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    const symbol = selectedSymbol.symbol.trim();
+
+    setCodalQuery((prev) => {
+      if (prev.symbol === symbol) return prev;
+      return {
+        ...prev,
+        symbol,
+        page: 1,
+      };
+    });
+
+    setNoticeFilters((prev) => ({ ...prev, symbol }));
+    setNoticeFilterDraft((prev) => ({ ...prev, symbol }));
+    setSymbolTab('details');
+  }, [selectedSymbol.symbol]);
+
   const marketPercent = useMemo(
     () => (marketIndex !== 0 ? (marketDelta / marketIndex) * 100 : 0),
     [marketDelta, marketIndex]
@@ -953,34 +803,66 @@ export default function TradingDashboard({
 
   const marketPositive = marketDelta >= 0;
   const faraboursePositive = farabourseDelta >= 0;
-  const symbolPositive = symbolPercent >= 0;
+  const symbolPrice = activeSymbolData?.lastPrice ?? null;
+  const symbolPercent = activeSymbolData?.lastPricePercent ?? null;
+  const symbolPositive = symbolPercent !== null ? symbolPercent >= 0 : false;
 
-  const dailyMin = 27_650;
-  const dailyMax = 33_400;
+  const dailyMin = activeSymbolData?.allowedMinPrice ?? null;
+  const dailyMax = activeSymbolData?.allowedMaxPrice ?? null;
 
-  const markerPercent = clamp(((symbolPrice - dailyMin) / (dailyMax - dailyMin)) * 100, 3, 96);
+  const markerPercent = useMemo(() => {
+    if (
+      symbolPrice === null ||
+      dailyMin === null ||
+      dailyMax === null ||
+      Number.isNaN(symbolPrice) ||
+      Number.isNaN(dailyMin) ||
+      Number.isNaN(dailyMax) ||
+      dailyMax <= dailyMin
+    ) {
+      return 50;
+    }
+    return clamp(((symbolPrice - dailyMin) / (dailyMax - dailyMin)) * 100, 3, 96);
+  }, [dailyMax, dailyMin, symbolPrice]);
 
-  const symbolDetails = useMemo(
-    () => [
-      { label: 'حجم معاملات', value: formatNumberFa(tradeVolume) },
-      { label: 'حجم مبنا', value: formatNumberFa(baseVolume) },
-      { label: 'ارزش معاملات', value: `${formatNumberFa(tradeValue / 1_000_000_000_000, 2)} همت` },
-      {
-        label: 'زمان آخرین معامله',
-        value: clock.toLocaleTimeString('en-GB', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        }),
-      },
-      { label: 'NAV ابطال', value: formatNumberFa(navAbtal) },
-      { label: 'زمان اعلام NAV', value: '10:45' },
-      { label: 'EPS', value: formatNumberFa(1150) },
-      { label: 'P/E', value: formatNumberFa(7.12, 2) },
-    ],
-    [baseVolume, clock, navAbtal, tradeValue, tradeVolume]
-  );
+  const orderBookRows = useMemo(() => {
+    const rows = activeSymbolData?.orderBook ?? [];
+    if (rows.length >= 5) return rows.slice(0, 5);
+    if (rows.length === 0) {
+      return Array.from({ length: 5 }, (_, index) => ({
+        id: `empty-row-${index + 1}`,
+        level: index + 1,
+        askCount: null,
+        askVolume: null,
+        askPrice: null,
+        bidPrice: null,
+        bidVolume: null,
+        bidCount: null,
+      }));
+    }
+    return [...rows, ...Array.from({ length: 5 - rows.length }, (_, index) => ({
+      id: `filler-row-${index + 1}`,
+      level: rows.length + index + 1,
+      askCount: null,
+      askVolume: null,
+      askPrice: null,
+      bidPrice: null,
+      bidVolume: null,
+      bidCount: null,
+    }))];
+  }, [activeSymbolData?.orderBook]);
+
+  const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
+  const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
+  const activeSymbolSummary = `${activeSymbol.symbol} - ${activeSymbol.name} - ${toMarketLabel(activeSymbol.type)}`;
+  const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+  const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;
+  const codalSymbol = activeSymbol.symbol.trim();
+  const codalSymbolUrl = codalSymbol
+    ? `https://codal.ir/ReportList.aspx?search&Symbol=${encodeURIComponent(
+        codalSymbol
+      )}&LetterType=-1&AuditorRef=-1&PageNumber=1&Audited&NotAudited&IsNotAudited=false&Childs&Mains&Publisher=false&CompanyState=-1&ReportingType=-1&Category=-1&CompanyType=-1&Consolidatable&NotConsolidatable`
+    : null;
 
   const marketDetails = useMemo(
     () => [
@@ -1032,19 +914,23 @@ export default function TradingDashboard({
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
+        timeZone: 'Asia/Tehran',
       }),
     [clock]
   );
 
   const footerStats = useMemo(
     () => [
-      { label: 'خالص دارایی', value: `${formatNumberFa(netAsset)} ریال` },
-      { label: 'قدرت خرید', value: `${formatNumberFa(buyingPower)} ریال` },
-      { label: 'مانده مشتری', value: `${formatNumberFa(customerBalance)} ریال` },
-      { label: 'بلوک شده', value: `${formatNumberFa(blockedAmount)} ریال` },
-      { label: 'اعتبار روزانه', value: `${formatNumberFa(netAsset * 0.18)} ریال` },
+      {
+        label: 'خالص دارایی',
+        value: `${formatNumberOrDash(activeSymbolData?.marketValue)} ریال`,
+      },
+      { label: 'حجم معاملات', value: `${formatNumberOrDash(activeSymbolData?.tradeVolume)} سهم` },
+      { label: 'ارزش معاملات', value: `${formatNumberOrDash(activeSymbolData?.tradeValue)} ریال` },
+      { label: 'حجم مبنا', value: formatNumberOrDash(activeSymbolData?.baseVolume) },
+      { label: 'NAV ابطال', value: activeSymbolData?.source === 'fund' ? formatNumberOrDash(activeSymbolData.navCancel) : 'ناموجود' },
     ],
-    [blockedAmount, buyingPower, customerBalance, netAsset]
+    [activeSymbolData]
   );
 
   const noticeYearOptions = useMemo(() => {
@@ -1113,11 +999,17 @@ export default function TradingDashboard({
 
   const hasActiveNoticeFilters = useMemo(
     () =>
-      noticeFilters.symbol.trim() !== '' ||
+      (noticeFilters.symbol.trim() !== '' && noticeFilters.symbol.trim() !== selectedSymbol.symbol.trim()) ||
       noticeFilters.fromDate !== null ||
       noticeFilters.toDate !== null ||
       noticeFilters.underSupervisionOnly,
-    [noticeFilters.fromDate, noticeFilters.symbol, noticeFilters.toDate, noticeFilters.underSupervisionOnly]
+    [
+      noticeFilters.fromDate,
+      noticeFilters.symbol,
+      noticeFilters.toDate,
+      noticeFilters.underSupervisionOnly,
+      selectedSymbol.symbol,
+    ]
   );
 
   const earliestLoadedDateKey = useMemo(() => {
@@ -1234,7 +1126,7 @@ export default function TradingDashboard({
 
   const clearNoticeFilters = () => {
     const cleared: NoticeUiFilters = {
-      symbol: '',
+      symbol: selectedSymbol.symbol,
       fromDate: null,
       toDate: null,
       underSupervisionOnly: false,
@@ -1243,7 +1135,7 @@ export default function TradingDashboard({
     setNoticeFilters(cleared);
     setCodalQuery((prev) => ({
       ...prev,
-      symbol: '',
+      symbol: selectedSymbol.symbol,
       page: 1,
     }));
   };
@@ -1358,7 +1250,7 @@ export default function TradingDashboard({
               </div>
             </div>
 
-            <div dir="rtl" className="lg:col-span-6">
+            <div dir="rtl" className="lg:col-span-5">
               <div className="relative mx-auto w-full max-w-[520px]">
                 <button
                   type="button"
@@ -1459,14 +1351,14 @@ export default function TradingDashboard({
               </div>
             </div>
 
-            <div dir="rtl" className="flex items-center justify-between gap-2 lg:col-span-3">
+            <div dir="rtl" className="flex min-w-0 items-center justify-end gap-2 lg:col-span-4">
               <div className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 py-1.5">
                 <div className="h-6 w-6 rounded-lg border border-border/80 bg-surface" />
                 <span className="text-sm font-semibold text-text">اوراق بهادار</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <nav className="inline-flex items-center rounded-full border border-border/80 bg-surface-2 p-1 text-xs">
+              <div className="flex min-w-0 items-center gap-2">
+                <nav className="hidden items-center rounded-full border border-border/80 bg-surface-2 p-1 text-xs xl:inline-flex">
                   {['بازار', 'درخواست‌ها', 'گزارشات'].map((item, idx) => (
                     <button
                       key={item}
@@ -1484,22 +1376,34 @@ export default function TradingDashboard({
 
                 <button
                   type="button"
-                  onClick={onToggleTheme}
-                  className="inline-flex h-9 items-center gap-1 rounded-xl border border-border/80 bg-surface-2 px-2 text-xs text-muted transition hover:border-primary/35 hover:text-text focus-visible:ring-2 focus-visible:ring-primary/50"
+                  onClick={(event) => {
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    onToggleTheme({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top + rect.height / 2,
+                    });
+                  }}
+                  aria-label="toggle theme"
+                  className="relative inline-flex h-8 w-[72px] items-center overflow-hidden rounded-full border border-border/80 bg-surface-2 px-1 transition hover:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/50"
                 >
                   <span
-                    className={`rounded-md px-2 py-1 transition ${
-                      theme === 'light' ? 'bg-surface text-text shadow-sm' : ''
+                    className={`absolute top-1 left-1 h-6 w-8 rounded-full bg-surface shadow-sm transition-transform duration-300 ${
+                      theme === 'dark' ? 'translate-x-9' : 'translate-x-0'
+                    }`}
+                  />
+                  <span
+                    className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
+                      theme === 'dark' ? 'text-muted' : 'text-text'
                     }`}
                   >
-                    روشن
+                    <Sun className="h-3.5 w-3.5" />
                   </span>
                   <span
-                    className={`rounded-md px-2 py-1 transition ${
-                      theme === 'dark' ? 'bg-surface text-text shadow-sm' : ''
+                    className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
+                      theme === 'dark' ? 'text-text' : 'text-muted'
                     }`}
                   >
-                    تاریک
+                    <Moon className="h-3.5 w-3.5" />
                   </span>
                 </button>
               </div>
@@ -1542,16 +1446,12 @@ export default function TradingDashboard({
               </button>
             </div>
 
-            <label dir="rtl" className="relative block lg:col-span-7">
-              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-              <input
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                type="text"
-                className="h-10 w-full rounded-xl border border-border/80 bg-surface pr-10 pl-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/30"
-                placeholder="فولاد - فولاد مبارکه اصفهان - بورس"
-              />
-            </label>
+            <SymbolSearchCombobox
+              selectedSymbol={selectedSymbol}
+              onSelectSymbol={setSelectedSymbol}
+              onPreviewSymbolChange={setPreviewSymbol}
+              placeholder="جستجوی نماد یا شرکت"
+            />
 
             <div className="hidden lg:flex lg:col-span-2 lg:justify-end">
               <button
@@ -1572,33 +1472,54 @@ export default function TradingDashboard({
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
-                <p className="text-xs text-muted">فولاد - بازار بورس تهران</p>
+                <p className="text-xs text-muted">{activeSymbolSummary}</p>
               </div>
               <span className="rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
-                به‌روزرسانی زنده
+                {symbolLoading ? 'در حال بارگذاری' : symbolRefreshing ? 'در حال به‌روزرسانی' : 'به‌روزرسانی زنده'}
               </span>
             </div>
+
+            {symbolError && !activeSymbolData ? (
+              <div className="mb-3 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                <div className="flex items-center justify-between gap-2">
+                  <span>{symbolError}</span>
+                  <button
+                    type="button"
+                    onClick={refreshSymbolDetails}
+                    className="rounded-full border border-negative/35 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                  >
+                    تلاش مجدد
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
               <div className="mb-3 text-center text-xs font-medium text-muted">بازه مجاز روزانه</div>
               <div className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
-                <span className="text-left text-sm font-bold tabular-nums text-negative">
-                  {formatNumberFa(symbolPrice)}
+                <span
+                  className={`text-left text-sm font-bold tabular-nums ${
+                    symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
+                  }`}
+                >
+                  {formatNumberOrDash(symbolPrice)}
                 </span>
 
                 <div>
                   <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
-                    <span className="tabular-nums">{formatNumberFa(dailyMin)}</span>
-                    <span className="tabular-nums">{formatNumberFa(dailyMax)}</span>
+                    <span className="tabular-nums">{formatNumberOrDash(dailyMin)}</span>
+                    <span className="tabular-nums">{formatNumberOrDash(dailyMax)}</span>
                   </div>
 
                   <div className="relative h-2 rounded-full bg-border/45">
                     <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-negative/20"
+                      className={`absolute inset-y-0 left-0 rounded-full ${symbolPositive ? 'bg-positive/20' : 'bg-negative/20'}`}
                       style={{ width: `${markerPercent}%` }}
                     />
                     <div
-                      className="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface bg-negative shadow-card"
+                      className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface shadow-card ${
+                        symbolPositive ? 'bg-positive' : 'bg-negative'
+                      }`}
                       style={{ left: `calc(${markerPercent}% - 8px)` }}
                     />
                   </div>
@@ -1619,27 +1540,26 @@ export default function TradingDashboard({
                   </tr>
                 </thead>
                 <tbody>
-                  {bids.map((bid, idx) => {
-                    const ask = asks[idx];
-                    const bestBuy = idx === 0;
+                  {orderBookRows.map((row, idx) => {
+                    const bestBuy = idx === 0 && row.bidPrice !== null;
 
                     return (
                       <tr
-                        key={bid.id}
+                        key={row.id}
                         className={`border-t border-border/50 transition hover:bg-surface-2/70 ${
                           bestBuy ? 'bg-positive/10' : ''
                         }`}
                       >
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberFa(ask.count)}</td>
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberFa(ask.volume)}</td>
+                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askCount)}</td>
+                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askVolume)}</td>
                         <td className="px-3 py-2 tabular-nums font-semibold text-negative">
-                          {formatNumberFa(ask.price)}
+                          {formatNumberOrDash(row.askPrice)}
                         </td>
                         <td className="px-3 py-2 tabular-nums font-semibold text-positive">
-                          {formatNumberFa(bid.price)}
+                          {formatNumberOrDash(row.bidPrice)}
                         </td>
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberFa(bid.volume)}</td>
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberFa(bid.count)}</td>
+                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidVolume)}</td>
+                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidCount)}</td>
                       </tr>
                     );
                   })}
@@ -1648,39 +1568,51 @@ export default function TradingDashboard({
             </div>
 
             <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-              {depth.map((row) => (
-                <div key={row.id} className="mb-2 last:mb-0">
-                  <div className="mb-1 grid grid-cols-[80px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
-                    <span />
-                    <span className="text-center [direction:rtl] text-muted">
-                      فروش{' '}
-                      <bdi dir="ltr" className="inline-block tabular-nums">
-                        {formatPercentFa(row.sellPercent, 0)}
-                      </bdi>{' '}
-                      | خرید{' '}
-                      <bdi dir="ltr" className="inline-block tabular-nums">
-                        {formatPercentFa(row.buyPercent, 0)}
-                      </bdi>
-                    </span>
-                    <span className="text-right [direction:rtl] text-muted">{row.label}</span>
-                  </div>
-
-                  <div className="grid grid-cols-[80px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
-                    <span className="tabular-nums text-negative">{formatNumberFa(row.sellValue)}</span>
-                    <div className="relative h-2 rounded-full bg-border/45">
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-negative/35"
-                        style={{ width: `${row.sellPercent}%` }}
-                      />
-                      <div
-                        className="absolute inset-y-0 right-0 rounded-full bg-positive/35"
-                        style={{ width: `${row.buyPercent}%` }}
-                      />
-                    </div>
-                    <span className="text-right tabular-nums text-positive">{formatNumberFa(row.buyValue)}</span>
-                  </div>
+              {depthRows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-4 text-center text-xs text-muted">
+                  اطلاعات ورود/خروج حقیقی و حقوقی موجود نیست.
                 </div>
-              ))}
+              ) : (
+                depthRows.map((row) => (
+                  <div key={row.id} className="mb-2 last:mb-0">
+                    <div className="mb-1 grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
+                      <span />
+                      <span className="text-center [direction:rtl] text-muted">
+                        فروش{' '}
+                        <bdi dir="ltr" className="inline-block tabular-nums">
+                          {`${formatNumberOrDash(row.sellCount)} * ${formatCompactAmountFa(row.sellVolume)} (${formatPercentOrDash(
+                            row.sellPercent,
+                            0
+                          )})`}
+                        </bdi>{' '}
+                        | خرید{' '}
+                        <bdi dir="ltr" className="inline-block tabular-nums">
+                          {`${formatNumberOrDash(row.buyCount)} * ${formatCompactAmountFa(row.buyVolume)} (${formatPercentOrDash(
+                            row.buyPercent,
+                            0
+                          )})`}
+                        </bdi>
+                      </span>
+                      <span className="text-right [direction:rtl] text-muted">{row.label}</span>
+                    </div>
+
+                    <div className="grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
+                      <span className="tabular-nums text-negative">{formatCompactAmountFa(row.sellVolume)}</span>
+                      <div className="relative h-2 rounded-full bg-border/45">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-negative/35"
+                          style={{ width: `${row.sellPercent ?? 0}%` }}
+                        />
+                        <div
+                          className="absolute inset-y-0 right-0 rounded-full bg-positive/35"
+                          style={{ width: `${row.buyPercent ?? 0}%` }}
+                        />
+                      </div>
+                      <span className="text-right tabular-nums text-positive">{formatCompactAmountFa(row.buyVolume)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="mt-4 rounded-xl border border-border/70 bg-surface-2 p-1">
@@ -1709,28 +1641,64 @@ export default function TradingDashboard({
             <div className="rounded-2xl border border-border/70 bg-surface-2 p-3">
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-positive" />
-                  <h2 className="text-base font-semibold text-text">فولاد</h2>
+                  <span className={`h-2.5 w-2.5 rounded-full ${symbolPositive ? 'bg-positive' : 'bg-negative'}`} />
+                  <h2 className="text-base font-semibold text-text">{activeSymbolData?.title ?? activeSymbol.symbol}</h2>
                 </div>
-                <span className="text-xs text-muted">فولاد مبارکه</span>
+                <span className="text-xs text-muted">{activeSymbolData?.subtitle ?? activeSymbol.name}</span>
               </div>
 
               <div className="mb-3 flex items-center gap-2">
-                <span className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive">
-                  کدال
-                </span>
-                <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-muted border border-border/60">
-                  TSE
-                </span>
+                {codalSymbolUrl ? (
+                  <a
+                    href={codalSymbolUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive transition hover:bg-positive/20"
+                  >
+                    کدال
+                  </a>
+                ) : (
+                  <span className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive">
+                    کدال
+                  </span>
+                )}
+
+                {tsetmcSymbolUrl ? (
+                  <a
+                    href={tsetmcSymbolUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition hover:border-primary/40 hover:text-text"
+                  >
+                    {activeSymbolData?.exchangeBadge ?? activeSymbol.type}
+                  </a>
+                ) : (
+                  <span className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-muted border border-border/60">
+                    {activeSymbolData?.exchangeBadge ?? activeSymbol.type}
+                  </span>
+                )}
               </div>
 
-              <div className="text-4xl font-bold tabular-nums tracking-tight text-text">{formatNumberFa(symbolPrice)}</div>
+              <div className="text-4xl font-bold tabular-nums tracking-tight text-text">{formatNumberOrDash(symbolPrice)}</div>
               <div
                 className={`mt-1 text-sm font-semibold tabular-nums ${
-                  symbolPositive ? 'text-positive' : 'text-negative'
+                  symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
                 }`}
               >
-                {formatPercentFa(symbolPercent)}
+                {formatPercentOrDash(symbolPercent)}
+              </div>
+
+              <div className="mt-2 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">پایانی</span>
+                  <span className="font-medium tabular-nums text-text">
+                    {formatNumberOrDash(activeSymbolData?.closePrice)} ({formatPercentOrDash(activeSymbolData?.closePricePercent)})
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted">حباب</span>
+                  <span className="font-medium tabular-nums text-text">{formatPercentOrDash(activeSymbolData?.bubblePercent)}</span>
+                </div>
               </div>
             </div>
 
@@ -1801,13 +1769,56 @@ export default function TradingDashboard({
               </div>
             ) : (
               <div className="thin-scrollbar mt-3 max-h-[336px] space-y-1 overflow-y-auto rounded-2xl border border-border/70 p-2">
+                {symbolError && !activeSymbolData ? (
+                  <div className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                    <div className="mb-2 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      {symbolError}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={refreshSymbolDetails}
+                      className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                    >
+                      تلاش مجدد
+                    </button>
+                  </div>
+                ) : null}
+
+                {symbolLoading && !activeSymbolData
+                  ? Array.from({ length: 6 }, (_, index) => (
+                      <div key={`symbol-detail-skeleton-${index + 1}`} className="rounded-lg px-2 py-2">
+                        <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60" />
+                        <div className="h-3 w-1/2 animate-pulse rounded bg-border/45" />
+                      </div>
+                    ))
+                  : null}
+
+                {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
+                  <div className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
+                    اطلاعات نماد موجود نیست.
+                  </div>
+                ) : null}
+
                 {symbolDetails.map((item) => (
                   <div
                     key={item.label}
                     className="flex items-center justify-between rounded-lg px-2 py-2 text-xs transition hover:bg-surface-2"
                   >
                     <span className="text-muted">{item.label}</span>
-                    <span className="font-medium tabular-nums text-text">{item.value}</span>
+                    <span className="font-medium tabular-nums text-text">
+                      {item.valueType === 'number'
+                        ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
+                        : item.valueType === 'percent'
+                          ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
+                          : item.valueType === 'currency'
+                            ? typeof item.value === 'number'
+                              ? `${formatNumberFa(item.value)} ریال`
+                              : 'ناموجود'
+                            : typeof item.value === 'string'
+                              ? item.value || 'ناموجود'
+                              : 'ناموجود'}
+                    </span>
                   </div>
                 ))}
               </div>
