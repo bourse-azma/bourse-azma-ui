@@ -24,6 +24,15 @@ import { getCodalNotices } from './features/symbol-search/api';
 import { toMarketLabel } from './features/symbol-search/mappers';
 import type { SymbolSearchSuggestion } from './features/symbol-search/types';
 import { useSymbolDetails } from './features/symbol-search/useSymbolDetails';
+import { useSymbolSearch } from './features/symbol-search/useSymbolSearch';
+import {
+  createDefaultNoticeFilters,
+  toAppliedNoticeFilters,
+  toNoticeQuery,
+  withNoticeSymbol,
+  type JalaliDateParts,
+  type NoticeUiFilters,
+} from './features/notices/filterState';
 
 type SidebarTab = 'watchlist' | 'industries';
 type SymbolTab = 'chart' | 'details';
@@ -113,19 +122,6 @@ type CodalNoticesQuery = {
   reportingType: number;
   symbol: string;
   tracingNumber: number;
-};
-
-type JalaliDateParts = {
-  year: number;
-  month: number;
-  day: number;
-};
-
-type NoticeUiFilters = {
-  symbol: string;
-  fromDate: JalaliDateParts | null;
-  toDate: JalaliDateParts | null;
-  underSupervisionOnly: boolean;
 };
 
 type NoticeGroup = {
@@ -741,21 +737,12 @@ export default function TradingDashboard({
   const [marketPanelOpen, setMarketPanelOpen] = useState(false);
   const [codalQuery, setCodalQuery] = useState<CodalNoticesQuery>(() => ({
     ...DEFAULT_CODAL_NOTICE_QUERY,
-    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
+    symbol: '',
   }));
-  const [noticeFilters, setNoticeFilters] = useState<NoticeUiFilters>({
-    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
-    fromDate: null,
-    toDate: null,
-    underSupervisionOnly: false,
-  });
-  const [noticeFilterDraft, setNoticeFilterDraft] = useState<NoticeUiFilters>({
-    symbol: DEFAULT_SELECTED_SYMBOL.symbol,
-    fromDate: null,
-    toDate: null,
-    underSupervisionOnly: false,
-  });
+  const [noticeFilters, setNoticeFilters] = useState<NoticeUiFilters>(() => createDefaultNoticeFilters());
+  const [noticeFilterDraft, setNoticeFilterDraft] = useState<NoticeUiFilters>(() => createDefaultNoticeFilters());
   const [noticeFilterOpen, setNoticeFilterOpen] = useState(false);
+  const [noticeSymbolDropdownOpen, setNoticeSymbolDropdownOpen] = useState(false);
   const [activeNoticeGroup, setActiveNoticeGroup] = useState<NoticeGroup | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -771,23 +758,18 @@ export default function TradingDashboard({
     refresh: refreshCodalNotices,
   } = useCodalNotices(codalQuery);
 
+  const noticeSymbolQuery = noticeFilterDraft.symbol.trim();
+  const {
+    loading: noticeSymbolLoading,
+    error: noticeSymbolError,
+    results: noticeSymbolResults,
+    retry: retryNoticeSymbolSearch,
+  } = useSymbolSearch(noticeSymbolQuery, noticeFilterOpen && noticeSymbolDropdownOpen);
+
   const noticeListRef = useRef<HTMLDivElement | null>(null);
   const noticeLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const symbol = selectedSymbol.symbol.trim();
-
-    setCodalQuery((prev) => {
-      if (prev.symbol === symbol) return prev;
-      return {
-        ...prev,
-        symbol,
-        page: 1,
-      };
-    });
-
-    setNoticeFilters((prev) => ({ ...prev, symbol }));
-    setNoticeFilterDraft((prev) => ({ ...prev, symbol }));
     setSymbolTab('details');
   }, [selectedSymbol.symbol]);
 
@@ -851,6 +833,21 @@ export default function TradingDashboard({
       bidCount: null,
     }))];
   }, [activeSymbolData?.orderBook]);
+
+  const orderBookMaxVolumes = useMemo(() => {
+    const maxAskVolume = orderBookRows.reduce((max, row) => {
+      const current = row.askVolume ?? 0;
+      return current > max ? current : max;
+    }, 0);
+    const maxBidVolume = orderBookRows.reduce((max, row) => {
+      const current = row.bidVolume ?? 0;
+      return current > max ? current : max;
+    }, 0);
+    return {
+      ask: maxAskVolume > 0 ? maxAskVolume : 1,
+      bid: maxBidVolume > 0 ? maxBidVolume : 1,
+    };
+  }, [orderBookRows]);
 
   const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
   const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
@@ -999,7 +996,7 @@ export default function TradingDashboard({
 
   const hasActiveNoticeFilters = useMemo(
     () =>
-      (noticeFilters.symbol.trim() !== '' && noticeFilters.symbol.trim() !== selectedSymbol.symbol.trim()) ||
+      noticeFilters.symbol.trim() !== '' ||
       noticeFilters.fromDate !== null ||
       noticeFilters.toDate !== null ||
       noticeFilters.underSupervisionOnly,
@@ -1008,7 +1005,6 @@ export default function TradingDashboard({
       noticeFilters.symbol,
       noticeFilters.toDate,
       noticeFilters.underSupervisionOnly,
-      selectedSymbol.symbol,
     ]
   );
 
@@ -1071,6 +1067,7 @@ export default function TradingDashboard({
 
   const openNoticeFilter = () => {
     setNoticeFilterDraft(noticeFilters);
+    setNoticeSymbolDropdownOpen(false);
     setNoticeFilterOpen(true);
   };
 
@@ -1099,45 +1096,28 @@ export default function TradingDashboard({
     });
   };
 
-  const applyNoticeFilters = () => {
-    const normalizedSymbol = noticeFilterDraft.symbol.trim();
-    let fromDate = noticeFilterDraft.fromDate;
-    let toDate = noticeFilterDraft.toDate;
-
-    if (fromDate && toDate && dateKeyFromParts(fromDate) > dateKeyFromParts(toDate)) {
-      [fromDate, toDate] = [toDate, fromDate];
-    }
-
-    const nextFilters: NoticeUiFilters = {
-      symbol: normalizedSymbol,
-      fromDate,
-      toDate,
-      underSupervisionOnly: noticeFilterDraft.underSupervisionOnly,
-    };
-
+  const applyNoticeFilters = (draft: NoticeUiFilters, options?: { closeModal?: boolean }) => {
+    const nextFilters = toAppliedNoticeFilters(draft);
     setNoticeFilters(nextFilters);
-    setCodalQuery((prev) => ({
-      ...prev,
-      symbol: normalizedSymbol,
-      page: 1,
-    }));
-    setNoticeFilterOpen(false);
+    setCodalQuery((prev) => toNoticeQuery(prev, nextFilters));
+    if (options?.closeModal ?? true) {
+      setNoticeFilterOpen(false);
+    }
+    setNoticeSymbolDropdownOpen(false);
   };
 
   const clearNoticeFilters = () => {
-    const cleared: NoticeUiFilters = {
-      symbol: selectedSymbol.symbol,
-      fromDate: null,
-      toDate: null,
-      underSupervisionOnly: false,
-    };
+    const cleared = createDefaultNoticeFilters();
     setNoticeFilterDraft(cleared);
     setNoticeFilters(cleared);
-    setCodalQuery((prev) => ({
-      ...prev,
-      symbol: selectedSymbol.symbol,
-      page: 1,
-    }));
+    setCodalQuery((prev) => toNoticeQuery(prev, cleared));
+    setNoticeSymbolDropdownOpen(false);
+  };
+
+  const applyNoticeSymbolSuggestion = (symbol: string) => {
+    const nextDraft = withNoticeSymbol(noticeFilterDraft, symbol);
+    setNoticeFilterDraft(nextDraft);
+    applyNoticeFilters(nextDraft);
   };
 
   useEffect(() => {
@@ -1201,6 +1181,12 @@ export default function TradingDashboard({
     window.addEventListener('mousedown', onClickOutside);
     return () => window.removeEventListener('mousedown', onClickOutside);
   }, [profileMenuOpen]);
+
+  useEffect(() => {
+    if (!noticeFilterOpen) {
+      setNoticeSymbolDropdownOpen(false);
+    }
+  }, [noticeFilterOpen]);
 
   return (
     <div className="min-h-screen bg-bg text-text transition-colors duration-300">
@@ -1542,6 +1528,16 @@ export default function TradingDashboard({
                 <tbody>
                   {orderBookRows.map((row, idx) => {
                     const bestBuy = idx === 0 && row.bidPrice !== null;
+                    const askVolumeWidth =
+                      row.askVolume !== null && row.askVolume > 0
+                        ? clamp((row.askVolume / orderBookMaxVolumes.ask) * 100, 4, 100)
+                        : 0;
+                    const bidVolumeWidth =
+                      row.bidVolume !== null && row.bidVolume > 0
+                        ? clamp((row.bidVolume / orderBookMaxVolumes.bid) * 100, 4, 100)
+                        : 0;
+                    const depthCellBaseClass =
+                      theme === 'dark' ? 'from-transparent to-current/16' : 'from-transparent to-current/20';
 
                     return (
                       <tr
@@ -1551,14 +1547,34 @@ export default function TradingDashboard({
                         }`}
                       >
                         <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askCount)}</td>
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askVolume)}</td>
-                        <td className="px-3 py-2 tabular-nums font-semibold text-negative">
-                          {formatNumberOrDash(row.askPrice)}
+                        <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
+                          <div
+                            className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                            style={{ width: `${askVolumeWidth}%` }}
+                          />
+                          <span className="relative z-[1]">{formatNumberOrDash(row.askVolume)}</span>
                         </td>
-                        <td className="px-3 py-2 tabular-nums font-semibold text-positive">
-                          {formatNumberOrDash(row.bidPrice)}
+                        <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-negative">
+                          <div
+                            className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                            style={{ width: `${askVolumeWidth}%` }}
+                          />
+                          <span className="relative z-[1]">{formatNumberOrDash(row.askPrice)}</span>
                         </td>
-                        <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidVolume)}</td>
+                        <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-positive">
+                          <div
+                            className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                            style={{ width: `${bidVolumeWidth}%` }}
+                          />
+                          <span className="relative z-[1]">{formatNumberOrDash(row.bidPrice)}</span>
+                        </td>
+                        <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
+                          <div
+                            className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                            style={{ width: `${bidVolumeWidth}%` }}
+                          />
+                          <span className="relative z-[1]">{formatNumberOrDash(row.bidVolume)}</span>
+                        </td>
                         <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidCount)}</td>
                       </tr>
                     );
@@ -2080,19 +2096,71 @@ export default function TradingDashboard({
                 <label htmlFor="notice-symbol-filter" className="mb-1.5 block text-sm font-medium text-text">
                   نماد یا نام شرکت
                 </label>
-                <input
-                  id="notice-symbol-filter"
-                  value={noticeFilterDraft.symbol}
-                  onChange={(event) =>
-                    setNoticeFilterDraft((prev) => ({
-                      ...prev,
-                      symbol: event.target.value,
-                    }))
-                  }
-                  type="text"
-                  placeholder="مثال: غدانه"
-                  className="h-10 w-full rounded-xl border border-border/80 bg-surface-2 px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/30"
-                />
+                <div className="relative">
+                  <input
+                    id="notice-symbol-filter"
+                    value={noticeFilterDraft.symbol}
+                    onFocus={() => setNoticeSymbolDropdownOpen(true)}
+                    onChange={(event) => {
+                      setNoticeFilterDraft((prev) => ({
+                        ...prev,
+                        symbol: event.target.value,
+                      }));
+                      setNoticeSymbolDropdownOpen(true);
+                    }}
+                    type="text"
+                    placeholder="مثال: غدانه"
+                    className="h-10 w-full rounded-xl border border-border/80 bg-surface-2 px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/30"
+                  />
+
+                  {noticeFilterDraft.symbol.trim() !== '' && noticeSymbolDropdownOpen ? (
+                    <div className="absolute inset-x-0 top-[calc(100%+4px)] z-20 max-h-64 overflow-y-auto rounded-xl border border-border/80 bg-surface shadow-card">
+                      {noticeSymbolLoading ? (
+                        <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          در حال جستجو...
+                        </div>
+                      ) : null}
+
+                      {!noticeSymbolLoading && noticeSymbolError ? (
+                        <div className="px-3 py-2 text-xs text-negative">
+                          <p>جستجوی نماد با خطا مواجه شد.</p>
+                          <button
+                            type="button"
+                            onClick={retryNoticeSymbolSearch}
+                            className="mt-1 rounded-full border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] text-negative transition hover:bg-negative/15"
+                          >
+                            تلاش مجدد
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {!noticeSymbolLoading && !noticeSymbolError && noticeSymbolResults.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted">نتیجه‌ای پیدا نشد.</div>
+                      ) : null}
+
+                      {!noticeSymbolLoading && !noticeSymbolError && noticeSymbolResults.length > 0
+                        ? noticeSymbolResults.slice(0, 10).map((item) => (
+                            <button
+                              key={`notice-symbol-${item.key}`}
+                              type="button"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                applyNoticeSymbolSuggestion(item.symbol);
+                              }}
+                              className="flex w-full items-start justify-between border-b border-border/50 px-3 py-2 text-right text-xs transition last:border-b-0 hover:bg-surface-2"
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-text">{item.symbol}</span>
+                                <span className="mt-0.5 block truncate text-muted">{item.name}</span>
+                              </span>
+                              <span className="mr-2 shrink-0 text-[11px] text-muted">{toMarketLabel(item.type)}</span>
+                            </button>
+                          ))
+                        : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
               <label className="flex items-center justify-between rounded-xl border border-border/70 bg-surface-2 px-3 py-2 text-sm text-text">
@@ -2240,7 +2308,7 @@ export default function TradingDashboard({
 
               <button
                 type="button"
-                onClick={applyNoticeFilters}
+                onClick={() => applyNoticeFilters(noticeFilterDraft)}
                 className="rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-primary/45"
               >
                 اعمال فیلترها

@@ -54,6 +54,9 @@ const asNumber = (value: unknown): number | null => {
   return null;
 };
 
+const isMissing = (value: unknown) =>
+  value === null || value === undefined || (typeof value === 'string' && normalizeText(value) === '');
+
 const getCaseInsensitive = (record: Record<string, unknown>, candidates: string[]) => {
   for (const candidate of candidates) {
     if (candidate in record) return record[candidate];
@@ -290,6 +293,32 @@ const pickSnapshotString = (snapshot: FipiranInstrumentSnapshot | null, target: 
   return pickString(record, ...keys);
 };
 
+const firstNonMissingString = (...values: Array<string | null | undefined>) => {
+  for (const value of values) {
+    if (!isMissing(value)) {
+      return normalizeText(String(value));
+    }
+  }
+  return null;
+};
+
+const normalizeDateTimeText = (value: unknown): string | null => {
+  if (isMissing(value)) return null;
+  const raw = normalizeText(String(value));
+
+  // Preserve explicit Jalali date-time values from APIs (example: 1404/12/6 18:04:00).
+  if (/^\d{4}\/\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{1,2}(?::\d{1,2})?)?$/u.test(raw)) {
+    return raw;
+  }
+
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    return formatPersianDateTime(parsed);
+  }
+
+  return raw;
+};
+
 const toDetailRows = (input: {
   source: 'market' | 'fund';
   tradeVolume: number | null;
@@ -348,15 +377,15 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
   );
 
   const closePricePercent =
-    previousClose && closePrice !== null ? ((closePrice - previousClose) / previousClose) * 100 : null;
+    previousClose !== null && previousClose !== 0 && closePrice !== null ? ((closePrice - previousClose) / previousClose) * 100 : null;
   const lastPricePercent =
-    previousClose && lastPrice !== null ? ((lastPrice - previousClose) / previousClose) * 100 : null;
+    previousClose !== null && previousClose !== 0 && lastPrice !== null ? ((lastPrice - previousClose) / previousClose) * 100 : null;
 
   const navCancel = firstNonNullNumber(fundDetails?.details.cancelNav, fundSummary?.cancelNav);
   const bubblePercent =
-    navCancel && lastPrice !== null
+    navCancel !== null && navCancel !== 0 && lastPrice !== null
       ? ((lastPrice - navCancel) / navCancel) * 100
-      : closePrice && lastPrice !== null
+      : closePrice !== null && closePrice !== 0 && lastPrice !== null
         ? ((lastPrice - closePrice) / closePrice) * 100
         : null;
 
@@ -402,25 +431,41 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         pickSnapshotNumber(snapshot, 'transaction', 'hEven')
       );
 
-  const navAnnouncementAt = (() => {
-    const fromDetails = fundDetails?.details.lastModificationTime || fundDetails?.details.date;
-    if (fromDetails) {
-      const parsed = new Date(fromDetails);
-      if (!Number.isNaN(parsed.getTime())) return formatPersianDateTime(parsed);
-    }
+  const navAnnouncementAt = firstNonMissingString(
+    normalizeDateTimeText(fundDetails?.details.lastModificationTime),
+    normalizeDateTimeText(fundDetails?.details.date),
+    normalizeDateTimeText(fundSummary?.date)
+  );
 
-    if (fundSummary?.date) {
-      const parsed = new Date(fundSummary.date);
-      if (!Number.isNaN(parsed.getTime())) return formatPersianDateTime(parsed);
-    }
+  const instrumentRecord = snapshot ? toRecord(snapshot.instrument) : {};
+  const transactionRecord = snapshot ? toRecord(snapshot.transaction) : {};
+  const tsetmcInfoRecord = tsetmcInfo ? toRecord(tsetmcInfo as unknown) : {};
 
+  const pickFromRecords = (records: Record<string, unknown>[], keys: string[]) => {
+    for (const record of records) {
+      const value = pickNumber(record, ...keys);
+      if (value !== null) return value;
+    }
     return null;
-  })();
+  };
 
-  const eps = firstNonNullNumber(pickSnapshotNumber(snapshot, 'instrument', 'ePS', 'eps', 'estimatedEPS'));
-  const pe = firstNonNullNumber(pickSnapshotNumber(snapshot, 'instrument', 'pToE', 'pe', 'pOverE'));
+  const eps = firstNonNullNumber(
+    pickFromRecords(
+      [instrumentRecord, transactionRecord, tsetmcInfoRecord],
+      ['ePS', 'eps', 'EPS', 'estimatedEPS', 'estimatedEps', 'zEPS', 'earningPerShare']
+    )
+  );
+  const pe = firstNonNullNumber(
+    pickFromRecords(
+      [instrumentRecord, transactionRecord, tsetmcInfoRecord],
+      ['pToE', 'pe', 'pOverE', 'P/E', 'pE', 'priceToEarning', 'priceEarningRatio']
+    )
+  );
   const groupPe = firstNonNullNumber(
-    pickSnapshotNumber(snapshot, 'instrument', 'pToEGroup', 'groupPe', 'industryPE')
+    pickFromRecords(
+      [instrumentRecord, transactionRecord, tsetmcInfoRecord],
+      ['pToEGroup', 'groupPe', 'industryPE', 'groupPE', 'P/EGroup', 'sectorPE', 'industryPe']
+    )
   );
 
   const source =

@@ -45,12 +45,11 @@ type FieldLabelProps = {
 
 function FieldLabel({ title, required = false }: FieldLabelProps) {
   return (
-    <div className="mb-1.5 flex items-baseline justify-between">
+    <div className="mb-1.5">
       <span className="text-xs font-semibold text-text">
         {title}
         {required ? <span className="mr-1 text-negative">*</span> : null}
       </span>
-      <span className="text-[11px] text-muted">{required ? 'الزامی' : 'اختیاری'}</span>
     </div>
   );
 }
@@ -357,7 +356,7 @@ export default function App() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-black text-text">پروفایل کاربری</h2>
-                <p className="mt-1 text-xs text-muted">فیلدهای علامت‌دار با برچسب اجباری باید مقدار داشته باشند.</p>
+                <p className="mt-1 text-xs text-muted">فیلدهای ستاره‌دار باید مقدار داشته باشند.</p>
               </div>
               <button
                 type="button"
