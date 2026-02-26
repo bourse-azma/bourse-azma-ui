@@ -54,6 +54,11 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/api/v1/watchlists': {
+          target: authProxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
   };

@@ -341,6 +341,7 @@ export default function App() {
       ) : authState === 'authenticated' && session ? (
         <TradingDashboard
           theme={theme}
+          accessToken={session.accessToken}
           onToggleTheme={toggleTheme}
           profileDisplayName={displayName}
           onOpenProfile={openProfileModal}

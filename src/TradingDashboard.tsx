@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bell,
   Building2,
+  Check,
   ChevronDown,
   Clock3,
   ExternalLink,
@@ -11,8 +12,11 @@ import {
   Loader2,
   Menu,
   Moon,
+  Pencil,
+  Plus,
   Star,
   Sun,
+  Trash2,
   UserRound,
   Wallet,
   X,
@@ -33,6 +37,15 @@ import {
   type JalaliDateParts,
   type NoticeUiFilters,
 } from './features/notices/filterState';
+import {
+  addSymbolToWatchlist,
+  createWatchlist,
+  deleteWatchlist,
+  getWatchlists,
+  removeSymbolFromWatchlist,
+  updateWatchlist,
+  type Watchlist,
+} from './features/watchlist/api';
 
 type SidebarTab = 'watchlist' | 'industries';
 type SymbolTab = 'chart' | 'details';
@@ -41,6 +54,7 @@ type OrderFilter = 'open' | 'done' | 'failed' | 'all';
 
 type TradingDashboardProps = {
   theme: Theme;
+  accessToken: string;
   onToggleTheme: (origin?: { x: number; y: number }) => void;
   profileDisplayName: string;
   onOpenProfile: () => void;
@@ -131,6 +145,20 @@ type NoticeGroup = {
   symbols: string[];
   notices: CodalNotice[];
   hasUnderSupervision: boolean;
+};
+
+type WatchlistModalState =
+  | { mode: 'create' }
+  | {
+      mode: 'edit';
+      watchlistId: number;
+      originalName: string;
+    };
+
+type WatchlistToast = {
+  id: number;
+  message: string;
+  tone: 'success' | 'error';
 };
 
 const JALALI_MONTHS = [
@@ -627,10 +655,58 @@ const actionBtnClass =
 function WatchlistPanel({
   activeTab,
   onTabChange,
+  watchlists,
+  selectedWatchlistId,
+  onSelectWatchlist,
+  loading,
+  error,
+  onRetry,
+  onRequestCreateWatchlist,
+  onRequestEditWatchlist,
+  onRequestDeleteWatchlist,
+  onRemoveSymbol,
+  removingSymbolId,
+  busy,
+  currentSymbolKey,
+  currentSymbolPrice,
+  currentSymbolPercent,
 }: {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
+  watchlists: Watchlist[];
+  selectedWatchlistId: number | null;
+  onSelectWatchlist: (watchlistId: number) => void;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onRequestCreateWatchlist: () => void;
+  onRequestEditWatchlist: (watchlistId: number) => void;
+  onRequestDeleteWatchlist: (watchlistId: number) => void;
+  onRemoveSymbol: (symbolId: number) => void;
+  removingSymbolId: number | null;
+  busy: boolean;
+  currentSymbolKey: string;
+  currentSymbolPrice: number | null;
+  currentSymbolPercent: number | null;
 }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const selectedWatchlist =
+    watchlists.find((watchlist) => watchlist.id === selectedWatchlistId) ?? watchlists[0] ?? null;
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const closeDropdown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setDropdownOpen(false);
+    };
+
+    window.addEventListener('mousedown', closeDropdown);
+    return () => window.removeEventListener('mousedown', closeDropdown);
+  }, [dropdownOpen]);
+
   const emptyTitle = activeTab === 'watchlist' ? 'دیده‌بان ندارید!' : 'صنعتی انتخاب نشده است!';
   const emptyHelp =
     activeTab === 'watchlist'
@@ -671,38 +747,239 @@ function WatchlistPanel({
         </div>
       </div>
 
-      <button
-        type="button"
-        className="mb-4 flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-surface-2 px-3 text-xs text-muted transition hover:text-text"
-      >
-        انتخاب کنید
-        <ChevronDown className="h-4 w-4" />
-      </button>
+      {activeTab !== 'watchlist' ? (
+        <div className="flex min-h-[292px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
+          <div className="mb-4 grid grid-cols-2 gap-2 opacity-70">
+            <div className="h-11 w-11 rounded-lg bg-border/60" />
+            <div className="h-11 w-11 rounded-lg bg-border/75" />
+            <div className="h-11 w-11 rounded-lg bg-border/75" />
+            <div className="h-11 w-11 rounded-lg bg-border/60" />
+          </div>
 
-      <div className="flex min-h-[292px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
-        <div className="mb-4 grid grid-cols-2 gap-2 opacity-70">
-          <div className="h-11 w-11 rounded-lg bg-border/60" />
-          <div className="h-11 w-11 rounded-lg bg-border/75" />
-          <div className="h-11 w-11 rounded-lg bg-border/75" />
-          <div className="h-11 w-11 rounded-lg bg-border/60" />
+          <h3 className="text-sm font-semibold text-text">{emptyTitle}</h3>
+          <p className="mt-1 text-xs text-muted">{emptyHelp}</p>
         </div>
+      ) : null}
 
-        <h3 className="text-sm font-semibold text-text">{emptyTitle}</h3>
-        <p className="mt-1 text-xs text-muted">{emptyHelp}</p>
+      {activeTab === 'watchlist' && loading ? (
+        <div className="space-y-2">
+          <div className="h-10 animate-pulse rounded-xl border border-border/70 bg-surface-2" />
+          <div className="h-[250px] animate-pulse rounded-xl border border-border/70 bg-surface-2" />
+        </div>
+      ) : null}
 
-        <button
-          type="button"
-          className="mt-4 rounded-full border border-positive/30 bg-positive/10 px-4 py-1.5 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
-        >
-          ساخت دیدبان
-        </button>
-      </div>
+      {activeTab === 'watchlist' && !loading && error ? (
+        <div className="rounded-xl border border-negative/35 bg-negative/10 p-3 text-xs text-negative">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+          >
+            تلاش مجدد
+          </button>
+        </div>
+      ) : null}
+
+      {activeTab === 'watchlist' && !loading && !error && watchlists.length === 0 ? (
+        <>
+          <button
+            type="button"
+            className="mb-4 flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-surface-2 px-3 text-xs text-muted"
+            disabled
+          >
+            انتخاب کنید
+            <ChevronDown className="h-4 w-4" />
+          </button>
+
+          <div className="flex min-h-[292px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
+            <div className="mb-4 grid grid-cols-2 gap-2 opacity-70">
+              <div className="h-11 w-11 rounded-lg bg-border/60" />
+              <div className="h-11 w-11 rounded-lg bg-border/75" />
+              <div className="h-11 w-11 rounded-lg bg-border/75" />
+              <div className="h-11 w-11 rounded-lg bg-border/60" />
+            </div>
+
+            <h3 className="text-sm font-semibold text-text">{emptyTitle}</h3>
+            <p className="mt-1 text-xs text-muted">{emptyHelp}</p>
+
+            <button
+              type="button"
+              onClick={onRequestCreateWatchlist}
+              className="mt-4 rounded-full border border-positive/30 bg-positive/10 px-4 py-1.5 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
+            >
+              ساخت دیدبان
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {activeTab === 'watchlist' && !loading && !error && watchlists.length > 0 && selectedWatchlist ? (
+        <>
+          <div ref={dropdownRef} className="relative mb-3">
+            <button
+              type="button"
+              onClick={() => setDropdownOpen((prev) => !prev)}
+              className="flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-surface px-3 text-xs text-text transition hover:border-primary/30"
+            >
+              <span className="truncate">{selectedWatchlist.name}</span>
+              <ChevronDown className={`h-4 w-4 text-muted transition ${dropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {dropdownOpen ? (
+              <div className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl border border-border/80 bg-surface shadow-card">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onRequestCreateWatchlist();
+                  }}
+                  className="flex h-10 w-full items-center justify-center gap-1 border-b border-border/70 px-3 text-xs font-semibold text-positive transition hover:bg-surface-2"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  ساخت دیدبان جدید
+                </button>
+
+                <div className="max-h-48 overflow-y-auto py-1">
+                  {watchlists.map((watchlist) => {
+                    const isActive = watchlist.id === selectedWatchlist.id;
+                    return (
+                      <div
+                        key={watchlist.id}
+                        className={`group flex items-center justify-between px-2 py-1.5 text-xs transition ${
+                          isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2 hover:text-text'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            onSelectWatchlist(watchlist.id);
+                          }}
+                          className="flex min-w-0 flex-1 items-center justify-between px-1 text-right"
+                        >
+                          <span className="truncate">{watchlist.name}</span>
+                          {isActive ? <Check className="h-3.5 w-3.5 shrink-0 text-positive" /> : null}
+                        </button>
+
+                        <div className="mr-1 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              onRequestEditWatchlist(watchlist.id);
+                            }}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted opacity-70 transition hover:bg-surface hover:text-text group-hover:opacity-100"
+                            aria-label={`edit watchlist ${watchlist.name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              onRequestDeleteWatchlist(watchlist.id);
+                            }}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-negative/90 opacity-70 transition hover:bg-negative/10 hover:text-negative group-hover:opacity-100"
+                            aria-label={`delete watchlist ${watchlist.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <section className="rounded-xl border border-border/70 bg-surface">
+            <header className="grid grid-cols-[1.3fr_1fr_0.8fr_1fr] items-center gap-2 border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted">
+              <span>نام نماد</span>
+              <span className="text-center">قیمت</span>
+              <span className="text-center">پایانی٪</span>
+              <span className="text-left">عملیات</span>
+            </header>
+
+            {selectedWatchlist.symbols.length === 0 ? (
+              <div className="flex min-h-[200px] flex-col items-center justify-center px-4 py-6 text-center">
+                <div className="mb-3 grid grid-cols-2 gap-2 opacity-60">
+                  <div className="h-9 w-11 rounded-lg bg-border/65" />
+                  <div className="h-9 w-11 rounded-lg bg-border/80" />
+                  <div className="h-9 w-11 rounded-lg bg-border/80" />
+                  <div className="h-9 w-11 rounded-lg bg-border/65" />
+                </div>
+                <h4 className="text-sm font-semibold text-text">دیده‌بان شما خالیست!</h4>
+                <p className="mt-1 text-xs text-muted">
+                  برای شروع، نماد جاری را با دکمه ستاره به دیده‌بان اضافه کنید.
+                </p>
+              </div>
+            ) : (
+              <div className="thin-scrollbar max-h-[245px] overflow-y-auto">
+                {selectedWatchlist.symbols.map((symbol) => {
+                  const livePrice = symbol.symbolKey === currentSymbolKey ? currentSymbolPrice : null;
+                  const livePercent = symbol.symbolKey === currentSymbolKey ? currentSymbolPercent : null;
+                  return (
+                    <div
+                      key={symbol.id}
+                      className="grid grid-cols-[1.3fr_1fr_0.8fr_1fr] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0"
+                    >
+                      <div>
+                        <div className="truncate font-semibold text-text">{symbol.symbol}</div>
+                        <div className="truncate text-[11px] text-muted">{symbol.name}</div>
+                      </div>
+                      <span className="text-center tabular-nums text-text">
+                        {livePrice === null ? '-' : formatNumberFa(livePrice)}
+                      </span>
+                      <span className="text-center tabular-nums text-muted">
+                        {livePercent === null ? '-' : formatPercentFa(livePercent)}
+                      </span>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          className="rounded-full bg-positive px-2 py-0.5 text-[11px] font-semibold text-white transition hover:brightness-105"
+                        >
+                          خرید
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full bg-negative px-2 py-0.5 text-[11px] font-semibold text-white transition hover:brightness-105"
+                        >
+                          فروش
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveSymbol(symbol.id)}
+                          disabled={busy || removingSymbolId === symbol.id}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-negative/30 bg-negative/10 text-negative transition hover:bg-negative/15 disabled:cursor-not-allowed disabled:opacity-60"
+                          aria-label={`remove ${symbol.symbol} from watchlist`}
+                        >
+                          {removingSymbolId === symbol.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      ) : null}
     </aside>
   );
 }
 
 export default function TradingDashboard({
   theme,
+  accessToken,
   onToggleTheme,
   profileDisplayName,
   onOpenProfile,
@@ -745,6 +1022,208 @@ export default function TradingDashboard({
   const [noticeSymbolDropdownOpen, setNoticeSymbolDropdownOpen] = useState(false);
   const [activeNoticeGroup, setActiveNoticeGroup] = useState<NoticeGroup | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const [watchlistsLoading, setWatchlistsLoading] = useState(true);
+  const [watchlistsError, setWatchlistsError] = useState<string | null>(null);
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
+  const [watchlistModal, setWatchlistModal] = useState<WatchlistModalState | null>(null);
+  const [watchlistNameDraft, setWatchlistNameDraft] = useState('');
+  const [watchlistNameError, setWatchlistNameError] = useState<string | null>(null);
+  const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
+  const [watchlistBusy, setWatchlistBusy] = useState(false);
+  const [removingWatchlistSymbolId, setRemovingWatchlistSymbolId] = useState<number | null>(null);
+  const [watchlistToast, setWatchlistToast] = useState<WatchlistToast | null>(null);
+
+  const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
+    setWatchlistToast({ id: Date.now() + Math.floor(Math.random() * 1000), message, tone });
+  }, []);
+
+  const replaceWatchlistInState = useCallback((updatedWatchlist: Watchlist) => {
+    setWatchlists((prev) => {
+      const index = prev.findIndex((item) => item.id === updatedWatchlist.id);
+      if (index === -1) {
+        return [...prev, updatedWatchlist].sort((a, b) => a.id - b.id);
+      }
+      const next = [...prev];
+      next[index] = updatedWatchlist;
+      return next;
+    });
+  }, []);
+
+  const loadWatchlists = useCallback(async () => {
+    setWatchlistsLoading(true);
+    setWatchlistsError(null);
+    try {
+      const payload = await getWatchlists(accessToken);
+      setWatchlists(payload);
+      setSelectedWatchlistId((prev) => {
+        if (payload.length === 0) return null;
+        if (prev !== null && payload.some((item) => item.id === prev)) return prev;
+        return payload[0].id;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'دریافت دیده‌بان با خطا مواجه شد.';
+      setWatchlistsError(message);
+      setWatchlists([]);
+      setSelectedWatchlistId(null);
+    } finally {
+      setWatchlistsLoading(false);
+    }
+  }, [accessToken]);
+
+  const selectedWatchlist = useMemo(
+    () => watchlists.find((watchlist) => watchlist.id === selectedWatchlistId) ?? watchlists[0] ?? null,
+    [watchlists, selectedWatchlistId]
+  );
+
+  const selectedWatchlistSymbol = useMemo(
+    () => selectedWatchlist?.symbols.find((item) => item.symbolKey === selectedSymbol.key) ?? null,
+    [selectedSymbol.key, selectedWatchlist]
+  );
+
+  const openCreateWatchlistModal = useCallback(() => {
+    setWatchlistModal({ mode: 'create' });
+    setWatchlistNameDraft('');
+    setWatchlistNameError(null);
+  }, []);
+
+  const openEditWatchlistModal = useCallback(
+    (watchlistId: number) => {
+      const target = watchlists.find((item) => item.id === watchlistId);
+      if (!target) return;
+      setWatchlistModal({
+        mode: 'edit',
+        watchlistId,
+        originalName: target.name,
+      });
+      setWatchlistNameDraft(target.name);
+      setWatchlistNameError(null);
+    },
+    [watchlists]
+  );
+
+  const closeWatchlistModal = useCallback(() => {
+    setWatchlistModal(null);
+    setWatchlistNameError(null);
+    setWatchlistSubmitting(false);
+  }, []);
+
+  const submitWatchlistModal = useCallback(async () => {
+    if (!watchlistModal) return;
+    const normalizedName = watchlistNameDraft.trim().replace(/\s+/g, ' ');
+    if (normalizedName === '') {
+      setWatchlistNameError('نمی‌تواند خالی باشد.');
+      return;
+    }
+
+    setWatchlistSubmitting(true);
+    setWatchlistNameError(null);
+    try {
+      if (watchlistModal.mode === 'create') {
+        const created = await createWatchlist(accessToken, normalizedName);
+        setWatchlists((prev) => [...prev, created].sort((a, b) => a.id - b.id));
+        setSelectedWatchlistId(created.id);
+        setWatchlistModal(null);
+        showWatchlistToast(`دیدبان ${created.name} ساخته شد.`);
+      } else {
+        const updated = await updateWatchlist(accessToken, watchlistModal.watchlistId, normalizedName);
+        replaceWatchlistInState(updated);
+        setSelectedWatchlistId(updated.id);
+        setWatchlistModal(null);
+        showWatchlistToast(`ویرایش نام دیدبان ${watchlistModal.originalName} انجام شد.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'ذخیره دیده‌بان ناموفق بود.';
+      setWatchlistNameError(message);
+    } finally {
+      setWatchlistSubmitting(false);
+    }
+  }, [accessToken, replaceWatchlistInState, showWatchlistToast, watchlistModal, watchlistNameDraft]);
+
+  const handleDeleteWatchlist = useCallback(
+    async (watchlistId: number) => {
+      if (watchlistBusy) return;
+      const target = watchlists.find((item) => item.id === watchlistId);
+      if (!target) return;
+
+      setWatchlistBusy(true);
+      try {
+        await deleteWatchlist(accessToken, watchlistId);
+        const nextWatchlists = watchlists.filter((item) => item.id !== watchlistId);
+        setWatchlists(nextWatchlists);
+        if (selectedWatchlistId === watchlistId) {
+          setSelectedWatchlistId(nextWatchlists[0]?.id ?? null);
+        }
+        showWatchlistToast(`دیدبان ${target.name} حذف شد.`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'حذف دیده‌بان ناموفق بود.';
+        showWatchlistToast(message, 'error');
+      } finally {
+        setWatchlistBusy(false);
+      }
+    },
+    [accessToken, selectedWatchlistId, showWatchlistToast, watchlistBusy, watchlists]
+  );
+
+  const handleRemoveSymbol = useCallback(
+    async (symbolId: number) => {
+      if (!selectedWatchlist) return;
+      if (watchlistBusy) return;
+
+      const targetSymbol = selectedWatchlist.symbols.find((item) => item.id === symbolId);
+      setRemovingWatchlistSymbolId(symbolId);
+
+      try {
+        const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, symbolId);
+        replaceWatchlistInState(updated);
+        if (targetSymbol) {
+          showWatchlistToast(`نماد ${targetSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'حذف نماد از دیده‌بان ناموفق بود.';
+        showWatchlistToast(message, 'error');
+      } finally {
+        setRemovingWatchlistSymbolId(null);
+      }
+    },
+    [accessToken, replaceWatchlistInState, selectedWatchlist, showWatchlistToast, watchlistBusy]
+  );
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (watchlistBusy) return;
+
+    if (!selectedWatchlist) {
+      openCreateWatchlistModal();
+      return;
+    }
+
+    setWatchlistBusy(true);
+    try {
+      if (selectedWatchlistSymbol) {
+        const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, selectedWatchlistSymbol.id);
+        replaceWatchlistInState(updated);
+        showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+      } else {
+        const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
+        replaceWatchlistInState(updated);
+        showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
+      showWatchlistToast(message, 'error');
+    } finally {
+      setWatchlistBusy(false);
+    }
+  }, [
+    accessToken,
+    openCreateWatchlistModal,
+    replaceWatchlistInState,
+    selectedSymbol,
+    selectedWatchlist,
+    selectedWatchlistSymbol,
+    showWatchlistToast,
+    watchlistBusy,
+  ]);
 
   const {
     notices: codalNotices,
@@ -770,6 +1249,18 @@ export default function TradingDashboard({
   const noticeLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    void loadWatchlists();
+  }, [loadWatchlists]);
+
+  useEffect(() => {
+    if (!watchlistToast) return;
+    const timer = window.setTimeout(() => {
+      setWatchlistToast((prev) => (prev?.id === watchlistToast.id ? null : prev));
+    }, 4200);
+    return () => window.clearTimeout(timer);
+  }, [watchlistToast]);
+
+  useEffect(() => {
     setSymbolTab('details');
   }, [selectedSymbol.symbol]);
 
@@ -788,6 +1279,18 @@ export default function TradingDashboard({
   const symbolPrice = activeSymbolData?.lastPrice ?? null;
   const symbolPercent = activeSymbolData?.lastPricePercent ?? null;
   const symbolPositive = symbolPercent !== null ? symbolPercent >= 0 : false;
+  const isSymbolInSelectedWatchlist = selectedWatchlistSymbol !== null;
+  const selectedSymbolLivePrice =
+    activeSymbol.key === selectedSymbol.key ? activeSymbolData?.closePrice ?? activeSymbolData?.lastPrice ?? null : null;
+  const selectedSymbolLivePercent =
+    activeSymbol.key === selectedSymbol.key
+      ? activeSymbolData?.closePricePercent ?? activeSymbolData?.lastPricePercent ?? null
+      : null;
+  const favoriteButtonTitle = selectedWatchlist
+    ? isSymbolInSelectedWatchlist
+      ? 'حذف نماد از دیده‌بان'
+      : 'افزودن نماد به دیده‌بان'
+    : 'ابتدا دیده‌بان بسازید';
 
   const dailyMin = activeSymbolData?.allowedMinPrice ?? null;
   const dailyMax = activeSymbolData?.allowedMaxPrice ?? null;
@@ -1418,8 +1921,23 @@ export default function TradingDashboard({
                 فروش
               </button>
 
-              <button type="button" className={`${actionBtnClass} w-10`} aria-label="favorite">
-                <Star className="h-4 w-4 text-warning" />
+              <button
+                type="button"
+                onClick={() => void handleToggleFavorite()}
+                disabled={watchlistBusy}
+                title={favoriteButtonTitle}
+                className={`${actionBtnClass} w-10 disabled:cursor-not-allowed disabled:opacity-70`}
+                aria-label="favorite"
+              >
+                {watchlistBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-warning" />
+                ) : (
+                  <Star
+                    className={`h-4 w-4 transition ${
+                      isSymbolInSelectedWatchlist ? 'fill-positive text-positive' : 'text-warning'
+                    }`}
+                  />
+                )}
               </button>
 
               <button
@@ -1842,7 +2360,25 @@ export default function TradingDashboard({
           </section>
 
           <div className="hidden md:block md:col-span-1 xl:col-span-2">
-            <WatchlistPanel activeTab={sidebarTab} onTabChange={setSidebarTab} />
+            <WatchlistPanel
+              activeTab={sidebarTab}
+              onTabChange={setSidebarTab}
+              watchlists={watchlists}
+              selectedWatchlistId={selectedWatchlistId}
+              onSelectWatchlist={setSelectedWatchlistId}
+              loading={watchlistsLoading}
+              error={watchlistsError}
+              onRetry={() => void loadWatchlists()}
+              onRequestCreateWatchlist={openCreateWatchlistModal}
+              onRequestEditWatchlist={openEditWatchlistModal}
+              onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
+              onRemoveSymbol={(symbolId) => void handleRemoveSymbol(symbolId)}
+              removingSymbolId={removingWatchlistSymbolId}
+              busy={watchlistBusy}
+              currentSymbolKey={selectedSymbol.key}
+              currentSymbolPrice={selectedSymbolLivePrice}
+              currentSymbolPercent={selectedSymbolLivePercent}
+            />
           </div>
         </section>
 
@@ -2038,6 +2574,111 @@ export default function TradingDashboard({
         </div>
       </footer>
 
+      {watchlistToast ? (
+        <div className="pointer-events-none fixed inset-x-0 top-3 z-[70] flex justify-center px-3">
+          <div
+            className={`pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs shadow-card ${
+              watchlistToast.tone === 'error'
+                ? 'border-negative/35 bg-negative/10 text-negative'
+                : 'border-border/80 bg-surface text-text'
+            }`}
+          >
+            <p>{watchlistToast.message}</p>
+            <button
+              type="button"
+              onClick={() => setWatchlistToast(null)}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/70 bg-surface-2 text-muted transition hover:text-text"
+              aria-label="close toast"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {watchlistModal ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <button
+            type="button"
+            onClick={closeWatchlistModal}
+            className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+            aria-label="close watchlist modal"
+          />
+          <form
+            dir="rtl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitWatchlistModal();
+            }}
+            className="relative w-full max-w-[360px] rounded-2xl border border-border/70 bg-surface shadow-card"
+          >
+            <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+              <h3 className="text-base font-bold text-text">
+                {watchlistModal.mode === 'create'
+                  ? 'ساخت دیدبان جدید'
+                  : `ویرایش دیدبان ${watchlistModal.originalName}`}
+              </h3>
+              <button
+                type="button"
+                onClick={closeWatchlistModal}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface-2 text-muted transition hover:text-text"
+                aria-label="close watchlist form"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 px-4 py-4">
+              <label htmlFor="watchlist-name" className="block text-sm font-medium text-text">
+                نام دیدبان
+              </label>
+              <input
+                id="watchlist-name"
+                value={watchlistNameDraft}
+                autoFocus
+                onChange={(event) => {
+                  setWatchlistNameDraft(event.target.value);
+                  setWatchlistNameError(null);
+                }}
+                type="text"
+                placeholder="مثال: خریدهای آینده"
+                className={`h-10 w-full rounded-xl border bg-surface-2 px-3 text-sm text-text outline-none transition placeholder:text-muted focus:ring-2 ${
+                  watchlistNameError
+                    ? 'border-negative/45 focus:border-negative/50 focus:ring-negative/25'
+                    : 'border-border/80 focus:border-primary/45 focus:ring-primary/30'
+                }`}
+              />
+
+              {watchlistNameError ? (
+                <div className="flex items-center gap-1.5 text-xs text-negative">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {watchlistNameError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="px-4 pb-4">
+              <button
+                type="submit"
+                disabled={watchlistSubmitting}
+                className="flex h-10 w-full items-center justify-center rounded-lg bg-positive text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {watchlistSubmitting ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    در حال ذخیره...
+                  </span>
+                ) : watchlistModal.mode === 'create' ? (
+                  'ساخت دیدبان'
+                ) : (
+                  'ذخیره تغییرات'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       {drawerOpen ? (
         <div className="fixed inset-0 z-50 md:hidden">
           <button
@@ -2061,7 +2702,25 @@ export default function TradingDashboard({
               </button>
             </div>
 
-            <WatchlistPanel activeTab={sidebarTab} onTabChange={setSidebarTab} />
+            <WatchlistPanel
+              activeTab={sidebarTab}
+              onTabChange={setSidebarTab}
+              watchlists={watchlists}
+              selectedWatchlistId={selectedWatchlistId}
+              onSelectWatchlist={setSelectedWatchlistId}
+              loading={watchlistsLoading}
+              error={watchlistsError}
+              onRetry={() => void loadWatchlists()}
+              onRequestCreateWatchlist={openCreateWatchlistModal}
+              onRequestEditWatchlist={openEditWatchlistModal}
+              onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
+              onRemoveSymbol={(symbolId) => void handleRemoveSymbol(symbolId)}
+              removingSymbolId={removingWatchlistSymbolId}
+              busy={watchlistBusy}
+              currentSymbolKey={selectedSymbol.key}
+              currentSymbolPrice={selectedSymbolLivePrice}
+              currentSymbolPercent={selectedSymbolLivePercent}
+            />
           </div>
         </div>
       ) : null}
