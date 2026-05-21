@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, Copy, KeyRound, RefreshCw } from 'lucide-react';
 import { FormEvent, useMemo, useState } from 'react';
 import { appConfig } from './config/appConfig';
 
@@ -42,6 +42,33 @@ const normalizePhoneNumber = (raw: string) => {
   if (value.startsWith('98')) return `+${value}`;
   if (value.startsWith('09') && value.length === 11) return `+98${value.slice(1)}`;
   return value;
+};
+
+const persianNamePattern = /^[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+$/;
+
+const isPersianName = (value: string) => persianNamePattern.test(value.trim());
+
+const generateStrongPassword = () => {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnopqrstuvwxyz';
+  const digits = '23456789';
+  const symbols = '!@#$%^&*_-+=?';
+  const groups = [upper, lower, digits, symbols];
+  const all = groups.join('');
+  const randomInt = (max: number) => {
+    const buffer = new Uint32Array(1);
+    crypto.getRandomValues(buffer);
+    return buffer[0] % max;
+  };
+  const chars = groups.map((group) => group[randomInt(group.length)]);
+  while (chars.length < 16) {
+    chars.push(all[randomInt(all.length)]);
+  }
+  return chars
+    .map((char) => ({ char, sort: randomInt(10_000) }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ char }) => char)
+    .join('');
 };
 
 const firstErrorMessage = (errors?: Record<string, string>) => {
@@ -97,6 +124,9 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
   const [mode, setMode] = useState<AuthMode>('login');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+  const [generatedPasswordConfirmed, setGeneratedPasswordConfirmed] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -117,6 +147,22 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
   const handleModeChange = (nextMode: AuthMode) => {
     setMode(nextMode);
     setError(null);
+    setGeneratedPassword(null);
+    setGeneratedPasswordConfirmed(false);
+  };
+
+  const applyGeneratedPassword = () => {
+    const nextPassword = generateStrongPassword();
+    setPassword(nextPassword);
+    setPasswordConfirmation(nextPassword);
+    setGeneratedPassword(nextPassword);
+    setGeneratedPasswordConfirmed(false);
+    setError(null);
+  };
+
+  const copyGeneratedPassword = async () => {
+    if (!generatedPassword) return;
+    await navigator.clipboard?.writeText(generatedPassword);
   };
 
   const submitAuthRequest = async (endpoint: 'login' | 'register', payload: unknown) => {
@@ -184,6 +230,18 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
         return;
       }
 
+      if (!isPersianName(firstName) || !isPersianName(lastName)) {
+        throw new Error('نام و نام خانوادگی باید فقط با حروف فارسی وارد شوند.');
+      }
+
+      if (trimmedPassword !== passwordConfirmation.trim()) {
+        throw new Error('رمز عبور و تکرار آن یکسان نیستند.');
+      }
+
+      if (generatedPassword && trimmedPassword === generatedPassword && !generatedPasswordConfirmed) {
+        throw new Error('برای استفاده از رمز پیشنهادی، ابتدا تأیید کنید که آن را در جای امن نگه داشته‌اید.');
+      }
+
       const session = await submitAuthRequest('register', {
         username: username.trim().toLowerCase(),
         firstName: firstName.trim(),
@@ -236,6 +294,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="نام کاربری" required />
                 <input
+                  name="username"
+                  autoComplete="username"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="نام کاربری (انگلیسی)"
@@ -246,6 +306,10 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="نام" required />
                 <input
+                  name="given-name"
+                  autoComplete="given-name"
+                  pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                  title="نام باید فقط با حروف فارسی وارد شود."
                   value={firstName}
                   onChange={(event) => setFirstName(event.target.value)}
                   placeholder="نام"
@@ -256,6 +320,10 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="نام خانوادگی" required />
                 <input
+                  name="family-name"
+                  autoComplete="family-name"
+                  pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                  title="نام خانوادگی باید فقط با حروف فارسی وارد شود."
                   value={lastName}
                   onChange={(event) => setLastName(event.target.value)}
                   placeholder="نام خانوادگی"
@@ -266,6 +334,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="کد ملی" />
                 <input
+                  name="national-code"
                   value={nationalCode}
                   onChange={(event) => setNationalCode(event.target.value)}
                   placeholder="کد ملی (۱۰ رقم)"
@@ -275,6 +344,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="شماره موبایل" />
                 <input
+                  name="tel"
+                  autoComplete="tel"
                   value={phoneNumber}
                   onChange={(event) => setPhoneNumber(event.target.value)}
                   placeholder="شماره موبایل (مثل 0912... یا +98912...)"
@@ -284,6 +355,9 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="ایمیل" />
                 <input
+                  name="email"
+                  autoComplete="email"
+                  type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="ایمیل"
@@ -295,6 +369,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
             <div>
               <FieldLabel title="نام کاربری یا ایمیل" required showRequirement={false} />
               <input
+                name="username"
+                autoComplete="username"
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
                 placeholder="نام کاربری یا ایمیل"
@@ -306,17 +382,89 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
 
           <div>
             <FieldLabel title="رمز عبور" required showRequirement={mode === 'register'} />
-            <input
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              type="password"
-              placeholder="رمز عبور"
-              required
-              minLength={8}
-              maxLength={24}
-              className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-            />
+            <div className="flex gap-2">
+              <input
+                name={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setGeneratedPasswordConfirmed(false);
+                }}
+                type="password"
+                placeholder="رمز عبور"
+                required
+                minLength={8}
+                maxLength={24}
+                className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+              />
+              {mode === 'register' ? (
+                <button
+                  type="button"
+                  onClick={applyGeneratedPassword}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-bold text-text transition hover:border-primary/60"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  ساخت رمز
+                </button>
+              ) : null}
+            </div>
           </div>
+
+          {mode === 'register' ? (
+            <>
+              <div>
+                <FieldLabel title="تأیید رمز عبور" required />
+                <input
+                  name="new-password-confirmation"
+                  autoComplete="new-password"
+                  value={passwordConfirmation}
+                  onChange={(event) => setPasswordConfirmation(event.target.value)}
+                  type="password"
+                  placeholder="تکرار رمز عبور"
+                  required
+                  minLength={8}
+                  maxLength={24}
+                  className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                />
+              </div>
+
+              {generatedPassword ? (
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <code dir="ltr" className="min-w-0 flex-1 rounded-lg bg-bg px-2 py-1.5 text-xs text-text">
+                      {generatedPassword}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => void copyGeneratedPassword()}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-text"
+                      aria-label="کپی رمز پیشنهادی"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyGeneratedPassword}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-text"
+                      aria-label="ساخت رمز جدید"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs leading-6 text-text">
+                    <input
+                      type="checkbox"
+                      checked={generatedPasswordConfirmed}
+                      onChange={(event) => setGeneratedPasswordConfirmed(event.target.checked)}
+                      className="mt-1"
+                    />
+                    <span>رمز پیشنهادی را ذخیره کرده‌ام و برای ورودهای بعدی به آن دسترسی دارم.</span>
+                  </label>
+                </div>
+              ) : null}
+            </>
+          ) : null}
 
           {mode === 'login' ? (
             <label className="group flex cursor-pointer items-center justify-between px-1 py-1.5">

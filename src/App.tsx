@@ -67,6 +67,10 @@ const normalizePhoneNumber = (raw: string) => {
   return value;
 };
 
+const persianNamePattern = /^[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+$/;
+
+const isPersianName = (value: string) => persianNamePattern.test(value.trim());
+
 const firstErrorMessage = (errors?: Record<string, string>) => {
   if (!errors) return null;
   const firstKey = Object.keys(errors)[0];
@@ -303,6 +307,10 @@ export default function App() {
     };
 
     try {
+      if (!isPersianName(payload.firstName) || !isPersianName(payload.lastName)) {
+        throw new Error('نام و نام خانوادگی باید فقط با حروف فارسی وارد شوند.');
+      }
+
       const response = await fetch('/api/v1/users', {
         method: 'PUT',
         headers: {
@@ -377,6 +385,8 @@ export default function App() {
                   <div>
                     <FieldLabel title="نام کاربری" required />
                     <input
+                      name="username"
+                      autoComplete="username"
                       value={editUsername}
                       onChange={(event) => setEditUsername(event.target.value)}
                       disabled={!profileEditMode}
@@ -387,6 +397,10 @@ export default function App() {
                   <div>
                     <FieldLabel title="نام" required />
                     <input
+                      name="given-name"
+                      autoComplete="given-name"
+                      pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                      title="نام باید فقط با حروف فارسی وارد شود."
                       value={editFirstName}
                       onChange={(event) => setEditFirstName(event.target.value)}
                       disabled={!profileEditMode}
@@ -397,6 +411,10 @@ export default function App() {
                   <div>
                     <FieldLabel title="نام خانوادگی" required />
                     <input
+                      name="family-name"
+                      autoComplete="family-name"
+                      pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                      title="نام خانوادگی باید فقط با حروف فارسی وارد شود."
                       value={editLastName}
                       onChange={(event) => setEditLastName(event.target.value)}
                       disabled={!profileEditMode}
@@ -407,6 +425,7 @@ export default function App() {
                   <div>
                     <FieldLabel title="کد ملی" />
                     <input
+                      name="national-code"
                       value={editNationalCode}
                       onChange={(event) => setEditNationalCode(event.target.value)}
                       disabled={!profileEditMode}
@@ -419,6 +438,8 @@ export default function App() {
                 <div>
                   <FieldLabel title="شماره موبایل" />
                   <input
+                    name="tel"
+                    autoComplete="tel"
                     value={editPhoneNumber}
                     onChange={(event) => setEditPhoneNumber(event.target.value)}
                     disabled={!profileEditMode}
@@ -429,6 +450,9 @@ export default function App() {
                 <div>
                   <FieldLabel title="ایمیل" />
                   <input
+                    name="email"
+                    autoComplete="email"
+                    type="email"
                     value={editEmail}
                     onChange={(event) => setEditEmail(event.target.value)}
                     disabled={!profileEditMode}
@@ -440,6 +464,8 @@ export default function App() {
                   <div className="rounded-xl border border-border/70 bg-surface-2/60 p-3">
                     <FieldLabel title="رمز عبور جدید" />
                     <input
+                      name="new-password"
+                      autoComplete="new-password"
                       value={editPassword}
                       onChange={(event) => setEditPassword(event.target.value)}
                       type="password"
