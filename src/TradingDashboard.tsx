@@ -240,6 +240,9 @@ const formatCompactValue = (value: number, unit: 'T' | 'B') => {
   return `${formatNumberFa(value / divisor, 2)}${unit}`;
 };
 
+const formatCompactValueOrUnavailable = (value: number | null | undefined, unit: 'T' | 'B') =>
+  value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatCompactValue(value, unit);
+
 const formatCompactAmountFa = (value: number | null | undefined) => {
   if (value === null || value === undefined || Number.isNaN(value)) return 'ناموجود';
   const absolute = Math.abs(value);
@@ -256,6 +259,11 @@ const formatCompactAmountFa = (value: number | null | undefined) => {
     return `${formatNumberFa(value / 1_000, 2)}K`;
   }
   return formatNumberFa(value);
+};
+
+const formatNumberWithUnit = (value: number | null | undefined, unit: string, digits = 0) => {
+  const formatted = formatNumberOrDash(value, digits);
+  return formatted === 'ناموجود' ? formatted : `${formatted} ${unit}`;
 };
 
 const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
@@ -933,10 +941,10 @@ function WatchlistPanel({
                         <div className="truncate text-[11px] text-muted">{symbol.name}</div>
                       </div>
                       <span className="text-center tabular-nums text-text">
-                        {livePrice === null ? '-' : formatNumberFa(livePrice)}
+                        {formatNumberOrDash(livePrice)}
                       </span>
                       <span className="text-center tabular-nums text-muted">
-                        {livePercent === null ? '-' : formatPercentFa(livePercent)}
+                        {formatPercentOrDash(livePercent)}
                       </span>
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -991,10 +999,10 @@ export default function TradingDashboard({
   const bourseOverview = useMarketOverview('1');
   const farabourseOverview = useMarketOverview('2');
 
-  const marketIndex = bourseOverview?.indexValue ?? 0;
-  const marketDelta = bourseOverview?.indexChange ?? 0;
-  const farabourseIndex = farabourseOverview?.indexValue ?? 0;
-  const farabourseDelta = farabourseOverview?.indexChange ?? 0;
+  const marketIndex = bourseOverview?.indexValue ?? null;
+  const marketDelta = bourseOverview?.indexChange ?? null;
+  const farabourseIndex = farabourseOverview?.indexValue ?? null;
+  const farabourseDelta = farabourseOverview?.indexChange ?? null;
   const [selectedSymbol, setSelectedSymbol] = useState<SymbolSearchSuggestion>(DEFAULT_SELECTED_SYMBOL);
   const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
   const activeSymbol = previewSymbol ?? selectedSymbol;
@@ -1265,17 +1273,23 @@ export default function TradingDashboard({
   }, [selectedSymbol.symbol]);
 
   const marketPercent = useMemo(
-    () => (marketIndex !== 0 ? (marketDelta / marketIndex) * 100 : 0),
+    () =>
+      marketIndex !== null && marketDelta !== null && marketIndex !== 0
+        ? (marketDelta / marketIndex) * 100
+        : null,
     [marketDelta, marketIndex]
   );
 
   const faraboursePercent = useMemo(
-    () => (farabourseIndex !== 0 ? (farabourseDelta / farabourseIndex) * 100 : 0),
+    () =>
+      farabourseIndex !== null && farabourseDelta !== null && farabourseIndex !== 0
+        ? (farabourseDelta / farabourseIndex) * 100
+        : null,
     [farabourseDelta, farabourseIndex]
   );
 
-  const marketPositive = marketDelta >= 0;
-  const faraboursePositive = farabourseDelta >= 0;
+  const marketPositive = marketDelta !== null ? marketDelta >= 0 : false;
+  const faraboursePositive = farabourseDelta !== null ? farabourseDelta >= 0 : false;
   const symbolPrice = activeSymbolData?.lastPrice ?? null;
   const symbolPercent = activeSymbolData?.lastPricePercent ?? null;
   const symbolPositive = symbolPercent !== null ? symbolPercent >= 0 : false;
@@ -1372,9 +1386,9 @@ export default function TradingDashboard({
         indexValue: marketIndex,
         deltaValue: marketDelta,
         percentValue: marketPercent,
-        totalTrades: bourseOverview?.totalTrades ?? 0,
-        tradeValue: bourseOverview?.totalTradeValue ?? 0,
-        tradeVolume: bourseOverview?.totalTradeVolume ?? 0,
+        totalTrades: bourseOverview?.totalTrades ?? null,
+        tradeValue: bourseOverview?.totalTradeValue ?? null,
+        tradeVolume: bourseOverview?.totalTradeVolume ?? null,
         positive: marketPositive,
       },
       {
@@ -1383,9 +1397,9 @@ export default function TradingDashboard({
         indexValue: farabourseIndex,
         deltaValue: farabourseDelta,
         percentValue: faraboursePercent,
-        totalTrades: farabourseOverview?.totalTrades ?? 0,
-        tradeValue: farabourseOverview?.totalTradeValue ?? 0,
-        tradeVolume: farabourseOverview?.totalTradeVolume ?? 0,
+        totalTrades: farabourseOverview?.totalTrades ?? null,
+        tradeValue: farabourseOverview?.totalTradeValue ?? null,
+        tradeVolume: farabourseOverview?.totalTradeVolume ?? null,
         positive: faraboursePositive,
       },
     ],
@@ -1423,10 +1437,10 @@ export default function TradingDashboard({
     () => [
       {
         label: 'خالص دارایی',
-        value: `${formatNumberOrDash(activeSymbolData?.marketValue)} ریال`,
+        value: formatNumberWithUnit(activeSymbolData?.marketValue, 'ریال'),
       },
-      { label: 'حجم معاملات', value: `${formatNumberOrDash(activeSymbolData?.tradeVolume)} سهم` },
-      { label: 'ارزش معاملات', value: `${formatNumberOrDash(activeSymbolData?.tradeValue)} ریال` },
+      { label: 'حجم معاملات', value: formatNumberWithUnit(activeSymbolData?.tradeVolume, 'سهم') },
+      { label: 'ارزش معاملات', value: formatNumberWithUnit(activeSymbolData?.tradeValue, 'ریال') },
       { label: 'حجم مبنا', value: formatNumberOrDash(activeSymbolData?.baseVolume) },
       { label: 'NAV ابطال', value: activeSymbolData?.source === 'fund' ? formatNumberOrDash(activeSymbolData.navCancel) : 'ناموجود' },
     ],
@@ -1472,7 +1486,7 @@ export default function TradingDashboard({
         groups.set(key, {
           id: key,
           title: notice.title.trim() || 'بدون عنوان',
-          publishDateTime: notice.publishDateTime || notice.sentDateTime || '-',
+          publishDateTime: notice.publishDateTime || notice.sentDateTime || 'ناموجود',
           symbols: noticeSymbols,
           notices: [notice],
           hasUnderSupervision: underSupervision,
@@ -1757,7 +1771,7 @@ export default function TradingDashboard({
 
                   <div className="flex items-center gap-2 [direction:ltr]">
                     <span className="text-xl leading-none font-extrabold tracking-tight tabular-nums text-text sm:text-2xl">
-                      {formatNumberFa(marketIndex)}
+                      {formatNumberOrDash(marketIndex)}
                     </span>
 
                     <span
@@ -1765,7 +1779,7 @@ export default function TradingDashboard({
                         marketPositive ? 'text-positive' : 'text-negative'
                       }`}
                     >
-                      {formatNumberFa(marketDelta)}
+                      {formatNumberOrDash(marketDelta)}
                     </span>
 
                     <span
@@ -1773,7 +1787,7 @@ export default function TradingDashboard({
                         marketPositive ? 'text-positive' : 'text-negative'
                       }`}
                     >
-                      ({formatPercentFa(marketPercent)})
+                      ({formatPercentOrDash(marketPercent)})
                     </span>
 
                     <ChevronDown
@@ -1797,14 +1811,14 @@ export default function TradingDashboard({
                                 item.positive ? 'text-positive' : 'text-negative'
                               }`}
                             >
-                              {formatNumberFa(item.deltaValue)} ({formatPercentFa(item.percentValue)})
+                              {formatNumberOrDash(item.deltaValue)} ({formatPercentOrDash(item.percentValue)})
                             </span>
                           </div>
 
                           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-[11px]">
                             <span className="text-muted">شاخص کل</span>
                             <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
-                              {formatNumberFa(item.indexValue)}
+                              {formatNumberOrDash(item.indexValue)}
                             </span>
 
                             <span className="text-muted">تغییرات</span>
@@ -1813,22 +1827,22 @@ export default function TradingDashboard({
                                 item.positive ? 'text-positive' : 'text-negative'
                               }`}
                             >
-                              {formatNumberFa(item.deltaValue)} ({formatPercentFa(item.percentValue)})
+                              {formatNumberOrDash(item.deltaValue)} ({formatPercentOrDash(item.percentValue)})
                             </span>
 
                             <span className="text-muted">تعداد معاملات</span>
                             <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
-                              {formatNumberFa(item.totalTrades)}
+                              {formatNumberOrDash(item.totalTrades)}
                             </span>
 
                             <span className="text-muted">ارزش معاملات</span>
                             <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
-                              {formatCompactValue(item.tradeValue, 'T')}
+                              {formatCompactValueOrUnavailable(item.tradeValue, 'T')}
                             </span>
 
                             <span className="text-muted">حجم معاملات</span>
                             <span className="text-left font-semibold tabular-nums text-text [direction:ltr]">
-                              {formatCompactValue(item.tradeVolume, 'B')}
+                              {formatCompactValueOrUnavailable(item.tradeVolume, 'B')}
                             </span>
                           </div>
 
@@ -2345,10 +2359,8 @@ export default function TradingDashboard({
                         ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
                         : item.valueType === 'percent'
                           ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
-                          : item.valueType === 'currency'
-                            ? typeof item.value === 'number'
-                              ? `${formatNumberFa(item.value)} ریال`
-                              : 'ناموجود'
+                        : item.valueType === 'currency'
+                            ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
                             : typeof item.value === 'string'
                               ? item.value || 'ناموجود'
                               : 'ناموجود'}

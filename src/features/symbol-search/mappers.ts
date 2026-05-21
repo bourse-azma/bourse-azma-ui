@@ -159,10 +159,13 @@ const calculatePercent = (part: number | null, total: number | null) => {
   return (part / total) * 100;
 };
 
+const sumKnownValues = (...values: Array<number | null>) =>
+  values.every((value): value is number => value !== null) ? values.reduce((sum, value) => sum + value, 0) : null;
+
 const toDepthFromTsetmc = (clientType: TsetmcClientType | null): SymbolDepthRow[] => {
   if (!clientType) return [];
-  const totalBuy = (clientType.individualBuyVolume ?? 0) + (clientType.institutionalBuyVolume ?? 0);
-  const totalSell = (clientType.individualSellVolume ?? 0) + (clientType.institutionalSellVolume ?? 0);
+  const totalBuy = sumKnownValues(clientType.individualBuyVolume, clientType.institutionalBuyVolume);
+  const totalSell = sumKnownValues(clientType.individualSellVolume, clientType.institutionalSellVolume);
 
   return [
     {
@@ -207,8 +210,8 @@ const toDepthFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): Symbol
     'sell_I_Volume'
   );
 
-  const totalBuy = (individualBuyVolume ?? 0) + (institutionalBuyVolume ?? 0);
-  const totalSell = (individualSellVolume ?? 0) + (institutionalSellVolume ?? 0);
+  const totalBuy = sumKnownValues(individualBuyVolume, institutionalBuyVolume);
+  const totalSell = sumKnownValues(individualSellVolume, institutionalSellVolume);
 
   return [
     {
