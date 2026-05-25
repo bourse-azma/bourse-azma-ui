@@ -288,7 +288,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
           </button>
         </div>
 
-        <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+        <form className="mt-5 space-y-3" onSubmit={handleSubmit} autoComplete="on">
           {mode === 'register' ? (
             <>
               <div>
@@ -296,6 +296,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
                 <input
                   name="username"
                   autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
                   placeholder="نام کاربری (انگلیسی)"
@@ -357,6 +359,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
                 <input
                   name="email"
                   autoComplete="email"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -371,6 +375,8 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <input
                 name="username"
                 autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
                 placeholder="نام کاربری یا ایمیل"
@@ -384,7 +390,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
             <FieldLabel title="رمز عبور" required showRequirement={mode === 'register'} />
             <div className="flex gap-2">
               <input
-                name={mode === 'login' ? 'current-password' : 'new-password'}
+                name="password"
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(event) => {
@@ -416,7 +422,7 @@ export default function AuthPage({ onAuthenticated }: AuthPageProps) {
               <div>
                 <FieldLabel title="تأیید رمز عبور" required />
                 <input
-                  name="new-password-confirmation"
+                  name="password-confirmation"
                   autoComplete="new-password"
                   value={passwordConfirmation}
                   onChange={(event) => setPasswordConfirmation(event.target.value)}
