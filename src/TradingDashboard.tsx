@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Clock3,
   ExternalLink,
+  Eye,
   Filter,
   LineChart,
   Loader2,
@@ -42,7 +43,6 @@ import {
   createWatchlist,
   deleteWatchlist,
   getWatchlists,
-  removeSymbolFromWatchlist,
   updateWatchlist,
   type Watchlist,
 } from './features/watchlist/api';
@@ -672,12 +672,9 @@ function WatchlistPanel({
   onRequestCreateWatchlist,
   onRequestEditWatchlist,
   onRequestDeleteWatchlist,
-  onRemoveSymbol,
-  removingSymbolId,
-  busy,
+  onSelectSymbol,
   currentSymbolKey,
   currentSymbolPrice,
-  currentSymbolPercent,
 }: {
   activeTab: SidebarTab;
   onTabChange: (tab: SidebarTab) => void;
@@ -690,12 +687,9 @@ function WatchlistPanel({
   onRequestCreateWatchlist: () => void;
   onRequestEditWatchlist: (watchlistId: number) => void;
   onRequestDeleteWatchlist: (watchlistId: number) => void;
-  onRemoveSymbol: (symbolId: number) => void;
-  removingSymbolId: number | null;
-  busy: boolean;
+  onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
   currentSymbolKey: string;
   currentSymbolPrice: number | null;
-  currentSymbolPercent: number | null;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -906,11 +900,10 @@ function WatchlistPanel({
           </div>
 
           <section className="rounded-xl border border-border/70 bg-surface">
-            <header className="grid grid-cols-[1.3fr_1fr_0.8fr_1fr] items-center gap-2 border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted">
+            <header className="grid grid-cols-[1.5fr_1fr_auto] items-center gap-2 border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted">
               <span>نام نماد</span>
               <span className="text-center">قیمت</span>
-              <span className="text-center">پایانی٪</span>
-              <span className="text-left">عملیات</span>
+              <span className="text-left pl-2">عملیات</span>
             </header>
 
             {selectedWatchlist.symbols.length === 0 ? (
@@ -930,11 +923,10 @@ function WatchlistPanel({
               <div className="thin-scrollbar max-h-[245px] overflow-y-auto">
                 {selectedWatchlist.symbols.map((symbol) => {
                   const livePrice = symbol.symbolKey === currentSymbolKey ? currentSymbolPrice : null;
-                  const livePercent = symbol.symbolKey === currentSymbolKey ? currentSymbolPercent : null;
                   return (
                     <div
                       key={symbol.id}
-                      className="grid grid-cols-[1.3fr_1fr_0.8fr_1fr] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0"
+                      className="grid grid-cols-[1.5fr_1fr_auto] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0"
                     >
                       <div>
                         <div className="truncate font-semibold text-text">{symbol.symbol}</div>
@@ -943,34 +935,22 @@ function WatchlistPanel({
                       <span className="text-center tabular-nums text-text">
                         {formatNumberOrDash(livePrice)}
                       </span>
-                      <span className="text-center tabular-nums text-muted">
-                        {formatPercentOrDash(livePercent)}
-                      </span>
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end pl-1">
                         <button
                           type="button"
-                          className="rounded-full bg-positive px-2 py-0.5 text-[11px] font-semibold text-white transition hover:brightness-105"
+                          onClick={() => onSelectSymbol({
+                            key: symbol.symbolKey,
+                            type: symbol.sourceType || 'TSE',
+                            symbol: symbol.symbol,
+                            name: symbol.name,
+                            instrumentCode: symbol.instrumentCode,
+                            isin: symbol.isin,
+                            oldInstrumentCodes: [],
+                          })}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface text-muted transition hover:border-primary/35 hover:text-text"
+                          aria-label={`view ${symbol.symbol} details`}
                         >
-                          خرید
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-full bg-negative px-2 py-0.5 text-[11px] font-semibold text-white transition hover:brightness-105"
-                        >
-                          فروش
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onRemoveSymbol(symbol.id)}
-                          disabled={busy || removingSymbolId === symbol.id}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-negative/30 bg-negative/10 text-negative transition hover:bg-negative/15 disabled:cursor-not-allowed disabled:opacity-60"
-                          aria-label={`remove ${symbol.symbol} from watchlist`}
-                        >
-                          {removingSymbolId === symbol.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
-                          )}
+                          <Eye className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
@@ -1039,7 +1019,6 @@ export default function TradingDashboard({
   const [watchlistNameError, setWatchlistNameError] = useState<string | null>(null);
   const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
-  const [removingWatchlistSymbolId, setRemovingWatchlistSymbolId] = useState<number | null>(null);
   const [watchlistToast, setWatchlistToast] = useState<WatchlistToast | null>(null);
 
   const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
@@ -1173,30 +1152,6 @@ export default function TradingDashboard({
     [accessToken, selectedWatchlistId, showWatchlistToast, watchlistBusy, watchlists]
   );
 
-  const handleRemoveSymbol = useCallback(
-    async (symbolId: number) => {
-      if (!selectedWatchlist) return;
-      if (watchlistBusy) return;
-
-      const targetSymbol = selectedWatchlist.symbols.find((item) => item.id === symbolId);
-      setRemovingWatchlistSymbolId(symbolId);
-
-      try {
-        const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, symbolId);
-        replaceWatchlistInState(updated);
-        if (targetSymbol) {
-          showWatchlistToast(`نماد ${targetSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'حذف نماد از دیده‌بان ناموفق بود.';
-        showWatchlistToast(message, 'error');
-      } finally {
-        setRemovingWatchlistSymbolId(null);
-      }
-    },
-    [accessToken, replaceWatchlistInState, selectedWatchlist, showWatchlistToast, watchlistBusy]
-  );
-
   const handleToggleFavorite = useCallback(async () => {
     if (watchlistBusy) return;
 
@@ -1205,17 +1160,15 @@ export default function TradingDashboard({
       return;
     }
 
+    if (selectedWatchlistSymbol) {
+      return;
+    }
+
     setWatchlistBusy(true);
     try {
-      if (selectedWatchlistSymbol) {
-        const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, selectedWatchlistSymbol.id);
-        replaceWatchlistInState(updated);
-        showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
-      } else {
-        const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
-        replaceWatchlistInState(updated);
-        showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
-      }
+      const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
+      replaceWatchlistInState(updated);
+      showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
       showWatchlistToast(message, 'error');
@@ -1296,10 +1249,7 @@ export default function TradingDashboard({
   const isSymbolInSelectedWatchlist = selectedWatchlistSymbol !== null;
   const selectedSymbolLivePrice =
     activeSymbol.key === selectedSymbol.key ? activeSymbolData?.closePrice ?? activeSymbolData?.lastPrice ?? null : null;
-  const selectedSymbolLivePercent =
-    activeSymbol.key === selectedSymbol.key
-      ? activeSymbolData?.closePricePercent ?? activeSymbolData?.lastPricePercent ?? null
-      : null;
+
   const favoriteButtonTitle = selectedWatchlist
     ? isSymbolInSelectedWatchlist
       ? 'حذف نماد از دیده‌بان'
@@ -2384,12 +2334,9 @@ export default function TradingDashboard({
               onRequestCreateWatchlist={openCreateWatchlistModal}
               onRequestEditWatchlist={openEditWatchlistModal}
               onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
-              onRemoveSymbol={(symbolId) => void handleRemoveSymbol(symbolId)}
-              removingSymbolId={removingWatchlistSymbolId}
-              busy={watchlistBusy}
+              onSelectSymbol={setSelectedSymbol}
               currentSymbolKey={selectedSymbol.key}
               currentSymbolPrice={selectedSymbolLivePrice}
-              currentSymbolPercent={selectedSymbolLivePercent}
             />
           </div>
         </section>
@@ -2726,12 +2673,9 @@ export default function TradingDashboard({
               onRequestCreateWatchlist={openCreateWatchlistModal}
               onRequestEditWatchlist={openEditWatchlistModal}
               onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
-              onRemoveSymbol={(symbolId) => void handleRemoveSymbol(symbolId)}
-              removingSymbolId={removingWatchlistSymbolId}
-              busy={watchlistBusy}
+              onSelectSymbol={setSelectedSymbol}
               currentSymbolKey={selectedSymbol.key}
               currentSymbolPrice={selectedSymbolLivePrice}
-              currentSymbolPercent={selectedSymbolLivePercent}
             />
           </div>
         </div>
