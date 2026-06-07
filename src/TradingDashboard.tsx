@@ -998,6 +998,9 @@ export default function TradingDashboard({
     const marketDelta = bourseOverview?.indexChange ?? null;
     const farabourseIndex = farabourseOverview?.indexValue ?? null;
     const farabourseDelta = farabourseOverview?.indexChange ?? null;
+
+    const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
+    const isMarketOpen = marketStateText === 'باز';
     const [selectedSymbol, setSelectedSymbol] = useState<SymbolSearchSuggestion>(DEFAULT_SELECTED_SYMBOL);
     const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
     const activeSymbol = previewSymbol ?? selectedSymbol;
@@ -1356,6 +1359,7 @@ export default function TradingDashboard({
                 tradeValue: bourseOverview?.totalTradeValue ?? null,
                 tradeVolume: bourseOverview?.totalTradeVolume ?? null,
                 positive: marketPositive,
+                marketStateTitle: bourseOverview?.marketStateTitle ?? null,
             },
             {
                 id: 'farabourse',
@@ -1367,12 +1371,14 @@ export default function TradingDashboard({
                 tradeValue: farabourseOverview?.totalTradeValue ?? null,
                 tradeVolume: farabourseOverview?.totalTradeVolume ?? null,
                 positive: faraboursePositive,
+                marketStateTitle: farabourseOverview?.marketStateTitle ?? null,
             },
         ],
         [
             bourseOverview?.totalTrades,
             bourseOverview?.totalTradeValue,
             bourseOverview?.totalTradeVolume,
+            bourseOverview?.marketStateTitle,
             farabourseDelta,
             farabourseIndex,
             faraboursePercent,
@@ -1380,6 +1386,7 @@ export default function TradingDashboard({
             farabourseOverview?.totalTrades,
             farabourseOverview?.totalTradeValue,
             farabourseOverview?.totalTradeVolume,
+            farabourseOverview?.marketStateTitle,
             marketDelta,
             marketIndex,
             marketPercent,
@@ -1742,6 +1749,20 @@ export default function TradingDashboard({
                                     <div className="flex items-center gap-1.5 text-xs text-muted">
                                         <span className="font-medium sm:text-sm">شاخص کل بورس</span>
                                         <span className="text-[11px] text-muted/80">بورس • فرابورس</span>
+                                        {marketStateText && (
+                                            <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                                                isMarketOpen
+                                                    ? 'bg-positive/10 text-positive'
+                                                    : 'bg-muted/10 text-muted'
+                                            }`}>
+                                                <span className={`h-1.5 w-1.5 rounded-full ${
+                                                    isMarketOpen
+                                                        ? 'bg-positive animate-pulse'
+                                                        : 'bg-muted'
+                                                }`} />
+                                                {marketStateText}
+                                            </span>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-2 [direction:ltr]">
