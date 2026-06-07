@@ -20,6 +20,9 @@ import {
     Trash2,
     UserRound,
     Wallet,
+    ArrowUpRight,
+    ArrowDownLeft,
+    Coins,
     X,
 } from 'lucide-react';
 import type {Theme} from './hooks/useTheme';
@@ -28,6 +31,7 @@ import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox'
 import {getCodalNotices} from './features/symbol-search/api';
 import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
 import type {SymbolSearchSuggestion} from './features/symbol-search/types';
+import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
 import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import {
@@ -47,10 +51,23 @@ import {
     type Watchlist,
 } from './features/watchlist/api';
 
-type SidebarTab = 'watchlist' | 'industries';
+type SidebarTab = 'watchlist' | 'industries' | 'wallet';
+type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'chart' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'done' | 'failed' | 'all';
+
+type UserProfile = {
+    id: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+    nationalCode: string;
+    phoneNumber: string;
+    email: string;
+    role: string;
+    balance?: number;
+};
 
 type TradingDashboardProps = {
     theme: Theme;
@@ -59,6 +76,8 @@ type TradingDashboardProps = {
     profileDisplayName: string;
     onOpenProfile: () => void;
     onLogout: () => void;
+    userProfile?: UserProfile;
+    onProfileUpdated?: (profile: UserProfile) => void;
 };
 
 type MarketOverviewResult = {
@@ -668,6 +687,259 @@ const cardClass = 'rounded-2xl border border-border/70 bg-surface shadow-card da
 const actionBtnClass =
     'inline-flex h-10 items-center justify-center rounded-xl border border-border/80 bg-surface-2 px-3 text-muted transition hover:border-primary/35 hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45';
 
+type WalletTx = {
+    id: number;
+    amount: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+};
+
+function WalletReportsPanel({accessToken}: { accessToken: string }) {
+    const [txs, setTxs] = useState<WalletTx[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const fetchTxs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/v1/wallet/transactions', {
+                headers: {Authorization: `Bearer ${accessToken}`},
+            });
+            const data = await res.json();
+            if (res.ok && data.result) {
+                setTxs(data.result);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, [accessToken]);
+
+    useEffect(() => {
+        void fetchTxs();
+    }, [fetchTxs]);
+
+    return (
+        <section dir="rtl" className={`${cardClass} p-4`}>
+            <div className="mb-4">
+                <h2 className="text-sm font-semibold text-text">گزارشات کیف پول</h2>
+                <p className="mt-1 text-xs text-muted">تاریخچه فعالیت‌ها و تراکنش‌های کیف پول شما</p>
+            </div>
+
+            {loading ? (
+                <div className="py-8 text-center text-xs text-muted">در حال بارگذاری گزارشات...</div>
+            ) : txs.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted">
+                    گزارشی یافت نشد.
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {txs.map((tx) => {
+                        const isIncrease = tx.amount > 0;
+                        return (
+                            <div
+                                key={tx.id}
+                                className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-surface-2 p-3 text-xs"
+                            >
+                                <div className="flex min-w-0 items-start gap-2">
+                                    <span
+                                        className={`mt-0.5 rounded-lg p-1 ${isIncrease ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}
+                                    >
+                                        {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> : <ArrowDownLeft className="h-3.5 w-3.5"/>}
+                                    </span>
+                                    <div className="min-w-0">
+                                        <div className="font-semibold text-text leading-relaxed">{tx.description}</div>
+                                        <div className="mt-1 text-[10px] text-muted">
+                                            {new Date(tx.createdAt).toLocaleDateString('fa-IR', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="shrink-0 text-left">
+                                    <div className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                        {isIncrease ? '+' : ''}{tx.amount.toLocaleString('fa-IR')} ریال
+                                    </div>
+                                    <div className="mt-0.5 text-[10px] text-muted tabular-nums">
+                                        موجودی: {tx.balanceAfter.toLocaleString('fa-IR')}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function WalletTabContent({
+    userProfile,
+    accessToken,
+    onProfileUpdated,
+}: {
+    userProfile?: UserProfile;
+    accessToken: string;
+    onProfileUpdated?: (profile: UserProfile) => void;
+}) {
+    const [actionType, setActionType] = useState<'ADD' | 'SUBTRACT' | 'SET' | 'PERCENT_ADD' | 'PERCENT_SUBTRACT'>('ADD');
+    const [value, setValue] = useState('');
+    const [description, setDescription] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+
+    const handleAdjust = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSuccess(null);
+        if (!value) return;
+
+        setIsSubmitting(true);
+        try {
+            const res = await fetch('/api/v1/wallet/adjust', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                    type: actionType,
+                    value: parseFloat(value),
+                    description: description.trim() || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.message || 'خطا در انجام عملیات');
+            }
+            if (data.result && onProfileUpdated) {
+                onProfileUpdated(data.result);
+            }
+            setSuccess('موجودی با موفقیت به‌روزرسانی شد.');
+            setValue('');
+            setDescription('');
+        } catch (err: any) {
+            setError(err.message || 'خطا در ثبت تغییرات');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const currentBalance = userProfile?.balance ?? 0;
+
+    return (
+        <div className="space-y-4">
+            {/* Glassy Wallet Card */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/95 to-primary-focus p-5 text-white shadow-lg">
+                {/* Decorative background lights */}
+                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-black/20 blur-2xl" />
+                
+                <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-semibold opacity-75">کیف پول</span>
+                        <Coins className="h-5 w-5 opacity-90 animate-pulse" />
+                    </div>
+                    <div>
+                        <div className="text-[10px] opacity-75">موجودی فعلی</div>
+                        <div className="mt-1 text-2xl font-black tabular-nums">
+                            {currentBalance.toLocaleString('fa-IR')} <span className="text-xs font-normal">ریال</span>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-white/20 pt-3 text-[9px] opacity-75">
+                        <span>کاربر: {userProfile?.firstName} {userProfile?.lastName}</span>
+                        <span className="font-semibold" dir="ltr">@{userProfile?.username}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Adjust Balance Form */}
+            <form onSubmit={handleAdjust} className="space-y-3 rounded-xl border border-border/60 bg-surface-2 p-3">
+                <h4 className="text-xs font-bold text-text">مدیریت موجودی کیف پول</h4>
+                
+                <div>
+                    <label className="mb-1 block text-[10px] text-muted">نوع عملیات</label>
+                    <select
+                        value={actionType}
+                        onChange={(e) => setActionType(e.target.value as any)}
+                        className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary/50"
+                    >
+                        <option value="ADD">افزایش موجودی (+)</option>
+                        <option value="SUBTRACT">کاهش موجودی (-)</option>
+                        <option value="SET">اصلاح موجودی به مقدار دقیق (=)</option>
+                        <option value="PERCENT_ADD">افزایش به میزان درصد (%)</option>
+                        <option value="PERCENT_SUBTRACT">کاهش به میزان درصد (%)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="mb-1 block text-[10px] text-muted">
+                        {actionType.startsWith('PERCENT') ? 'درصد مورد نظر' : 'مبلغ (ریال)'}
+                    </label>
+                    <div className="flex gap-2">
+                        <input
+                            type="number"
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            placeholder={actionType.startsWith('PERCENT') ? 'مثلا ۱۰' : 'مثلا ۲۰۰۰۰۰۰۰'}
+                            required
+                            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text tabular-nums"
+                        />
+                        {!actionType.startsWith('PERCENT') && (
+                            <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-surface px-2 text-[10px] text-muted font-bold">
+                                {value ? (parseFloat(value) / 10).toLocaleString('fa-IR') + ' تومان' : '۰ تومان'}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {actionType.startsWith('PERCENT') ? (
+                    <div className="flex flex-wrap gap-1">
+                        {[5, 10, 20, 50].map((pct) => (
+                            <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setValue(pct.toString())}
+                                className="rounded bg-surface px-2 py-1 text-[10px] text-text hover:bg-border/40"
+                            >
+                                {pct}%
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+
+                <div>
+                    <label className="mb-1 block text-[10px] text-muted">بابت / توضیحات (اختیاری)</label>
+                    <input
+                        type="text"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="مثلا واریز سود مجمع، اصلاحیه موجودی و..."
+                        className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text"
+                    />
+                </div>
+
+                {error && <div className="text-[10px] text-negative">{error}</div>}
+                {success && <div className="text-[10px] text-positive">{success}</div>}
+
+                <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+                >
+                    {isSubmitting ? 'در حال ثبت...' : 'ثبت تراکنش'}
+                </button>
+            </form>
+        </div>
+    );
+}
+
 function WatchlistPanel({
                             activeTab,
                             onTabChange,
@@ -683,6 +955,9 @@ function WatchlistPanel({
                             onSelectSymbol,
                             currentSymbolKey,
                             currentSymbolPrice,
+                            userProfile,
+                            accessToken,
+                            onProfileUpdated,
                         }: {
     activeTab: SidebarTab;
     onTabChange: (tab: SidebarTab) => void;
@@ -698,6 +973,9 @@ function WatchlistPanel({
     onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
     currentSymbolKey: string;
     currentSymbolPrice: number | null;
+    userProfile?: UserProfile;
+    accessToken: string;
+    onProfileUpdated?: (profile: UserProfile) => void;
 }) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -754,10 +1032,24 @@ function WatchlistPanel({
                             <span className="absolute inset-x-0 -bottom-[8px] h-0.5 rounded-full bg-primary"/>
                         ) : null}
                     </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onTabChange('wallet')}
+                        className={`relative inline-flex items-center gap-1.5 rounded-lg px-1 py-1 transition ${
+                            activeTab === 'wallet' ? 'text-text' : 'text-muted hover:text-text'
+                        }`}
+                    >
+                        <Wallet className="h-3.5 w-3.5"/>
+                        کیف پول
+                        {activeTab === 'wallet' ? (
+                            <span className="absolute inset-x-0 -bottom-[8px] h-0.5 rounded-full bg-primary"/>
+                        ) : null}
+                    </button>
                 </div>
             </div>
 
-            {activeTab !== 'watchlist' ? (
+            {activeTab === 'industries' ? (
                 <div
                     className="flex min-h-[292px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
                     <div className="mb-4 grid grid-cols-2 gap-2 opacity-70">
@@ -770,6 +1062,14 @@ function WatchlistPanel({
                     <h3 className="text-sm font-semibold text-text">{emptyTitle}</h3>
                     <p className="mt-1 text-xs text-muted">{emptyHelp}</p>
                 </div>
+            ) : null}
+
+            {activeTab === 'wallet' ? (
+                <WalletTabContent
+                    userProfile={userProfile}
+                    accessToken={accessToken}
+                    onProfileUpdated={onProfileUpdated}
+                />
             ) : null}
 
             {activeTab === 'watchlist' && loading ? (
@@ -987,6 +1287,8 @@ export default function TradingDashboard({
                                              profileDisplayName,
                                              onOpenProfile,
                                              onLogout,
+                                             userProfile,
+                                             onProfileUpdated,
                                          }: TradingDashboardProps) {
     const clock = useClock();
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1001,7 +1303,13 @@ export default function TradingDashboard({
 
     const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
     const isMarketOpen = marketStateText === 'باز';
-    const [selectedSymbol, setSelectedSymbol] = useState<SymbolSearchSuggestion>(DEFAULT_SELECTED_SYMBOL);
+    const [selectedSymbol, setSelectedSymbolState] = useState<SymbolSearchSuggestion>(
+        () => loadStoredSelectedSymbol() ?? DEFAULT_SELECTED_SYMBOL
+    );
+    const setSelectedSymbol = useCallback((symbol: SymbolSearchSuggestion) => {
+        setSelectedSymbolState(symbol);
+        persistSelectedSymbol(symbol);
+    }, []);
     const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
     const activeSymbol = previewSymbol ?? selectedSymbol;
     const {
@@ -1038,6 +1346,7 @@ export default function TradingDashboard({
     const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
     const [watchlistBusy, setWatchlistBusy] = useState(false);
     const [watchlistToast, setWatchlistToast] = useState<WatchlistToast | null>(null);
+    const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
 
     const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), message, tone});
@@ -1085,6 +1394,17 @@ export default function TradingDashboard({
         () => selectedWatchlist?.symbols.find((item) => item.symbolKey === selectedSymbol.key) ?? null,
         [selectedSymbol.key, selectedWatchlist]
     );
+
+    const openWatchlistSection = useCallback(() => {
+        setMainNavTab('بازار');
+        setSidebarTab('watchlist');
+    }, []);
+
+    const openWatchlistDrawer = useCallback(() => {
+        setMainNavTab('بازار');
+        setSidebarTab('watchlist');
+        setDrawerOpen(true);
+    }, []);
 
     const openCreateWatchlistModal = useCallback(() => {
         setWatchlistModal({mode: 'create'});
@@ -1697,6 +2017,16 @@ export default function TradingDashboard({
                                 <span className="tabular-nums">{clockValue}</span>
                             </div>
 
+                            <button
+                                type="button"
+                                onClick={() => setSidebarTab('wallet')}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition hover:bg-primary/15"
+                                title="مشاهده کیف پول"
+                                aria-label="مشاهده کیف پول"
+                            >
+                                <Wallet className="h-3.5 w-3.5"/>
+                            </button>
+
                             <div ref={profileMenuRef} className="relative">
                                 <button
                                     type="button"
@@ -1868,12 +2198,13 @@ export default function TradingDashboard({
                             <div className="flex min-w-0 items-center gap-2">
                                 <nav
                                     className="hidden items-center rounded-full border border-border/80 bg-surface-2 p-1 text-xs xl:inline-flex">
-                                    {['بازار', 'درخواست‌ها', 'گزارشات'].map((item, idx) => (
+                                    {(['بازار', 'درخواست‌ها', 'گزارشات'] as const).map((item) => (
                                         <button
                                             key={item}
                                             type="button"
+                                            onClick={() => setMainNavTab(item)}
                                             className={`rounded-full px-3 py-1 transition ${
-                                                idx === 0
+                                                mainNavTab === item
                                                     ? 'bg-surface text-text shadow-sm'
                                                     : 'text-muted hover:text-text'
                                             }`}
@@ -1963,7 +2294,7 @@ export default function TradingDashboard({
 
                             <button
                                 type="button"
-                                onClick={() => setDrawerOpen(true)}
+                                onClick={openWatchlistDrawer}
                                 className={`${actionBtnClass} w-10 md:hidden`}
                                 aria-label="open watchlist"
                             >
@@ -1981,7 +2312,9 @@ export default function TradingDashboard({
                         <div className="hidden lg:flex lg:col-span-2 lg:justify-end">
                             <button
                                 type="button"
+                                onClick={openWatchlistSection}
                                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 text-xs text-muted transition hover:text-text"
+                                aria-label="open watchlist"
                             >
                                 <Bell className="h-4 w-4"/>
                                 دیده‌بان
@@ -1992,6 +2325,15 @@ export default function TradingDashboard({
             </div>
 
             <main className="mx-auto w-full max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
+                {mainNavTab === 'گزارشات' ? (
+                    <WalletReportsPanel accessToken={accessToken}/>
+                ) : mainNavTab === 'درخواست‌ها' ? (
+                    <section dir="rtl" className={`${cardClass} p-6 text-center`}>
+                        <h2 className="text-sm font-semibold text-text">درخواست‌ها</h2>
+                        <p className="mt-2 text-xs text-muted">این بخش به‌زودی در دسترس خواهد بود.</p>
+                    </section>
+                ) : (
+                <>
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
                     <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-7`}>
                         {symbolLoading && !activeSymbolData ? (
@@ -2483,6 +2825,9 @@ export default function TradingDashboard({
                             onSelectSymbol={setSelectedSymbol}
                             currentSymbolKey={selectedSymbol.key}
                             currentSymbolPrice={selectedSymbolLivePrice}
+                            userProfile={userProfile}
+                            accessToken={accessToken}
+                            onProfileUpdated={onProfileUpdated}
                         />
                     </div>
                 </section>
@@ -2673,6 +3018,8 @@ export default function TradingDashboard({
                         </div>
                     </section>
                 </section>
+                </>
+                )}
             </main>
 
             <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/90 backdrop-blur-xl">
@@ -2833,6 +3180,9 @@ export default function TradingDashboard({
                             onSelectSymbol={setSelectedSymbol}
                             currentSymbolKey={selectedSymbol.key}
                             currentSymbolPrice={selectedSymbolLivePrice}
+                            userProfile={userProfile}
+                            accessToken={accessToken}
+                            onProfileUpdated={onProfileUpdated}
                         />
                     </div>
                 </div>

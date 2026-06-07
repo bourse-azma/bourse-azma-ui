@@ -26,6 +26,7 @@ type UserProfile = {
     phoneNumber: string;
     email: string;
     role: string;
+    balance?: number;
 };
 
 type ApiResponse<T> = {
@@ -354,6 +355,8 @@ export default function App() {
                     profileDisplayName={displayName}
                     onOpenProfile={openProfileModal}
                     onLogout={handleLogout}
+                    userProfile={profile || undefined}
+                    onProfileUpdated={setProfile}
                 />
             ) : (
                 <AuthPage onAuthenticated={handleAuthenticated}/>

@@ -59,6 +59,11 @@ export default defineConfig(({mode}) => {
                     changeOrigin: true,
                     secure: false,
                 },
+                '/api/v1/wallet': {
+                    target: authProxyTarget,
+                    changeOrigin: true,
+                    secure: false,
+                },
             },
         },
     };
