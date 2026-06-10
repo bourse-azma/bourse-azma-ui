@@ -23,6 +23,7 @@ import {
     ArrowUpRight,
     ArrowDownLeft,
     Coins,
+    RefreshCw,
     X,
 } from 'lucide-react';
 import type {Theme} from './hooks/useTheme';
@@ -47,6 +48,7 @@ import {
     createWatchlist,
     deleteWatchlist,
     getWatchlists,
+    removeSymbolFromWatchlist,
     updateWatchlist,
     type Watchlist,
 } from './features/watchlist/api';
@@ -283,6 +285,16 @@ const formatCompactAmountFa = (value: number | null | undefined) => {
 const formatNumberWithUnit = (value: number | null | undefined, unit: string, digits = 0) => {
     const formatted = formatNumberOrDash(value, digits);
     return formatted === 'ناموجود' ? formatted : `${formatted} ${unit}`;
+};
+
+const extractApiErrorMessage = (data: unknown, fallback: string) => {
+    if (!data || typeof data !== 'object') return fallback;
+    const response = data as {message?: string; result?: {detail?: string; errors?: Record<string, string>}};
+    const fieldError = response.result?.errors ? Object.values(response.result.errors)[0] : null;
+    if (typeof fieldError === 'string' && fieldError.trim() !== '') return fieldError;
+    if (typeof response.result?.detail === 'string' && response.result.detail.trim() !== '') return response.result.detail;
+    if (typeof response.message === 'string' && response.message.trim() !== '') return response.message;
+    return fallback;
 };
 
 const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
@@ -720,63 +732,153 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
         void fetchTxs();
     }, [fetchTxs]);
 
+    const totalCount = txs.length;
+    const totalNet = txs.reduce((sum, tx) => sum + tx.amount, 0);
+    const inflowCount = txs.filter((tx) => tx.amount > 0).length;
+    const outflowCount = txs.filter((tx) => tx.amount < 0).length;
+    const latestTx = txs[0];
+
     return (
-        <section dir="rtl" className={`${cardClass} p-4`}>
-            <div className="mb-4">
-                <h2 className="text-sm font-semibold text-text">گزارشات کیف پول</h2>
-                <p className="mt-1 text-xs text-muted">تاریخچه فعالیت‌ها و تراکنش‌های کیف پول شما</p>
+        <section dir="rtl" className={`${cardClass} overflow-hidden`}>
+            <div className="border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] px-4 py-4 sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-2 px-3 py-1 text-[10px] text-muted">
+                            <Wallet className="h-3.5 w-3.5 text-primary"/>
+                            گزارشات مالی
+                        </div>
+                        <h2 className="mt-3 text-base font-bold text-text">گزارشات کیف پول</h2>
+                        <p className="mt-1 max-w-xl text-xs leading-6 text-muted">
+                            مرور سریع تراکنش‌ها، تشخیص جریان ورود و خروج، و بررسی آخرین تغییرات موجودی.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void fetchTxs()}
+                        disabled={loading}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 text-xs font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
+                    >
+                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <RefreshCw className="h-3.5 w-3.5"/>}
+                        بروزرسانی
+                    </button>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                        <div className="text-[10px] text-muted">تراکنش‌ها</div>
+                        <div className="mt-1 text-lg font-bold tabular-nums text-text">{formatFaInteger(totalCount)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                        <div className="text-[10px] text-muted">جریان خالص</div>
+                        <div className={`mt-1 text-lg font-bold tabular-nums ${totalNet >= 0 ? 'text-positive' : 'text-negative'}`}>
+                            {totalNet >= 0 ? '+' : ''}{formatFaInteger(totalNet)} ریال
+                        </div>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                        <div className="text-[10px] text-muted">ورودی‌ها</div>
+                        <div className="mt-1 text-lg font-bold tabular-nums text-positive">{formatFaInteger(inflowCount)}</div>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                        <div className="text-[10px] text-muted">خروجی‌ها</div>
+                        <div className="mt-1 text-lg font-bold tabular-nums text-negative">{formatFaInteger(outflowCount)}</div>
+                    </div>
+                    <div className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                        <div className="text-[10px] text-muted">آخرین وضعیت</div>
+                        <div className="mt-1 text-sm font-semibold text-text">
+                            {latestTx ? (latestTx.amount > 0 ? 'افزایش موجودی' : 'کاهش موجودی') : 'بدون تراکنش'}
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {loading ? (
-                <div className="py-8 text-center text-xs text-muted">در حال بارگذاری گزارشات...</div>
-            ) : txs.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted">
-                    گزارشی یافت نشد.
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    {txs.map((tx) => {
-                        const isIncrease = tx.amount > 0;
-                        return (
-                            <div
-                                key={tx.id}
-                                className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-surface-2 p-3 text-xs"
-                            >
-                                <div className="flex min-w-0 items-start gap-2">
-                                    <span
-                                        className={`mt-0.5 rounded-lg p-1 ${isIncrease ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}
-                                    >
-                                        {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> : <ArrowDownLeft className="h-3.5 w-3.5"/>}
-                                    </span>
-                                    <div className="min-w-0">
-                                        <div className="font-semibold text-text leading-relaxed">{tx.description}</div>
-                                        <div className="mt-1 text-[10px] text-muted">
-                                            {new Date(tx.createdAt).toLocaleDateString('fa-IR', {
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
+            <div className="p-4 sm:p-5">
+                {loading && txs.length === 0 ? (
+                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-surface-2 py-12 text-xs text-muted">
+                        <Loader2 className="h-4 w-4 animate-spin"/>
+                        در حال بارگذاری گزارشات...
+                    </div>
+                ) : txs.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-border/70 bg-surface-2 p-8 text-center">
+                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-surface text-muted">
+                            <Wallet className="h-5 w-5"/>
+                        </div>
+                        <div className="text-sm font-semibold text-text">هنوز تراکنشی ثبت نشده است</div>
+                        <p className="mt-1 text-xs leading-6 text-muted">
+                            بعد از اولین واریز یا برداشت، جزئیات اینجا به صورت فهرست زمانی نمایش داده می‌شود.
+                        </p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {txs.map((tx) => {
+                            const isIncrease = tx.amount > 0;
+                            return (
+                                <div
+                                    key={tx.id}
+                                    className="group flex items-start justify-between gap-3 rounded-2xl border border-border/60 bg-surface-2/70 p-3 text-xs transition hover:border-primary/25 hover:bg-surface-2"
+                                >
+                                    <div className="flex min-w-0 items-start gap-3">
+                                        <span
+                                            className={`mt-0.5 rounded-2xl p-2 ${isIncrease ? 'bg-positive/12 text-positive' : 'bg-negative/12 text-negative'}`}
+                                        >
+                                            {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> : <ArrowDownLeft className="h-3.5 w-3.5"/>}
+                                        </span>
+                                        <div className="min-w-0">
+                                            <div className="font-semibold leading-relaxed text-text">{tx.description}</div>
+                                            <div className="mt-1 text-[10px] text-muted">
+                                                {new Date(tx.createdAt).toLocaleDateString('fa-IR', {
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="shrink-0 text-left">
+                                        <div className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                            {isIncrease ? '+' : ''}{tx.amount.toLocaleString('fa-IR')} ریال
+                                        </div>
+                                        <div className="mt-0.5 text-[10px] text-muted tabular-nums">
+                                            موجودی: {tx.balanceAfter.toLocaleString('fa-IR')}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="shrink-0 text-left">
-                                    <div className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
-                                        {isIncrease ? '+' : ''}{tx.amount.toLocaleString('fa-IR')} ریال
-                                    </div>
-                                    <div className="mt-0.5 text-[10px] text-muted tabular-nums">
-                                        موجودی: {tx.balanceAfter.toLocaleString('fa-IR')}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
         </section>
     );
 }
+
+type WalletActionType = 'ADD' | 'SUBTRACT' | 'SET' | 'PERCENT_ADD' | 'PERCENT_SUBTRACT';
+
+const WALLET_ACTIONS: {type: WalletActionType; label: string; hint: string}[] = [
+    {type: 'ADD', label: 'افزایش', hint: 'واریز به کیف پول'},
+    {type: 'SUBTRACT', label: 'کاهش', hint: 'برداشت از کیف پول'},
+    {type: 'SET', label: 'تنظیم', hint: 'تعیین موجودی دقیق'},
+    {type: 'PERCENT_ADD', label: '+ درصد', hint: 'افزایش درصدی'},
+    {type: 'PERCENT_SUBTRACT', label: '- درصد', hint: 'کاهش درصدی'},
+];
+
+const computeProjectedBalance = (currentBalance: number, actionType: WalletActionType, rawValue: number) => {
+    switch (actionType) {
+        case 'SET':
+            return rawValue;
+        case 'ADD':
+            return currentBalance + rawValue;
+        case 'SUBTRACT':
+            return currentBalance - rawValue;
+        case 'PERCENT_ADD':
+            return currentBalance + Math.round((currentBalance * rawValue) / 100);
+        case 'PERCENT_SUBTRACT':
+            return currentBalance - Math.round((currentBalance * rawValue) / 100);
+        default:
+            return currentBalance;
+    }
+};
 
 function WalletTabContent({
     userProfile,
@@ -787,18 +889,38 @@ function WalletTabContent({
     accessToken: string;
     onProfileUpdated?: (profile: UserProfile) => void;
 }) {
-    const [actionType, setActionType] = useState<'ADD' | 'SUBTRACT' | 'SET' | 'PERCENT_ADD' | 'PERCENT_SUBTRACT'>('ADD');
+    const [actionType, setActionType] = useState<WalletActionType>('ADD');
     const [value, setValue] = useState('');
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    const currentBalance = userProfile?.balance ?? 0;
+    const parsedValue = value.trim() === '' ? null : Number.parseFloat(value);
+    const projectedBalance =
+        parsedValue !== null && Number.isFinite(parsedValue)
+            ? computeProjectedBalance(currentBalance, actionType, parsedValue)
+            : null;
+    const isPercentAction = actionType.startsWith('PERCENT');
+
     const handleAdjust = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        if (!value) return;
+        if (!value || parsedValue === null || !Number.isFinite(parsedValue)) return;
+        if (parsedValue < 0) {
+            setError('مقدار واردشده نمی‌تواند منفی باشد.');
+            return;
+        }
+        if (isPercentAction && parsedValue > 100) {
+            setError('درصد نمی‌تواند بیشتر از ۱۰۰ باشد.');
+            return;
+        }
+        if (projectedBalance !== null && projectedBalance < 0) {
+            setError('این عملیات موجودی را منفی می‌کند. مبلغ را کاهش دهید.');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -810,13 +932,13 @@ function WalletTabContent({
                 },
                 body: JSON.stringify({
                     type: actionType,
-                    value: parseFloat(value),
+                    value: parsedValue,
                     description: description.trim() || undefined,
                 }),
             });
             const data = await res.json();
             if (!res.ok) {
-                throw new Error(data.message || 'خطا در انجام عملیات');
+                throw new Error(extractApiErrorMessage(data, 'خطا در انجام عملیات'));
             }
             if (data.result && onProfileUpdated) {
                 onProfileUpdated(data.result);
@@ -824,115 +946,190 @@ function WalletTabContent({
             setSuccess('موجودی با موفقیت به‌روزرسانی شد.');
             setValue('');
             setDescription('');
-        } catch (err: any) {
-            setError(err.message || 'خطا در ثبت تغییرات');
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'خطا در ثبت تغییرات');
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const currentBalance = userProfile?.balance ?? 0;
-
     return (
-        <div className="space-y-4">
-            {/* Glassy Wallet Card */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/95 to-primary-focus p-5 text-white shadow-lg">
-                {/* Decorative background lights */}
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
-                <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-black/20 blur-2xl" />
-                
-                <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-semibold opacity-75">کیف پول</span>
-                        <Coins className="h-5 w-5 opacity-90 animate-pulse" />
-                    </div>
-                    <div>
-                        <div className="text-[10px] opacity-75">موجودی فعلی</div>
-                        <div className="mt-1 text-2xl font-black tabular-nums">
-                            {currentBalance.toLocaleString('fa-IR')} <span className="text-xs font-normal">ریال</span>
+        <div className="space-y-3">
+            <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,250,252,0.98))] p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.95),rgba(15,23,42,0.98))]">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_42%)]" />
+                <div className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-slate-900/5 blur-2xl dark:bg-white/5" />
+                <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+
+                <div className="relative z-10 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3 py-1 text-[10px] text-muted">
+                                <Wallet className="h-3.5 w-3.5 text-emerald-600"/>
+                                کیف پول
+                            </div>
+                            <div className="mt-3 text-sm font-semibold text-text">
+                                {userProfile?.firstName} {userProfile?.lastName}
+                            </div>
+                            <div className="mt-1 text-[10px] text-muted" dir="ltr">
+                                @{userProfile?.username}
+                            </div>
+                        </div>
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-surface text-emerald-600">
+                            <Wallet className="h-4 w-4"/>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between border-t border-white/20 pt-3 text-[9px] opacity-75">
-                        <span>کاربر: {userProfile?.firstName} {userProfile?.lastName}</span>
-                        <span className="font-semibold" dir="ltr">@{userProfile?.username}</span>
+
+                    <div className="rounded-2xl border border-border/70 bg-surface/90 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3">
+                            <div>
+                                <div className="text-[10px] text-muted">موجودی قابل استفاده</div>
+                                <div className="mt-1 text-[11px] text-muted">ریال</div>
+                            </div>
+                            <div className="min-w-0 text-left">
+                                <div className="break-all text-xl font-black leading-tight tabular-nums tracking-tight text-text sm:text-2xl">
+                                    {currentBalance.toLocaleString('fa-IR')}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Adjust Balance Form */}
-            <form onSubmit={handleAdjust} className="space-y-3 rounded-xl border border-border/60 bg-surface-2 p-3">
-                <h4 className="text-xs font-bold text-text">مدیریت موجودی کیف پول</h4>
-                
-                <div>
-                    <label className="mb-1 block text-[10px] text-muted">نوع عملیات</label>
-                    <select
-                        value={actionType}
-                        onChange={(e) => setActionType(e.target.value as any)}
-                        className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text focus:border-primary/50"
-                    >
-                        <option value="ADD">افزایش موجودی (+)</option>
-                        <option value="SUBTRACT">کاهش موجودی (-)</option>
-                        <option value="SET">اصلاح موجودی به مقدار دقیق (=)</option>
-                        <option value="PERCENT_ADD">افزایش به میزان درصد (%)</option>
-                        <option value="PERCENT_SUBTRACT">کاهش به میزان درصد (%)</option>
-                    </select>
+            <form onSubmit={handleAdjust} className="space-y-3 rounded-3xl border border-border/70 bg-surface/90 p-4 shadow-sm backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                    <div>
+                        <h4 className="text-sm font-bold text-text">مدیریت موجودی</h4>
+                        <p className="mt-1 text-[11px] text-muted">تنظیم دقیق، واریز، برداشت و عملیات درصدی</p>
+                    </div>
+                    <span className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-muted">ریال</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {WALLET_ACTIONS.map((action) => {
+                        const active = actionType === action.type;
+                        const isNegativeAction = action.type === 'SUBTRACT' || action.type === 'PERCENT_SUBTRACT';
+                        return (
+                            <button
+                                key={action.type}
+                                type="button"
+                                title={action.hint}
+                                onClick={() => {
+                                    setActionType(action.type);
+                                    setError(null);
+                                    setSuccess(null);
+                                }}
+                                className={`rounded-xl border px-2 py-2 text-[10px] font-semibold transition ${
+                                    active
+                                        ? isNegativeAction
+                                            ? 'border-negative/40 bg-negative/10 text-negative'
+                                            : 'border-primary/40 bg-primary/10 text-primary'
+                                        : 'border-border/70 bg-surface-2 text-muted hover:border-primary/25 hover:text-text'
+                                }`}
+                            >
+                                {action.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div>
                     <label className="mb-1 block text-[10px] text-muted">
-                        {actionType.startsWith('PERCENT') ? 'درصد مورد نظر' : 'مبلغ (ریال)'}
+                        {isPercentAction ? 'درصد' : 'مبلغ (ریال)'}
                     </label>
-                    <div className="flex gap-2">
-                        <input
-                            type="number"
-                            value={value}
-                            onChange={(e) => setValue(e.target.value)}
-                            placeholder={actionType.startsWith('PERCENT') ? 'مثلا ۱۰' : 'مثلا ۲۰۰۰۰۰۰۰'}
-                            required
-                            className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text tabular-nums"
-                        />
-                        {!actionType.startsWith('PERCENT') && (
-                            <span className="inline-flex shrink-0 items-center justify-center rounded-lg bg-surface px-2 text-[10px] text-muted font-bold">
-                                {value ? (parseFloat(value) / 10).toLocaleString('fa-IR') + ' تومان' : '۰ تومان'}
-                            </span>
-                        )}
-                    </div>
+                    <input
+                        type="number"
+                        min="0"
+                        step={isPercentAction ? '0.1' : '1'}
+                        value={value}
+                        onChange={(e) => {
+                            setValue(e.target.value);
+                            setError(null);
+                            setSuccess(null);
+                        }}
+                        placeholder={isPercentAction ? 'مثلا ۱۰' : 'مثلا ۲۰۰۰۰۰۰۰'}
+                        required
+                        className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-text tabular-nums focus:border-primary/45"
+                    />
+                    {!isPercentAction && parsedValue !== null && Number.isFinite(parsedValue) ? (
+                        <div className="mt-1.5 text-[10px] text-muted">
+                            معادل تومان: {(parsedValue / 10).toLocaleString('fa-IR')}
+                        </div>
+                    ) : null}
                 </div>
 
-                {actionType.startsWith('PERCENT') ? (
-                    <div className="flex flex-wrap gap-1">
-                        {[5, 10, 20, 50].map((pct) => (
+                {isPercentAction ? (
+                    <div className="flex flex-wrap gap-1.5">
+                        {[5, 10, 20, 50, 100].map((pct) => (
                             <button
                                 key={pct}
                                 type="button"
                                 onClick={() => setValue(pct.toString())}
-                                className="rounded bg-surface px-2 py-1 text-[10px] text-text hover:bg-border/40"
+                                className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
                             >
                                 {pct}%
                             </button>
                         ))}
                     </div>
+                ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                        {[1_000_000, 10_000_000, 100_000_000, 1_000_000_000].map((preset) => (
+                            <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setValue(String(preset))}
+                                className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
+                            >
+                                {formatNumberFa(preset)}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {projectedBalance !== null ? (
+                    <div
+                        className={`rounded-xl border px-3 py-2 text-[10px] ${
+                            projectedBalance < 0
+                                ? 'border-negative/35 bg-negative/8 text-negative'
+                                : 'border-border/70 bg-surface-2 text-muted'
+                        }`}
+                    >
+                        <span className="text-muted">موجودی پس از عملیات: </span>
+                        <span className="font-bold text-text tabular-nums">
+                            {projectedBalance.toLocaleString('fa-IR')} ریال
+                        </span>
+                    </div>
                 ) : null}
 
                 <div>
-                    <label className="mb-1 block text-[10px] text-muted">بابت / توضیحات (اختیاری)</label>
+                    <label className="mb-1 block text-[10px] text-muted">توضیحات (اختیاری)</label>
                     <input
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="مثلا واریز سود مجمع، اصلاحیه موجودی و..."
-                        className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-text"
+                        placeholder="مثلا واریز سود مجمع یا اصلاح موجودی"
+                        className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-text"
                     />
                 </div>
 
-                {error && <div className="text-[10px] text-negative">{error}</div>}
-                {success && <div className="text-[10px] text-positive">{success}</div>}
+                {error ? (
+                    <div className="flex items-start gap-1.5 rounded-xl border border-negative/30 bg-negative/8 px-2.5 py-2 text-[10px] text-negative">
+                        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
+                        <span>{error}</span>
+                    </div>
+                ) : null}
+                {success ? (
+                    <div className="flex items-start gap-1.5 rounded-xl border border-positive/30 bg-positive/8 px-2.5 py-2 text-[10px] text-positive">
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
+                        <span>{success}</span>
+                    </div>
+                ) : null}
 
                 <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="w-full rounded-lg bg-primary py-1.5 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+                    disabled={isSubmitting || (projectedBalance !== null && projectedBalance < 0)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-text py-2 text-xs font-bold text-surface transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
                 >
+                    {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Coins className="h-3.5 w-3.5"/>}
                     {isSubmitting ? 'در حال ثبت...' : 'ثبت تراکنش'}
                 </button>
             </form>
@@ -953,6 +1150,8 @@ function WatchlistPanel({
                             onRequestEditWatchlist,
                             onRequestDeleteWatchlist,
                             onSelectSymbol,
+                            onRemoveSymbol,
+                            watchlistBusy,
                             currentSymbolKey,
                             currentSymbolPrice,
                             userProfile,
@@ -971,6 +1170,8 @@ function WatchlistPanel({
     onRequestEditWatchlist: (watchlistId: number) => void;
     onRequestDeleteWatchlist: (watchlistId: number) => void;
     onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
+    onRemoveSymbol: (symbolId: number) => void;
+    watchlistBusy: boolean;
     currentSymbolKey: string;
     currentSymbolPrice: number | null;
     userProfile?: UserProfile;
@@ -1002,7 +1203,7 @@ function WatchlistPanel({
             : 'برای شروع، یک صنعت از لیست بالا انتخاب کنید.';
 
     return (
-        <aside className={`${cardClass} p-3`}>
+        <aside className={`${cardClass} w-full min-w-0 p-3`}>
             <div className="mb-3 border-b border-border/70 pb-2">
                 <div className="flex items-center gap-3 text-xs">
                     <button
@@ -1241,16 +1442,28 @@ function WatchlistPanel({
                                     return (
                                         <div
                                             key={symbol.id}
-                                            className="grid grid-cols-[1.5fr_1fr_auto] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0"
+                                            className="grid grid-cols-[1.4fr_0.9fr_auto] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0 transition hover:bg-surface-2/60"
                                         >
-                                            <div>
+                                            <button
+                                                type="button"
+                                                onClick={() => onSelectSymbol({
+                                                    key: symbol.symbolKey,
+                                                    type: symbol.sourceType || 'TSE',
+                                                    symbol: symbol.symbol,
+                                                    name: symbol.name,
+                                                    instrumentCode: symbol.instrumentCode,
+                                                    isin: symbol.isin,
+                                                    oldInstrumentCodes: [],
+                                                })}
+                                                className="min-w-0 text-right"
+                                            >
                                                 <div className="truncate font-semibold text-text">{symbol.symbol}</div>
                                                 <div className="truncate text-[11px] text-muted">{symbol.name}</div>
-                                            </div>
+                                            </button>
                                             <span className="text-center tabular-nums text-text">
-                        {formatNumberOrDash(livePrice)}
-                      </span>
-                                            <div className="flex items-center justify-end pl-1">
+                                                {formatNumberOrDash(livePrice)}
+                                            </span>
+                                            <div className="flex items-center justify-end gap-1 pl-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => onSelectSymbol({
@@ -1263,9 +1476,18 @@ function WatchlistPanel({
                                                         oldInstrumentCodes: [],
                                                     })}
                                                     className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface text-muted transition hover:border-primary/35 hover:text-text"
-                                                    aria-label={`view ${symbol.symbol} details`}
+                                                    aria-label={`مشاهده ${symbol.symbol}`}
                                                 >
                                                     <Eye className="h-4 w-4"/>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    disabled={watchlistBusy}
+                                                    onClick={() => onRemoveSymbol(symbol.id)}
+                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/80 bg-surface text-muted transition hover:border-negative/35 hover:text-negative disabled:cursor-not-allowed disabled:opacity-60"
+                                                    aria-label={`حذف ${symbol.symbol} از دیده‌بان`}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5"/>
                                                 </button>
                                             </div>
                                         </div>
@@ -1490,6 +1712,27 @@ export default function TradingDashboard({
         [accessToken, selectedWatchlistId, showWatchlistToast, watchlistBusy, watchlists]
     );
 
+    const handleRemoveSymbolFromWatchlist = useCallback(
+        async (symbolId: number) => {
+            if (watchlistBusy || !selectedWatchlist) return;
+            const targetSymbol = selectedWatchlist.symbols.find((item) => item.id === symbolId);
+            if (!targetSymbol) return;
+
+            setWatchlistBusy(true);
+            try {
+                const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, symbolId);
+                replaceWatchlistInState(updated);
+                showWatchlistToast(`نماد ${targetSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'حذف نماد از دیده‌بان ناموفق بود.';
+                showWatchlistToast(message, 'error');
+            } finally {
+                setWatchlistBusy(false);
+            }
+        },
+        [accessToken, replaceWatchlistInState, selectedWatchlist, showWatchlistToast, watchlistBusy]
+    );
+
     const handleToggleFavorite = useCallback(async () => {
         if (watchlistBusy) return;
 
@@ -1498,15 +1741,21 @@ export default function TradingDashboard({
             return;
         }
 
-        if (selectedWatchlistSymbol) {
-            return;
-        }
-
         setWatchlistBusy(true);
         try {
-            const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
-            replaceWatchlistInState(updated);
-            showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
+            if (selectedWatchlistSymbol) {
+                const updated = await removeSymbolFromWatchlist(
+                    accessToken,
+                    selectedWatchlist.id,
+                    selectedWatchlistSymbol.id
+                );
+                replaceWatchlistInState(updated);
+                showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+            } else {
+                const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
+                replaceWatchlistInState(updated);
+                showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
             showWatchlistToast(message, 'error');
@@ -2335,7 +2584,7 @@ export default function TradingDashboard({
                 ) : (
                 <>
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
-                    <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-7`}>
+                    <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-6`}>
                         {symbolLoading && !activeSymbolData ? (
                             <div className="animate-pulse">
                                 <div className="mb-3 flex items-center justify-between gap-2">
@@ -2809,7 +3058,7 @@ export default function TradingDashboard({
                         )}
                     </section>
 
-                    <div className="hidden md:block md:col-span-1 xl:col-span-2">
+                    <div className="hidden md:block md:col-span-1 xl:col-span-3">
                         <WatchlistPanel
                             activeTab={sidebarTab}
                             onTabChange={setSidebarTab}
@@ -2823,6 +3072,8 @@ export default function TradingDashboard({
                             onRequestEditWatchlist={openEditWatchlistModal}
                             onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
                             onSelectSymbol={setSelectedSymbol}
+                            onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
+                            watchlistBusy={watchlistBusy}
                             currentSymbolKey={selectedSymbol.key}
                             currentSymbolPrice={selectedSymbolLivePrice}
                             userProfile={userProfile}
@@ -3037,7 +3288,7 @@ export default function TradingDashboard({
             </footer>
 
             {watchlistToast ? (
-                <div className="pointer-events-none fixed inset-x-0 top-3 z-[70] flex justify-center px-3">
+                <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[70] flex justify-center px-3">
                     <div
                         className={`pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs shadow-card ${
                             watchlistToast.tone === 'error'
@@ -3178,6 +3429,8 @@ export default function TradingDashboard({
                             onRequestEditWatchlist={openEditWatchlistModal}
                             onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
                             onSelectSymbol={setSelectedSymbol}
+                            onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
+                            watchlistBusy={watchlistBusy}
                             currentSymbolKey={selectedSymbol.key}
                             currentSymbolPrice={selectedSymbolLivePrice}
                             userProfile={userProfile}
