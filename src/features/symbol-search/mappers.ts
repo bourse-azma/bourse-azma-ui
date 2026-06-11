@@ -12,6 +12,7 @@ import type {
     TsetmcBestLimitLevel,
     TsetmcClientType,
     TsetmcClosingPriceInfo,
+    TsetmcEtfInfo,
     TsetmcInstrumentInfo,
 } from './types';
 
@@ -21,6 +22,7 @@ type DetailsSources = {
     tsetmcInfo: TsetmcInstrumentInfo | null;
     tsetmcBestLimits: TsetmcBestLimitLevel[] | null;
     tsetmcClientType: TsetmcClientType | null;
+    tsetmcEtf: TsetmcEtfInfo | null;
     snapshot: FipiranInstrumentSnapshot | null;
     fundSummary: FipiranFundSummary | null;
     fundDetails: FipiranFundDetails | null;
@@ -361,7 +363,7 @@ const toDetailRows = (input: {
     if (input.source === 'fund') {
         return [
             ...commonRows,
-            {label: 'NAV ابطال', value: input.navCancel, valueType: 'number'},
+            {label: 'NAV ابطال', value: input.navCancel, valueType: 'currency'},
             {label: 'زمان اعلام NAV', value: input.navAnnouncementAt, valueType: 'plain'},
         ];
     }
@@ -377,7 +379,7 @@ const toDetailRows = (input: {
 };
 
 export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetailsViewModel => {
-    const {symbol, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, snapshot, fundSummary, fundDetails} =
+    const {symbol, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, tsetmcEtf, snapshot, fundSummary, fundDetails} =
         sources;
 
     const previousClose = firstNonNullNumber(
@@ -400,13 +402,22 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
     const lastPricePercent =
         previousClose !== null && previousClose !== 0 && lastPrice !== null ? ((lastPrice - previousClose) / previousClose) * 100 : null;
 
-    const navCancel = firstNonNullNumber(fundDetails?.details.cancelNav, fundSummary?.cancelNav);
-    const bubblePercent =
-        navCancel !== null && navCancel !== 0 && lastPrice !== null
+    const navCancel = firstNonNullNumber(tsetmcEtf?.cancelNav, fundDetails?.details.cancelNav, fundSummary?.cancelNav);
+
+    const isFund =
+        symbol.type === 'FUND' ||
+        symbol.name.includes('صندوق') ||
+        fundSummary !== null ||
+        fundDetails !== null ||
+        tsetmcEtf !== null;
+
+    const bubblePercent = isFund
+        ? navCancel !== null && navCancel !== 0 && lastPrice !== null
             ? ((lastPrice - navCancel) / navCancel) * 100
-            : closePrice !== null && closePrice !== 0 && lastPrice !== null
-                ? ((lastPrice - closePrice) / closePrice) * 100
-                : null;
+            : null
+        : closePrice !== null && closePrice !== 0 && lastPrice !== null
+            ? ((lastPrice - closePrice) / closePrice) * 100
+            : null;
 
     const allowedMinPrice = firstNonNullNumber(
         tsetmcInfo?.staticPriceThreshold?.minAllowedPrice ?? null,
@@ -456,6 +467,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
     );
 
     const navAnnouncementAt = firstNonMissingString(
+        tsetmcEtf?.navAnnouncementAt ?? null,
         normalizeDateTimeText(fundDetails?.details.lastModificationTime),
         normalizeDateTimeText(fundDetails?.details.date),
         normalizeDateTimeText(fundSummary?.date)
@@ -464,6 +476,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
     const instrumentRecord = snapshot ? toRecord(snapshot.instrument) : {};
     const transactionRecord = snapshot ? toRecord(snapshot.transaction) : {};
     const tsetmcInfoRecord = tsetmcInfo ? toRecord(tsetmcInfo as unknown) : {};
+    const tsetmcEpsRecord = tsetmcInfo?.eps ? toRecord(tsetmcInfo.eps as unknown) : {};
 
     const pickFromRecords = (records: Record<string, unknown>[], keys: string[]) => {
         for (const record of records) {
@@ -474,31 +487,36 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
     };
 
     const eps = firstNonNullNumber(
+        tsetmcInfo?.eps?.epsValue,
+        tsetmcInfo?.eps?.estimatedEps,
         pickFromRecords(
-            [instrumentRecord, transactionRecord, tsetmcInfoRecord],
-            ['ePS', 'eps', 'EPS', 'estimatedEPS', 'estimatedEps', 'zEPS', 'earningPerShare']
+            [instrumentRecord, transactionRecord, tsetmcInfoRecord, tsetmcEpsRecord],
+            ['ePS', 'eps', 'EPS', 'estimatedEPS', 'estimatedEps', 'epsValue', 'zEPS', 'earningPerShare']
         )
     );
-    const pe = firstNonNullNumber(
+
+    const peFromApi = firstNonNullNumber(
         pickFromRecords(
             [instrumentRecord, transactionRecord, tsetmcInfoRecord],
             ['pToE', 'pe', 'pOverE', 'P/E', 'pE', 'priceToEarning', 'priceEarningRatio']
         )
     );
+    const epsForPe = firstNonNullNumber(tsetmcInfo?.eps?.epsValue, tsetmcInfo?.eps?.estimatedEps);
+    const peCalculated =
+        epsForPe !== null && epsForPe !== 0 && closePrice !== null && closePrice !== 0
+            ? closePrice / epsForPe
+            : null;
+    const pe = firstNonNullNumber(peFromApi, peCalculated);
+
     const groupPe = firstNonNullNumber(
+        tsetmcInfo?.eps?.sectorPe,
         pickFromRecords(
-            [instrumentRecord, transactionRecord, tsetmcInfoRecord],
-            ['pToEGroup', 'groupPe', 'industryPE', 'groupPE', 'P/EGroup', 'sectorPE', 'industryPe']
+            [instrumentRecord, transactionRecord, tsetmcInfoRecord, tsetmcEpsRecord],
+            ['pToEGroup', 'groupPe', 'industryPE', 'groupPE', 'P/EGroup', 'sectorPE', 'industryPe', 'sectorPe']
         )
     );
 
-    const source =
-        symbol.type === 'FUND' ||
-        symbol.name.includes('صندوق') ||
-        fundSummary !== null ||
-        fundDetails !== null
-            ? 'fund'
-            : 'market';
+    const source = isFund ? 'fund' : 'market';
 
     let exchangeBadge = toExchangeBadge(symbol.type);
     let marketLabel = toMarketLabel(symbol.type);

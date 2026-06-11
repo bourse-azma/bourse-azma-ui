@@ -6,6 +6,7 @@ import {
     getTsetmcBestLimits,
     getTsetmcClientType,
     getTsetmcClosingPriceInfo,
+    getTsetmcEtfInfo,
     getTsetmcInstrumentInfo,
     searchFunds,
 } from './api';
@@ -19,6 +20,7 @@ import type {
     TsetmcBestLimitLevel,
     TsetmcClientType,
     TsetmcClosingPriceInfo,
+    TsetmcEtfInfo,
     TsetmcInstrumentInfo,
 } from './types';
 
@@ -34,6 +36,7 @@ type RawDetailsSources = {
     tsetmcInfo: TsetmcInstrumentInfo | null;
     tsetmcBestLimits: TsetmcBestLimitLevel[] | null;
     tsetmcClientType: TsetmcClientType | null;
+    tsetmcEtf: TsetmcEtfInfo | null;
     snapshot: FipiranInstrumentSnapshot | null;
     fundSummary: FipiranFundSummary | null;
     fundDetails: FipiranFundDetails | null;
@@ -51,6 +54,7 @@ const emptyRaw = (): RawDetailsSources => ({
     tsetmcInfo: null,
     tsetmcBestLimits: null,
     tsetmcClientType: null,
+    tsetmcEtf: null,
     snapshot: null,
     fundSummary: null,
     fundDetails: null,
@@ -124,7 +128,7 @@ const fetchInitialRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSign
 
     const needFund = isLikelyFundSymbol(symbol);
 
-    const [snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, fundSummary] = await Promise.all([
+    const [snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, tsetmcEtf, fundSummary] = await Promise.all([
         getFipiranInstrumentSnapshot(symbol.instrumentCode, signal).catch(() => null),
         getTsetmcClosingPriceInfo(symbol.instrumentCode, signal).catch(() => null),
         getTsetmcInstrumentInfo(symbol.instrumentCode, signal).catch(() => null),
@@ -132,6 +136,7 @@ const fetchInitialRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSign
             .then((result) => result.orderBookLevels)
             .catch(() => null),
         getTsetmcClientType(symbol.instrumentCode, signal).catch(() => null),
+        needFund ? getTsetmcEtfInfo(symbol.instrumentCode, signal).catch(() => null) : Promise.resolve(null),
         needFund ? fetchFundSummary(symbol, signal).catch(() => null) : Promise.resolve(null),
     ]);
 
@@ -146,6 +151,7 @@ const fetchInitialRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSign
         tsetmcInfo,
         tsetmcBestLimits,
         tsetmcClientType,
+        tsetmcEtf,
         fundSummary,
         fundDetails,
     };
@@ -158,6 +164,7 @@ const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
         tsetmcInfo: raw.tsetmcInfo,
         tsetmcBestLimits: raw.tsetmcBestLimits,
         tsetmcClientType: raw.tsetmcClientType,
+        tsetmcEtf: raw.tsetmcEtf,
         snapshot: raw.snapshot,
         fundSummary: raw.fundSummary,
         fundDetails: raw.fundDetails,
@@ -296,6 +303,11 @@ export const useSymbolDetails = (symbol: SymbolSearchSuggestion | null) => {
             });
 
             if (isLikelyFundSymbol(symbol)) {
+                schedule(appConfig.tsetmcEtfInfoRefreshMs, async (signal) => {
+                    const tsetmcEtf = await getTsetmcEtfInfo(symbol.instrumentCode!, signal).catch(() => null);
+                    applyRaw({tsetmcEtf});
+                });
+
                 schedule(appConfig.fipiranFundSummaryRefreshMs, async (signal) => {
                     const fundSummary = await fetchFundSummary(symbol, signal).catch(() => null);
                     applyRaw({fundSummary});

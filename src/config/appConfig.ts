@@ -7,6 +7,7 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_BEST_LIMITS_API_PATH'
     | 'VITE_TSETMC_CLIENT_TYPE_API_PATH'
     | 'VITE_TSETMC_CODAL_NOTICES_API_PATH'
+    | 'VITE_TSETMC_ETF_INFO_API_PATH'
     | 'VITE_FIPIRAN_API_BASE_URL'
     | 'VITE_FIPIRAN_SNAPSHOT_API_PATH'
     | 'VITE_FIPIRAN_FUNDS_API_PATH'
@@ -26,6 +27,7 @@ type RequiredEnvKey =
     | 'VITE_FIPIRAN_SNAPSHOT_REFRESH_MS'
     | 'VITE_FIPIRAN_FUND_SUMMARY_REFRESH_MS'
     | 'VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'
+    | 'VITE_TSETMC_ETF_INFO_REFRESH_MS'
     | 'VITE_API_ERROR_RETRY_MS';
 
 const getRequiredEnv = (key: RequiredEnvKey) => {
@@ -53,6 +55,7 @@ export const appConfig = Object.freeze({
     tsetmcBestLimitsApiPath: getRequiredEnv('VITE_TSETMC_BEST_LIMITS_API_PATH'),
     tsetmcClientTypeApiPath: getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_API_PATH'),
     tsetmcCodalNoticesApiPath: getRequiredEnv('VITE_TSETMC_CODAL_NOTICES_API_PATH'),
+    tsetmcEtfInfoApiPath: getRequiredEnv('VITE_TSETMC_ETF_INFO_API_PATH'),
     fipiranApiBaseUrl: getRequiredEnv('VITE_FIPIRAN_API_BASE_URL'),
     fipiranSnapshotApiPath: getRequiredEnv('VITE_FIPIRAN_SNAPSHOT_API_PATH'),
     fipiranFundsApiPath: getRequiredEnv('VITE_FIPIRAN_FUNDS_API_PATH'),
@@ -90,6 +93,10 @@ export const appConfig = Object.freeze({
     fipiranFundDetailsRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'),
         'VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'
+    ),
+    tsetmcEtfInfoRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_TSETMC_ETF_INFO_REFRESH_MS'),
+        'VITE_TSETMC_ETF_INFO_REFRESH_MS'
     ),
     marketOverviewRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_MARKET_OVERVIEW_REFRESH_MS'),

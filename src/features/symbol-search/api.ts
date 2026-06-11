@@ -8,6 +8,7 @@ import type {
     TsetmcBestLimitLevel,
     TsetmcClientType,
     TsetmcClosingPriceInfo,
+    TsetmcEtfInfo,
     TsetmcInstrumentInfo,
 } from './types';
 
@@ -180,6 +181,14 @@ export const getTsetmcCodalNotices = async (instrumentCode: string, limit: numbe
         applyTemplate(appConfig.tsetmcCodalNoticesApiPath, {
             instrumentCode: encodeURIComponent(instrumentCode),
             limit: encodeURIComponent(String(limit)),
+        })
+    ), signal);
+
+export const getTsetmcEtfInfo = async (instrumentCode: string, signal?: AbortSignal) =>
+    fetchApi<TsetmcEtfInfo>(joinUrl(
+        appConfig.tsetmcApiBaseUrl,
+        applyTemplate(appConfig.tsetmcEtfInfoApiPath, {
+            instrumentCode: encodeURIComponent(instrumentCode),
         })
     ), signal);
 

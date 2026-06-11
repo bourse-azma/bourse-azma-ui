@@ -47,6 +47,12 @@ export type TsetmcInstrumentInfo = {
         minAllowedPrice: number | null;
         maxAllowedPrice: number | null;
     } | null;
+    eps: {
+        epsValue: number | null;
+        estimatedEps: number | null;
+        sectorPe: number | null;
+        psr: number | null;
+    } | null;
     baseVolume: number | null;
     totalShares: number | null;
     marketFlowTitle: string | null;
@@ -72,6 +78,14 @@ export type TsetmcClientType = {
     individualSellVolume: number | null;
     institutionalSellCount: number | null;
     individualSellCount: number | null;
+};
+
+export type TsetmcEtfInfo = {
+    insCode: string | null;
+    navAnnouncementAt: string | null;
+    cancelNav: number | null;
+    issueNav: number | null;
+    iClose: number | null;
 };
 
 export type FipiranInstrumentSnapshot = {
