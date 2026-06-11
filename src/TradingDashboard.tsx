@@ -35,6 +35,7 @@ import type {SymbolSearchSuggestion} from './features/symbol-search/types';
 import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
 import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
+import {getPortfolioHoldings, getTradingOrders, type PortfolioHolding, type TradingOrder} from './features/trading/api';
 import {
     createDefaultNoticeFilters,
     type JalaliDateParts,
@@ -58,6 +59,29 @@ type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'done' | 'failed' | 'all';
+type BottomPanelTab = 'orders' | 'portfolio';
+type OrderStatus = Exclude<OrderFilter, 'all'>;
+
+type DemoOrderRow = {
+    id: string;
+    type: 'buy' | 'sell';
+    symbol: string;
+    quantity: number;
+    orderPrice: number;
+    livePrice: number | null;
+    time: string;
+    status: OrderStatus;
+    statusLabel: string;
+};
+
+type DemoPortfolioRow = {
+    id: string;
+    time: string;
+    symbol: string;
+    quantity: number;
+    buyPrice: number;
+    livePrice: number | null;
+};
 
 type UserProfile = {
     id: number;
@@ -305,6 +329,19 @@ const formatTsetmcNoticeDate = (value: number | null | undefined) => {
     if (value === null || value === undefined || Number.isNaN(value)) return 'ناموجود';
     const text = String(value).padStart(8, '0');
     return `${text.slice(0, 4)}/${text.slice(4, 6)}/${text.slice(6, 8)}`;
+};
+
+const formatInstantFa = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'ناموجود';
+    return new Intl.DateTimeFormat('fa-IR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Asia/Tehran',
+    }).format(date);
 };
 
 const toEnglishDigits = (value: string) =>
@@ -1669,6 +1706,11 @@ export default function TradingDashboard({
     const [symbolTab, setSymbolTab] = useState<SymbolTab>('details');
     const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
     const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
+    const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('orders');
+    const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
+    const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
+    const [tradingAccountLoading, setTradingAccountLoading] = useState(true);
+    const [tradingAccountError, setTradingAccountError] = useState<string | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [marketPanelOpen, setMarketPanelOpen] = useState(false);
     const [codalQuery, setCodalQuery] = useState<CodalNoticesQuery>(() => ({
@@ -1696,6 +1738,39 @@ export default function TradingDashboard({
     const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), message, tone});
     }, []);
+
+    useEffect(() => {
+        let active = true;
+
+        const loadTradingAccount = async () => {
+            setTradingAccountLoading(true);
+            setTradingAccountError(null);
+            try {
+                const [orders, holdings] = await Promise.all([
+                    getTradingOrders(accessToken),
+                    getPortfolioHoldings(accessToken),
+                ]);
+                if (!active) return;
+                setTradingOrders(orders);
+                setPortfolioHoldings(holdings);
+            } catch (error) {
+                if (!active) return;
+                setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
+                setTradingOrders([]);
+                setPortfolioHoldings([]);
+            } finally {
+                if (active) {
+                    setTradingAccountLoading(false);
+                }
+            }
+        };
+
+        void loadTradingAccount();
+
+        return () => {
+            active = false;
+        };
+    }, [accessToken]);
 
     const replaceWatchlistInState = useCallback((updatedWatchlist: Watchlist) => {
         setWatchlists((prev) => {
@@ -2030,6 +2105,42 @@ export default function TradingDashboard({
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
     const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(activeSymbol.type);
     const activeSymbolSummary = [activeSymbol.symbol, activeSymbol.name, marketLabel].filter(Boolean).join(' - ');
+    const demoOrders = useMemo<DemoOrderRow[]>(
+        () =>
+            tradingOrders.map((order) => ({
+                id: String(order.id),
+                type: order.side === 'BUY' ? 'buy' : 'sell',
+                symbol: order.symbol,
+                quantity: order.quantity,
+                orderPrice: Number(order.orderPrice),
+                livePrice: Number(order.livePrice),
+                time: formatInstantFa(order.orderTime),
+                status:
+                    order.status === 'COMPLETED'
+                        ? 'done'
+                        : order.status === 'FAILED'
+                            ? 'failed'
+                            : 'open',
+                statusLabel: order.statusLabel,
+            })),
+        [tradingOrders]
+    );
+    const filteredOrders = useMemo(
+        () => (orderFilter === 'all' ? demoOrders : demoOrders.filter((order) => order.status === orderFilter)),
+        [demoOrders, orderFilter]
+    );
+    const demoPortfolioRows = useMemo<DemoPortfolioRow[]>(
+        () =>
+            portfolioHoldings.map((holding) => ({
+                id: String(holding.id),
+                time: formatInstantFa(holding.acquiredAt),
+                symbol: holding.symbol,
+                quantity: holding.quantity,
+                buyPrice: Number(holding.buyPrice),
+                livePrice: Number(holding.livePrice),
+            })),
+        [portfolioHoldings]
+    );
     const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
     const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;
     const {
@@ -2358,10 +2469,15 @@ export default function TradingDashboard({
     ]);
 
     const orderFilters: Array<{ key: OrderFilter; label: string }> = [
-        {key: 'open', label: 'باز 0'},
-        {key: 'done', label: 'انجام شده 0'},
-        {key: 'failed', label: 'ناموفق 0'},
-        {key: 'all', label: 'همه 0'},
+        {key: 'open', label: `درخواست شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'open').length)}`},
+        {key: 'done', label: `انجام شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'done').length)}`},
+        {key: 'failed', label: `ناموفق ${formatNumberFa(demoOrders.filter((order) => order.status === 'failed').length)}`},
+        {key: 'all', label: `همه ${formatNumberFa(demoOrders.length)}`},
+    ];
+
+    const bottomPanelTabs: Array<{ key: BottomPanelTab; label: string }> = [
+        {key: 'orders', label: 'سفارشات'},
+        {key: 'portfolio', label: 'سبد سهام'},
     ];
 
     const orderbookTabs: Array<{ key: OrderbookTab; label: string }> = [
@@ -3068,9 +3184,14 @@ export default function TradingDashboard({
                     </span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-muted">حباب</span>
-                                        <span
-                                            className="font-medium tabular-nums text-text">{formatPercentOrDash(activeSymbolData?.bubblePercent)}</span>
+                                        <span className="text-muted">
+                                            {activeSymbolData?.source === 'fund' ? 'حباب' : 'وضعیت'}
+                                        </span>
+                                        <span className="font-medium tabular-nums text-text">
+                                            {activeSymbolData?.source === 'fund'
+                                                ? formatPercentOrDash(activeSymbolData?.bubblePercent)
+                                                : activeSymbolData?.stateTitle ?? 'ناموجود'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -3323,48 +3444,182 @@ export default function TradingDashboard({
 
                 <section className="grid grid-cols-1 gap-4 xl:grid-cols-12 [direction:ltr]">
                     <section dir="rtl" className={`${cardClass} p-3 xl:col-span-8`}>
-                        <div
-                            className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold text-muted">سفارشات:</span>
-
-                                {orderFilters.map((chip) => (
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+                            <div className="inline-flex rounded-xl border border-border/80 bg-surface-2 p-1 text-xs">
+                                {bottomPanelTabs.map((tab) => (
                                     <button
-                                        key={chip.key}
+                                        key={tab.key}
                                         type="button"
-                                        onClick={() => setOrderFilter(chip.key)}
-                                        className={`rounded-full border px-3 py-1 text-xs transition ${
-                                            orderFilter === chip.key
-                                                ? 'border-primary/40 bg-primary/15 text-primary'
-                                                : 'border-border/80 bg-surface-2 text-muted hover:text-text'
+                                        onClick={() => setBottomPanelTab(tab.key)}
+                                        className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 font-semibold transition ${
+                                            bottomPanelTab === tab.key
+                                                ? 'bg-surface text-text shadow-sm'
+                                                : 'text-muted hover:text-text'
                                         }`}
                                     >
-                                        {chip.label}
+                                        {tab.key === 'orders' ? <FileText className="h-3.5 w-3.5"/> : <Wallet className="h-3.5 w-3.5"/>}
+                                        {tab.label}
                                     </button>
                                 ))}
                             </div>
 
-                            <button
-                                type="button"
-                                className="inline-flex h-9 items-center gap-2 rounded-full border border-border/80 bg-surface-2 px-4 text-xs font-medium text-text transition hover:border-primary/35"
-                            >
-                                <Wallet className="h-3.5 w-3.5"/>
-                                سبد سهام
-                            </button>
+                            {bottomPanelTab === 'orders' ? (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    {orderFilters.map((chip) => (
+                                        <button
+                                            key={chip.key}
+                                            type="button"
+                                            onClick={() => setOrderFilter(chip.key)}
+                                            className={`rounded-full border px-3 py-1 text-[11px] transition ${
+                                                orderFilter === chip.key
+                                                    ? 'border-primary/40 bg-primary/15 text-primary'
+                                                    : 'border-border/80 bg-surface-2 text-muted hover:text-text'
+                                            }`}
+                                        >
+                                            {chip.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-[11px] text-muted">
+                                    <span className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1">
+                                        تعداد دارایی‌ها {formatNumberFa(demoPortfolioRows.length)}
+                                    </span>
+                                    <span className="rounded-full border border-positive/25 bg-positive/10 px-2.5 py-1 text-positive">
+                                        ارزش خالص {formatCompactAmountFa(
+                                            demoPortfolioRows.reduce(
+                                                (sum, row) => sum + row.quantity * (row.livePrice ?? row.buyPrice),
+                                                0
+                                            )
+                                        )} ریال
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
-                        <div
-                            className="flex min-h-[255px] flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-surface-2 px-4 text-center">
-                            <div className="mb-3 h-16 w-20 rounded-2xl bg-border/70"/>
-                            <h3 className="text-sm font-semibold text-text">سبد سهام شما خالی است.</h3>
-                            <p className="mt-1 text-xs text-muted">پس از انجام سفارش، جزئیات در این قسمت قابل مشاهده
-                                است.</p>
-                            <button
-                                type="button"
-                                className="mt-4 rounded-full border border-positive/30 bg-positive/10 px-4 py-1.5 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/40"
-                            >
-                                انتقال دارایی به کارگزاری ...
-                            </button>
+                        <div className="thin-scrollbar max-h-[360px] min-h-[255px] overflow-auto rounded-2xl border border-border/70 bg-surface-2/70">
+                            {tradingAccountLoading ? (
+                                <div className="flex min-h-[255px] items-center justify-center gap-2 text-xs text-muted">
+                                    <Loader2 className="h-4 w-4 animate-spin"/>
+                                    در حال دریافت اطلاعات معاملاتی...
+                                </div>
+                            ) : tradingAccountError ? (
+                                <div className="flex min-h-[255px] flex-col items-center justify-center gap-3 px-4 text-center text-xs text-negative">
+                                    <AlertCircle className="h-5 w-5"/>
+                                    {tradingAccountError}
+                                </div>
+                            ) : bottomPanelTab === 'orders' && filteredOrders.length === 0 ? (
+                                <div className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
+                                    سفارشی با فیلتر فعلی پیدا نشد.
+                                </div>
+                            ) : bottomPanelTab === 'portfolio' && demoPortfolioRows.length === 0 ? (
+                                <div className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
+                                    سبد سهام شما خالی است.
+                                </div>
+                            ) : bottomPanelTab === 'orders' ? (
+                                <table className="w-full min-w-[860px] border-collapse text-right text-xs">
+                                    <thead>
+                                    <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                        <th className="px-3 py-3">نوع سفارش</th>
+                                        <th className="px-3 py-3">نماد</th>
+                                        <th className="px-3 py-3">تعداد</th>
+                                        <th className="px-3 py-3">قیمت سفارش</th>
+                                        <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                        <th className="px-3 py-3">زمان</th>
+                                        <th className="px-3 py-3">وضعیت سفارش</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {filteredOrders.map((order) => {
+                                        const isBuy = order.type === 'buy';
+                                        const statusClass =
+                                            order.status === 'done'
+                                                ? 'border-positive/35 bg-positive/10 text-positive'
+                                                : order.status === 'failed'
+                                                    ? 'border-negative/35 bg-negative/10 text-negative'
+                                                    : 'border-primary/35 bg-primary/10 text-primary';
+
+                                        return (
+                                            <tr
+                                                key={order.id}
+                                                className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                            >
+                                                <td className="px-3 py-3">
+                                                    <span
+                                                        className={`inline-flex min-w-16 items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                                                            isBuy
+                                                                ? 'border-positive/35 bg-positive/10 text-positive'
+                                                                : 'border-negative/35 bg-negative/10 text-negative'
+                                                        }`}
+                                                    >
+                                                        {isBuy ? 'خرید' : 'فروش'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(order.livePrice)}</td>
+                                                <td className="px-3 py-3 text-muted">{order.time}</td>
+                                                <td className="px-3 py-3">
+                                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
+                                                        {order.statusLabel}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <table className="w-full min-w-[760px] border-collapse text-right text-xs">
+                                    <thead>
+                                    <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                        <th className="px-3 py-3">نماد</th>
+                                        <th className="px-3 py-3">زمان</th>
+                                        <th className="px-3 py-3">تعداد</th>
+                                        <th className="px-3 py-3">قیمت خرید</th>
+                                        <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                        <th className="px-3 py-3">ارزش خالص</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    {demoPortfolioRows.map((row) => {
+                                        const livePrice = row.livePrice ?? row.buyPrice;
+                                        const netValue = row.quantity * livePrice;
+                                        const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
+
+                                        return (
+                                            <tr
+                                                key={row.id}
+                                                className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                            >
+                                                <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
+                                                <td className="px-3 py-3 text-muted">{row.time}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
+                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
+                                                <td className="px-3 py-3">
+                                                    <div className="flex flex-col gap-1">
+                                                        <span className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
+                                                        <span
+                                                            className={`text-[11px] font-semibold tabular-nums ${
+                                                                gainPercent === null
+                                                                    ? 'text-muted'
+                                                                    : gainPercent >= 0
+                                                                        ? 'text-positive'
+                                                                        : 'text-negative'
+                                                            }`}
+                                                        >
+                                                            {formatPercentOrDash(gainPercent)}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     </section>
 

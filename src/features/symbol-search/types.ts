@@ -19,6 +19,11 @@ export type SymbolSearchSuggestion = {
 };
 
 export type TsetmcClosingPriceInfo = {
+    instrumentState: {
+        stateCode: string | null;
+        stateTitle: string | null;
+        underSupervision: number | null;
+    } | null;
     priceChange: number | null;
     dayMinPrice: number | null;
     dayMaxPrice: number | null;
@@ -144,6 +149,7 @@ export type SymbolDetailsViewModel = {
     closePrice: number | null;
     closePricePercent: number | null;
     bubblePercent: number | null;
+    stateTitle: string | null;
     allowedMinPrice: number | null;
     allowedMaxPrice: number | null;
     tradeCount: number | null;

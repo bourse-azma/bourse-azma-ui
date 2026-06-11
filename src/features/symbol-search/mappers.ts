@@ -450,6 +450,11 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
             pickSnapshotNumber(snapshot, 'transaction', 'hEven')
         );
 
+    const stateTitle = firstNonMissingString(
+        tsetmcClosing?.instrumentState?.stateTitle,
+        pickSnapshotString(snapshot, 'instrument', 'stateTitle', 'cEtavalTitle', 'instrumentStateTitle')
+    );
+
     const navAnnouncementAt = firstNonMissingString(
         normalizeDateTimeText(fundDetails?.details.lastModificationTime),
         normalizeDateTimeText(fundDetails?.details.date),
@@ -537,6 +542,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         closePrice,
         closePricePercent,
         bubblePercent,
+        stateTitle,
         allowedMinPrice,
         allowedMaxPrice,
         tradeCount,

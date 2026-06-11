@@ -64,6 +64,11 @@ export default defineConfig(({mode}) => {
                     changeOrigin: true,
                     secure: false,
                 },
+                '/api/v1/trading': {
+                    target: authProxyTarget,
+                    changeOrigin: true,
+                    secure: false,
+                },
             },
         },
     };
