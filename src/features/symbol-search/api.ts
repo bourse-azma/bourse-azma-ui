@@ -17,6 +17,24 @@ type TsetmcBestLimitsResult = {
 
 type TsetmcClientTypeResult = TsetmcClientType;
 
+export type TsetmcCodalNotice = {
+    noticeId: number | null;
+    symbol: string | null;
+    companyName: string | null;
+    title: string | null;
+    publishedAtGregorian: string | null;
+    publishedDate: number | null;
+    htmlReportAvailabilityCode: number | null;
+    excelReportAvailabilityCode: number | null;
+    pdfReportAvailabilityCode: number | null;
+    xmlReportAvailabilityCode: number | null;
+    trackingNumber: string | null;
+};
+
+type TsetmcCodalNoticesResult = {
+    notices: TsetmcCodalNotice[];
+};
+
 type FipiranFundsResult = {
     funds: {
         items: FipiranFundSummary[];
@@ -153,6 +171,15 @@ export const getTsetmcClientType = async (instrumentCode: string, signal?: Abort
         appConfig.tsetmcApiBaseUrl,
         applyTemplate(appConfig.tsetmcClientTypeApiPath, {
             instrumentCode: encodeURIComponent(instrumentCode),
+        })
+    ), signal);
+
+export const getTsetmcCodalNotices = async (instrumentCode: string, limit: number, signal?: AbortSignal) =>
+    fetchApi<TsetmcCodalNoticesResult>(joinUrl(
+        appConfig.tsetmcApiBaseUrl,
+        applyTemplate(appConfig.tsetmcCodalNoticesApiPath, {
+            instrumentCode: encodeURIComponent(instrumentCode),
+            limit: encodeURIComponent(String(limit)),
         })
     ), signal);
 

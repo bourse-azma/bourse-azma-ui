@@ -6,6 +6,7 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_INSTRUMENT_INFO_API_PATH'
     | 'VITE_TSETMC_BEST_LIMITS_API_PATH'
     | 'VITE_TSETMC_CLIENT_TYPE_API_PATH'
+    | 'VITE_TSETMC_CODAL_NOTICES_API_PATH'
     | 'VITE_FIPIRAN_API_BASE_URL'
     | 'VITE_FIPIRAN_SNAPSHOT_API_PATH'
     | 'VITE_FIPIRAN_FUNDS_API_PATH'
@@ -51,6 +52,7 @@ export const appConfig = Object.freeze({
     tsetmcInstrumentInfoApiPath: getRequiredEnv('VITE_TSETMC_INSTRUMENT_INFO_API_PATH'),
     tsetmcBestLimitsApiPath: getRequiredEnv('VITE_TSETMC_BEST_LIMITS_API_PATH'),
     tsetmcClientTypeApiPath: getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_API_PATH'),
+    tsetmcCodalNoticesApiPath: getRequiredEnv('VITE_TSETMC_CODAL_NOTICES_API_PATH'),
     fipiranApiBaseUrl: getRequiredEnv('VITE_FIPIRAN_API_BASE_URL'),
     fipiranSnapshotApiPath: getRequiredEnv('VITE_FIPIRAN_SNAPSHOT_API_PATH'),
     fipiranFundsApiPath: getRequiredEnv('VITE_FIPIRAN_FUNDS_API_PATH'),

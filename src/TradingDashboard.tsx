@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {type UIEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertCircle,
     Bell,
@@ -8,8 +8,8 @@ import {
     Clock3,
     ExternalLink,
     Eye,
+    FileText,
     Filter,
-    LineChart,
     Loader2,
     Menu,
     Moon,
@@ -29,7 +29,7 @@ import {
 import type {Theme} from './hooks/useTheme';
 import {appConfig} from './config/appConfig';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
-import {getCodalNotices} from './features/symbol-search/api';
+import {getCodalNotices, getTsetmcCodalNotices, type TsetmcCodalNotice} from './features/symbol-search/api';
 import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
 import type {SymbolSearchSuggestion} from './features/symbol-search/types';
 import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
@@ -55,7 +55,7 @@ import {
 
 type SidebarTab = 'watchlist' | 'industries' | 'wallet';
 type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
-type SymbolTab = 'chart' | 'details';
+type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'done' | 'failed' | 'all';
 
@@ -300,6 +300,12 @@ const extractApiErrorMessage = (data: unknown, fallback: string) => {
 const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
 const formatFaPlainInteger = (value: number) =>
     new Intl.NumberFormat('fa-IR', {useGrouping: false}).format(value);
+
+const formatTsetmcNoticeDate = (value: number | null | undefined) => {
+    if (value === null || value === undefined || Number.isNaN(value)) return 'ناموجود';
+    const text = String(value).padStart(8, '0');
+    return `${text.slice(0, 4)}/${text.slice(4, 6)}/${text.slice(6, 8)}`;
+};
 
 const toEnglishDigits = (value: string) =>
     value
@@ -691,6 +697,123 @@ function useCodalNotices(query: CodalNoticesQuery) {
             window.clearTimeout(timer);
         };
     }, [querySignature, state.error]);
+
+    return {...state, loadMore, refresh};
+}
+
+function useTsetmcSymbolCodalNotices(instrumentCode: string, pageSize = 20) {
+    const [state, setState] = useState<{
+        notices: TsetmcCodalNotice[];
+        loading: boolean;
+        loadingMore: boolean;
+        refreshing: boolean;
+        hasMore: boolean;
+        error: string | null;
+    }>({
+        notices: [],
+        loading: true,
+        loadingMore: false,
+        refreshing: false,
+        hasMore: true,
+        error: null,
+    });
+    const [requestedLimit, setRequestedLimit] = useState(pageSize);
+    const [reloadKey, setReloadKey] = useState(0);
+    const previousInstrumentCodeRef = useRef('');
+
+    useEffect(() => {
+        const normalizedInstrumentCode = instrumentCode.trim();
+        if (previousInstrumentCodeRef.current === normalizedInstrumentCode) return;
+
+        previousInstrumentCodeRef.current = normalizedInstrumentCode;
+        setRequestedLimit(pageSize);
+        setState({
+            notices: [],
+            loading: normalizedInstrumentCode !== '',
+            loadingMore: false,
+            refreshing: false,
+            hasMore: true,
+            error: null,
+        });
+    }, [instrumentCode, pageSize]);
+
+    useEffect(() => {
+        const normalizedInstrumentCode = instrumentCode.trim();
+        if (normalizedInstrumentCode === '') {
+            setState({
+                notices: [],
+                loading: false,
+                loadingMore: false,
+                refreshing: false,
+                hasMore: false,
+                error: null,
+            });
+            return;
+        }
+
+        let active = true;
+        let timer = 0;
+        const controller = new AbortController();
+
+        const fetchNotices = async (isRefresh = false) => {
+            setState((prev) => ({
+                ...prev,
+                loading: !isRefresh && prev.notices.length === 0,
+                loadingMore: requestedLimit > prev.notices.length && prev.notices.length > 0,
+                refreshing: isRefresh && requestedLimit <= prev.notices.length && prev.notices.length > 0,
+                error: null,
+            }));
+
+            try {
+                const payload = await getTsetmcCodalNotices(normalizedInstrumentCode, requestedLimit, controller.signal);
+                if (!active) return;
+                const incoming = payload.notices ?? [];
+                setState({
+                    notices: incoming,
+                    loading: false,
+                    loadingMore: false,
+                    refreshing: false,
+                    hasMore: incoming.length >= requestedLimit,
+                    error: null,
+                });
+                return true;
+            } catch {
+                if (!active || controller.signal.aborted) return false;
+                setState((prev) => ({
+                    ...prev,
+                    loading: false,
+                    loadingMore: false,
+                    refreshing: false,
+                    error: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
+                }));
+                return false;
+            }
+        };
+
+        const tick = async (isRefresh = false) => {
+            const ok = await fetchNotices(isRefresh);
+            if (!active) return;
+            timer = window.setTimeout(
+                () => void tick(true),
+                ok ? appConfig.tsetmcClosingPriceRefreshMs : appConfig.apiErrorRetryMs
+            );
+        };
+
+        void tick();
+
+        return () => {
+            active = false;
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [instrumentCode, requestedLimit, reloadKey]);
+
+    const refresh = () => setReloadKey((prev) => prev + 1);
+    const loadMore = () => {
+        if (state.loading || state.loadingMore || state.refreshing || !state.hasMore || state.error) return;
+        setState((prev) => ({...prev, loadingMore: true}));
+        setRequestedLimit((prev) => prev + pageSize);
+    };
 
     return {...state, loadMore, refresh};
 }
@@ -1810,7 +1933,7 @@ export default function TradingDashboard({
 
     useEffect(() => {
         setSymbolTab('details');
-    }, [selectedSymbol.symbol]);
+    }, [activeSymbol.symbol]);
 
     const marketPercent = useMemo(
         () =>
@@ -1909,6 +2032,16 @@ export default function TradingDashboard({
     const activeSymbolSummary = [activeSymbol.symbol, activeSymbol.name, marketLabel].filter(Boolean).join(' - ');
     const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
     const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;
+    const {
+        notices: symbolCodalNotices,
+        loading: symbolCodalNoticesLoading,
+        loadingMore: symbolCodalNoticesLoadingMore,
+        refreshing: symbolCodalNoticesRefreshing,
+        hasMore: symbolCodalNoticesHasMore,
+        error: symbolCodalNoticesError,
+        loadMore: loadMoreSymbolCodalNotices,
+        refresh: refreshSymbolCodalNotices,
+    } = useTsetmcSymbolCodalNotices(tsetmcInstrumentCode, 20);
     const codalSymbol = activeSymbol.symbol.trim();
     const codalSymbolUrl = codalSymbol
         ? `https://codal.ir/ReportList.aspx?search&Symbol=${encodeURIComponent(
@@ -2183,6 +2316,17 @@ export default function TradingDashboard({
         setNoticeFilterDraft(nextDraft);
         applyNoticeFilters(nextDraft);
     };
+
+    const handleSymbolCodalNoticeScroll = useCallback(
+        (event: UIEvent<HTMLDivElement>) => {
+            const target = event.currentTarget;
+            if (target.scrollTop <= 0) return;
+            const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+            if (distanceToBottom > 80) return;
+            loadMoreSymbolCodalNotices();
+        },
+        [loadMoreSymbolCodalNotices]
+    );
 
     useEffect(() => {
         const root = noticeListRef.current;
@@ -2936,14 +3080,14 @@ export default function TradingDashboard({
                             <div className="grid grid-cols-2 gap-1 text-xs">
                                 <button
                                     type="button"
-                                    onClick={() => setSymbolTab('chart')}
+                                    onClick={() => setSymbolTab('notices')}
                                     className={`rounded-lg px-2 py-2 transition ${
-                                        symbolTab === 'chart'
+                                        symbolTab === 'notices'
                                             ? 'bg-surface text-text shadow-sm'
                                             : 'text-muted hover:text-text'
                                     }`}
                                 >
-                                    نمودار
+                                    اطلاعیه‌ها
                                 </button>
                                 <button
                                     type="button"
@@ -2959,44 +3103,138 @@ export default function TradingDashboard({
                             </div>
                         </div>
 
-                        {symbolTab === 'chart' ? (
+                        {symbolTab === 'notices' ? (
                             <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                <div className="mb-2 flex items-center gap-2 text-xs text-muted">
-                                    <LineChart className="h-4 w-4"/>
-                                    نمای نمودار (نمایشی)
+                                <div className="mb-2 flex items-center justify-between border-b border-border/60 pb-2">
+                                    <div className="flex items-center gap-2 text-xs text-muted">
+                                        <Bell className="h-4 w-4"/>
+                                        اطلاعیه‌های کدال
+                                        <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] tabular-nums">
+                                            {formatNumberFa(symbolCodalNotices.length)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        {symbolCodalNoticesRefreshing ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted"/>
+                                        ) : null}
+                                        <button
+                                            type="button"
+                                            onClick={refreshSymbolCodalNotices}
+                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/80 bg-surface text-muted transition hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45"
+                                            aria-label="refresh symbol codal notices"
+                                        >
+                                            <RefreshCw className="h-3.5 w-3.5"/>
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <svg viewBox="0 0 420 190"
-                                     className="h-44 w-full rounded-xl border border-border/60 bg-surface" aria-hidden>
-                                    <defs>
-                                        <linearGradient id="chartAreaModern" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.32"/>
-                                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0"/>
-                                        </linearGradient>
-                                    </defs>
+                                <div
+                                    onScroll={handleSymbolCodalNoticeScroll}
+                                    className="thin-scrollbar max-h-44 space-y-2 overflow-y-auto pl-1"
+                                >
+                                    {symbolCodalNoticesLoading && symbolCodalNotices.length === 0 ? (
+                                        Array.from({length: 3}, (_, index) => (
+                                            <div
+                                                key={`symbol-codal-skeleton-${index + 1}`}
+                                                className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
+                                            >
+                                                <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
+                                                <div className="h-3 w-2/5 rounded bg-border/45"/>
+                                            </div>
+                                        ))
+                                    ) : null}
 
-                                    <g stroke="hsl(var(--border))" strokeWidth="1" strokeDasharray="4 4">
-                                        <line x1="0" y1="30" x2="420" y2="30"/>
-                                        <line x1="0" y1="75" x2="420" y2="75"/>
-                                        <line x1="0" y1="120" x2="420" y2="120"/>
-                                        <line x1="0" y1="165" x2="420" y2="165"/>
-                                    </g>
+                                    {symbolCodalNoticesError ? (
+                                        <div
+                                            className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                            <div className="mb-2 flex items-center gap-2">
+                                                <AlertCircle className="h-4 w-4"/>
+                                                {symbolCodalNoticesError}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={refreshSymbolCodalNotices}
+                                                className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                            >
+                                                تلاش مجدد
+                                            </button>
+                                        </div>
+                                    ) : null}
 
-                                    <path
-                                        d="M0 150 C32 148, 54 92, 90 102 C127 112, 153 60, 190 68 C230 77, 261 36, 301 58 C331 73, 372 37, 420 46 L420 190 L0 190 Z"
-                                        fill="url(#chartAreaModern)"
-                                    />
+                                    {!symbolCodalNoticesLoading &&
+                                    !symbolCodalNoticesError &&
+                                    symbolCodalNotices.length === 0 ? (
+                                        <div
+                                            className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-6 text-center text-xs text-muted">
+                                            اطلاعیه‌ای برای این نماد پیدا نشد.
+                                        </div>
+                                    ) : null}
 
-                                    <path
-                                        d="M0 150 C32 148, 54 92, 90 102 C127 112, 153 60, 190 68 C230 77, 261 36, 301 58 C331 73, 372 37, 420 46"
-                                        stroke="hsl(var(--primary))"
-                                        strokeWidth="3"
-                                        fill="none"
-                                        strokeLinecap="round"
-                                    />
+                                    {symbolCodalNotices.map((notice, index) => {
+                                        const trackingNumber = notice.trackingNumber?.trim() ?? '';
+                                        const noticeKey = notice.noticeId ?? (trackingNumber || String(index));
+                                        const reportHref = trackingNumber
+                                            ? `https://codal.ir/Reports/Decision.aspx?LetterSerial=${encodeURIComponent(trackingNumber)}`
+                                            : codalSymbolUrl;
+                                        return (
+                                            <article
+                                                key={`${noticeKey}-${notice.publishedDate ?? 'date'}`}
+                                                className="rounded-xl border border-border/70 bg-surface px-3 py-2.5"
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <h4 className="min-w-0 text-xs font-semibold leading-6 text-text">
+                                                        {notice.title?.trim() || 'بدون عنوان'}
+                                                    </h4>
+                                                    {reportHref ? (
+                                                        <a
+                                                            href={reportHref}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-surface-2 text-muted transition hover:border-primary/40 hover:text-text"
+                                                            aria-label="open codal notice"
+                                                        >
+                                                            <ExternalLink className="h-3.5 w-3.5"/>
+                                                        </a>
+                                                    ) : null}
+                                                </div>
 
-                                    <circle cx="420" cy="46" r="4.5" fill="hsl(var(--primary))"/>
-                                </svg>
+                                                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+                                                    <span
+                                                        className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-surface-2 px-2 py-0.5">
+                                                        <FileText className="h-3 w-3"/>
+                                                        {notice.symbol?.trim() || activeSymbol.symbol}
+                                                    </span>
+                                                    <span
+                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2 py-0.5">
+                                                        {formatTsetmcNoticeDate(notice.publishedDate)}
+                                                    </span>
+                                                    {trackingNumber ? (
+                                                        <span
+                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2 py-0.5 tabular-nums">
+                                                            {toLtrIsolated(trackingNumber)}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            </article>
+                                        );
+                                    })}
+
+                                    {symbolCodalNoticesLoadingMore ? (
+                                        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                                            در حال بارگذاری اطلاعیه‌های بیشتر...
+                                        </div>
+                                    ) : null}
+
+                                    {!symbolCodalNoticesLoading &&
+                                    !symbolCodalNoticesLoadingMore &&
+                                    !symbolCodalNoticesHasMore &&
+                                    symbolCodalNotices.length > 0 ? (
+                                        <div className="py-1 text-center text-[11px] text-muted">
+                                            همه اطلاعیه‌ها نمایش داده شد.
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
                         ) : (
                             <div
