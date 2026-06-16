@@ -1,8 +1,7 @@
 import type {SymbolSearchSuggestion} from './types';
 
 const SELECTED_SYMBOL_STORAGE_KEY = 'boors-azma-selected-symbol';
-const RECENT_SYMBOLS_STORAGE_KEY = 'boors-azma-recent-symbols';
-const URL_SYMBOL_KEY_PARAM = 'symbolKey';
+const LEGACY_URL_SYMBOL_KEY_PARAM = 'symbolKey';
 
 const isValidSymbolSearchSuggestion = (value: unknown): value is SymbolSearchSuggestion => {
     if (!value || typeof value !== 'object') return false;
@@ -28,42 +27,21 @@ const readFromStorage = (): SymbolSearchSuggestion | null => {
     }
 };
 
-const readFromRecentByKey = (key: string): SymbolSearchSuggestion | null => {
-    if (typeof window === 'undefined') return null;
-    try {
-        const raw = window.localStorage.getItem(RECENT_SYMBOLS_STORAGE_KEY);
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as unknown;
-        if (!Array.isArray(parsed)) return null;
-        const match = parsed.find((item) => isValidSymbolSearchSuggestion(item) && item.key === key);
-        return match ?? null;
-    } catch {
-        return null;
-    }
-};
-
-const readSymbolKeyFromUrl = (): string | null => {
-    if (typeof window === 'undefined') return null;
-    const key = new URLSearchParams(window.location.search).get(URL_SYMBOL_KEY_PARAM);
-    return key && key.trim() !== '' ? key : null;
+const clearLegacySymbolKeyFromUrl = (): void => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(LEGACY_URL_SYMBOL_KEY_PARAM)) return;
+    url.searchParams.delete(LEGACY_URL_SYMBOL_KEY_PARAM);
+    const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, '', nextUrl);
 };
 
 export const loadStoredSelectedSymbol = (): SymbolSearchSuggestion | null => {
-    const urlKey = readSymbolKeyFromUrl();
-    if (urlKey) {
-        const stored = readFromStorage();
-        if (stored?.key === urlKey) return stored;
-        const fromRecent = readFromRecentByKey(urlKey);
-        if (fromRecent) return fromRecent;
-    }
+    clearLegacySymbolKeyFromUrl();
     return readFromStorage();
 };
 
 export const persistSelectedSymbol = (symbol: SymbolSearchSuggestion): void => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(SELECTED_SYMBOL_STORAGE_KEY, JSON.stringify(symbol));
-
-    const url = new URL(window.location.href);
-    url.searchParams.set(URL_SYMBOL_KEY_PARAM, symbol.key);
-    window.history.replaceState(window.history.state, '', url);
 };
