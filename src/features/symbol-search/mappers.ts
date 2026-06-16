@@ -255,53 +255,6 @@ const toDepthFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): Symbol
     ];
 };
 
-const pad2 = (value: number) => String(value).padStart(2, '0');
-
-const formatHeven = (value: number) => {
-    const clamped = Math.max(0, Math.floor(value));
-    const hour = Math.floor(clamped / 10000);
-    const minute = Math.floor((clamped % 10000) / 100);
-    const second = clamped % 100;
-    return `${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
-};
-
-const formatPersianDateTime = (input: Date) => {
-    const datePart = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(input);
-    const timePart = new Intl.DateTimeFormat('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    }).format(input);
-    return `${datePart} ${timePart}`;
-};
-
-const formatFromTsetmcDateTime = (eventDate: number | null, eventTime: number | null) => {
-    if (!eventDate || !eventTime) return null;
-    const y = Math.floor(eventDate / 10000);
-    const m = Math.floor((eventDate % 10000) / 100);
-    const d = eventDate % 100;
-    if (![y, m, d].every((part) => Number.isFinite(part) && part > 0)) return null;
-    return `${y}/${pad2(m)}/${pad2(d)} ${formatHeven(eventTime)}`;
-};
-
-const formatFromSnapshotDateTime = (transactionDateRaw: string | null, hEven: number | null) => {
-    if (!transactionDateRaw) return null;
-    const parsed = new Date(transactionDateRaw);
-    if (Number.isNaN(parsed.getTime())) return null;
-
-    if (hEven && Number.isFinite(hEven)) {
-        const [hour, minute, second] = formatHeven(hEven).split(':').map((value) => Number(value));
-        parsed.setHours(hour, minute, second, 0);
-    }
-
-    return formatPersianDateTime(parsed);
-};
-
 const pickSnapshotNumber = (snapshot: FipiranInstrumentSnapshot | null, target: 'instrument' | 'transaction', ...keys: string[]) => {
     if (!snapshot) return null;
     const record = target === 'instrument' ? toRecord(snapshot.instrument) : toRecord(snapshot.transaction);
@@ -323,23 +276,6 @@ const firstNonMissingString = (...values: Array<string | null | undefined>) => {
     return null;
 };
 
-const normalizeDateTimeText = (value: unknown): string | null => {
-    if (isMissing(value)) return null;
-    const raw = normalizeText(String(value));
-
-    // Preserve explicit Jalali date-time values from APIs (example: 1404/12/6 18:04:00).
-    if (/^\d{4}\/\d{1,2}\/\d{1,2}(?:\s+\d{1,2}:\d{1,2}(?::\d{1,2})?)?$/u.test(raw)) {
-        return raw;
-    }
-
-    const parsed = new Date(raw);
-    if (!Number.isNaN(parsed.getTime())) {
-        return formatPersianDateTime(parsed);
-    }
-
-    return raw;
-};
-
 const toDetailRows = (input: {
     source: 'market' | 'fund';
     tradeVolume: number | null;
@@ -357,14 +293,14 @@ const toDetailRows = (input: {
         {label: 'حجم معاملات', value: input.tradeVolume, valueType: 'number'},
         {label: 'حجم مبنا', value: input.baseVolume, valueType: 'number'},
         {label: 'ارزش معاملات', value: input.tradeValue, valueType: 'currency'},
-        {label: 'زمان آخرین معامله', value: input.lastTradeAt, valueType: 'plain'},
+        {label: 'زمان آخرین معامله', value: input.lastTradeAt, valueType: 'datetime'},
     ];
 
     if (input.source === 'fund') {
         return [
             ...commonRows,
             {label: 'NAV ابطال', value: input.navCancel, valueType: 'currency'},
-            {label: 'زمان اعلام NAV', value: input.navAnnouncementAt, valueType: 'plain'},
+            {label: 'زمان اعلام NAV', value: input.navAnnouncementAt, valueType: 'datetime'},
         ];
     }
 
@@ -464,12 +400,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         closePrice !== null && totalShares !== null ? closePrice * totalShares : null
     );
 
-    const lastTradeAt = firstNonNullNumber(tsetmcClosing?.eventDate, tsetmcClosing?.eventTime)
-        ? formatFromTsetmcDateTime(tsetmcClosing?.eventDate ?? null, tsetmcClosing?.eventTime ?? null)
-        : formatFromSnapshotDateTime(
-            pickSnapshotString(snapshot, 'transaction', 'transactionDate'),
-            pickSnapshotNumber(snapshot, 'transaction', 'hEven')
-        );
+    const lastTradeAt = firstNonMissingString(tsetmcClosing?.lastTradeAt ?? null, snapshot?.lastTradeAt ?? null);
 
     const stateTitle = firstNonMissingString(
         tsetmcClosing?.instrumentState?.stateTitle,
@@ -478,9 +409,8 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
 
     const navAnnouncementAt = firstNonMissingString(
         tsetmcEtf?.navAnnouncementAt ?? null,
-        normalizeDateTimeText(fundDetails?.details.lastModificationTime),
-        normalizeDateTimeText(fundDetails?.details.date),
-        normalizeDateTimeText(fundSummary?.date)
+        fundDetails?.details.navAnnouncementAt ?? null,
+        fundSummary?.navAnnouncementAt ?? null
     );
 
     const instrumentRecord = snapshot ? toRecord(snapshot.instrument) : {};

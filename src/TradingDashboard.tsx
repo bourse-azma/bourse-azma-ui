@@ -3446,16 +3446,23 @@ export default function TradingDashboard({
                                                 className="flex items-center justify-between rounded-lg px-2 py-2 text-xs transition hover:bg-surface-2"
                                             >
                                                 <span className="text-muted">{item.label}</span>
-                                                <span className="font-medium tabular-nums text-text">
+                                                <span
+                                                    className="font-medium tabular-nums text-text"
+                                                    dir={item.valueType === 'datetime' ? 'ltr' : undefined}
+                                                >
                       {item.valueType === 'number'
                           ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
                           : item.valueType === 'percent'
                               ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
                               : item.valueType === 'currency'
                                   ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
-                                  : typeof item.value === 'string'
-                                      ? item.value || 'ناموجود'
-                                      : 'ناموجود'}
+                                  : item.valueType === 'datetime'
+                                      ? typeof item.value === 'string' && item.value
+                                          ? item.value
+                                          : 'ناموجود'
+                                      : typeof item.value === 'string'
+                                          ? item.value || 'ناموجود'
+                                          : 'ناموجود'}
                     </span>
                                             </div>
                                         ))}

@@ -32,6 +32,7 @@ export type TsetmcClosingPriceInfo = {
     instrumentCode: string | null;
     eventDate: number | null;
     eventTime: number | null;
+    lastTradeAt: string | null;
     closingPrice: number | null;
     lastTradePrice: number | null;
     tradeCount: number | null;
@@ -90,6 +91,7 @@ export type TsetmcEtfInfo = {
 
 export type FipiranInstrumentSnapshot = {
     instrumentCode: string;
+    lastTradeAt: string | null;
     instrument: Record<string, unknown>;
     transaction: Record<string, unknown>;
     bestLimits: Array<Record<string, unknown>>;
@@ -101,6 +103,7 @@ export type FipiranFundSummary = {
     name: string;
     fundType: string;
     date: string;
+    navAnnouncementAt: string | null;
     netAsset: number;
     issueNav: number;
     cancelNav: number;
@@ -114,6 +117,7 @@ export type FipiranFundDetails = {
         name: string;
         date: string;
         lastModificationTime: string;
+        navAnnouncementAt: string | null;
         netAsset: number;
         issueNav: number;
         cancelNav: number;
@@ -146,7 +150,7 @@ export type SymbolDepthRow = {
 export type SymbolDetailRow = {
     label: string;
     value: number | string | null;
-    valueType: 'number' | 'percent' | 'currency' | 'plain';
+    valueType: 'number' | 'percent' | 'currency' | 'plain' | 'datetime';
     digits?: number;
 };
 
