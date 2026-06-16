@@ -206,10 +206,28 @@ export const searchFunds = async (query: string, pageSize: number, signal?: Abor
 export const getFundDetails = async (registrationNumber: string, signal?: AbortSignal) =>
     fetchApi<FipiranFundDetails>(buildFundDetailsUrl(registrationNumber), signal);
 
-export const getCodalNotices = async <T>(queryString: string, signal?: AbortSignal) =>
-    fetchApi<T>(joinUrl(
-        appConfig.codalApiBaseUrl,
-        applyTemplate(appConfig.codalNoticesApiPath, {
-            queryString,
-        })
-    ), signal);
+const inflightCodalNoticeRequests = new Map<string, Promise<unknown>>();
+
+export const getCodalNotices = async <T>(queryString: string, signal?: AbortSignal) => {
+    const inflight = inflightCodalNoticeRequests.get(queryString);
+    if (inflight) {
+        return inflight as Promise<T>;
+    }
+
+    const request = fetchApi<T>(
+        joinUrl(
+            appConfig.codalApiBaseUrl,
+            applyTemplate(appConfig.codalNoticesApiPath, {
+                queryString,
+            })
+        ),
+        signal
+    ).finally(() => {
+        if (inflightCodalNoticeRequests.get(queryString) === request) {
+            inflightCodalNoticeRequests.delete(queryString);
+        }
+    });
+
+    inflightCodalNoticeRequests.set(queryString, request);
+    return request;
+};

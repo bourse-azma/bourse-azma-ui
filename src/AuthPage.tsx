@@ -388,7 +388,8 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                         required
                                         className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text tabular-nums"
                                     />
-                                    <span className="inline-flex shrink-0 items-center justify-center rounded-xl bg-surface-2 px-3 text-xs font-bold text-muted">
+                                    <span
+                                        className="inline-flex shrink-0 items-center justify-center rounded-xl bg-surface-2 px-3 text-xs font-bold text-muted">
                                         {initialBalance ? (parseFloat(initialBalance) / 10).toLocaleString('fa-IR') + ' تومان' : '۰ تومان'}
                                     </span>
                                 </div>

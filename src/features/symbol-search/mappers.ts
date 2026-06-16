@@ -379,7 +379,17 @@ const toDetailRows = (input: {
 };
 
 export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetailsViewModel => {
-    const {symbol, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, tsetmcEtf, snapshot, fundSummary, fundDetails} =
+    const {
+        symbol,
+        tsetmcClosing,
+        tsetmcInfo,
+        tsetmcBestLimits,
+        tsetmcClientType,
+        tsetmcEtf,
+        snapshot,
+        fundSummary,
+        fundDetails
+    } =
         sources;
 
     const previousClose = firstNonNullNumber(

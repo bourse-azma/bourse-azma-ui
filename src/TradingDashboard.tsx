@@ -1,11 +1,14 @@
-import {type UIEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertCircle,
+    ArrowDownLeft,
+    ArrowUpRight,
     Bell,
     Building2,
     Check,
     ChevronDown,
     Clock3,
+    Coins,
     ExternalLink,
     Eye,
     FileText,
@@ -15,21 +18,18 @@ import {
     Moon,
     Pencil,
     Plus,
+    RefreshCw,
     Star,
     Sun,
     Trash2,
     UserRound,
     Wallet,
-    ArrowUpRight,
-    ArrowDownLeft,
-    Coins,
-    RefreshCw,
     X,
 } from 'lucide-react';
 import type {Theme} from './hooks/useTheme';
 import {appConfig} from './config/appConfig';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
-import {getCodalNotices, getTsetmcCodalNotices, type TsetmcCodalNotice} from './features/symbol-search/api';
+import {getCodalNotices} from './features/symbol-search/api';
 import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
 import type {SymbolSearchSuggestion} from './features/symbol-search/types';
 import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
@@ -222,6 +222,8 @@ const JALALI_MONTHS = [
 ] as const;
 
 const CODAL_MAX_LENGTH = 12;
+const CODAL_MAX_PAGE_LENGTH = CODAL_MAX_LENGTH;
+const SYMBOL_NOTICE_PAGES_PER_LOAD = 2;
 
 const DEFAULT_CODAL_NOTICE_QUERY: CodalNoticesQuery = {
     includeAudited: true,
@@ -313,7 +315,7 @@ const formatNumberWithUnit = (value: number | null | undefined, unit: string, di
 
 const extractApiErrorMessage = (data: unknown, fallback: string) => {
     if (!data || typeof data !== 'object') return fallback;
-    const response = data as {message?: string; result?: {detail?: string; errors?: Record<string, string>}};
+    const response = data as { message?: string; result?: { detail?: string; errors?: Record<string, string> } };
     const fieldError = response.result?.errors ? Object.values(response.result.errors)[0] : null;
     if (typeof fieldError === 'string' && fieldError.trim() !== '') return fieldError;
     if (typeof response.result?.detail === 'string' && response.result.detail.trim() !== '') return response.result.detail;
@@ -324,12 +326,6 @@ const extractApiErrorMessage = (data: unknown, fallback: string) => {
 const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
 const formatFaPlainInteger = (value: number) =>
     new Intl.NumberFormat('fa-IR', {useGrouping: false}).format(value);
-
-const formatTsetmcNoticeDate = (value: number | null | undefined) => {
-    if (value === null || value === undefined || Number.isNaN(value)) return 'ناموجود';
-    const text = String(value).padStart(8, '0');
-    return `${text.slice(0, 4)}/${text.slice(4, 6)}/${text.slice(6, 8)}`;
-};
 
 const formatInstantFa = (value: string) => {
     const date = new Date(value);
@@ -409,7 +405,7 @@ const applyTemplate = (template: string, values: Record<string, string>) => {
 
 const buildCodalNoticeParams = (query: CodalNoticesQuery) => {
     const params = new URLSearchParams();
-    const safeLength = clamp(Math.floor(query.length), 1, CODAL_MAX_LENGTH);
+    const safeLength = clamp(Math.floor(query.length), 1, CODAL_MAX_PAGE_LENGTH);
     params.set('includeAudited', String(query.includeAudited));
     params.set('auditorRef', String(query.auditorRef));
     params.set('categoryCode', String(query.categoryCode));
@@ -438,6 +434,20 @@ const buildCodalNoticeParams = (query: CodalNoticesQuery) => {
 
 const toNoticeIdentityKey = (notice: CodalNotice) =>
     `${notice.tracingNumber}|${notice.symbol}|${notice.publishDateTime}|${notice.title}`;
+
+const toSingleNoticeGroup = (notice: CodalNotice): NoticeGroup => {
+    const noticeSymbols = getNoticeSymbols(notice);
+    const underSupervision = notice.supervision?.underSupervision === 1 || notice.underSupervision === 1;
+
+    return {
+        id: toNoticeIdentityKey(notice),
+        title: notice.title.trim() || 'بدون عنوان',
+        publishDateTime: notice.publishDateTime || notice.sentDateTime || 'ناموجود',
+        symbols: noticeSymbols,
+        notices: [notice],
+        hasUnderSupervision: underSupervision,
+    };
+};
 
 const mergeUniqueNotices = (existing: CodalNotice[], incoming: CodalNotice[]) => {
     const seen = new Set(existing.map(toNoticeIdentityKey));
@@ -585,7 +595,20 @@ function useMarketOverview(marketId: '1' | '2') {
     return data;
 }
 
-function useCodalNotices(query: CodalNoticesQuery) {
+function useCodalNotices(
+    query: CodalNoticesQuery,
+    options?: {
+        enabled?: boolean;
+        autoRefresh?: boolean;
+        errorMessage?: string;
+        pagesPerLoad?: number;
+    }
+) {
+    const enabled = options?.enabled ?? true;
+    const autoRefresh = options?.autoRefresh ?? true;
+    const errorMessage = options?.errorMessage ?? 'دریافت پیام‌های ناظر با خطا مواجه شد.';
+    const pagesPerLoad = clamp(Math.floor(options?.pagesPerLoad ?? 1), 1, 4);
+
     const [state, setState] = useState<{
         notices: CodalNotice[];
         totalCount: number;
@@ -610,6 +633,7 @@ function useCodalNotices(query: CodalNoticesQuery) {
     const [reloadKey, setReloadKey] = useState(0);
     const didInitRef = useRef(false);
     const requestInFlightRef = useRef(false);
+    const loadedPageRef = useRef(0);
 
     const querySignature = useMemo(() => {
         const params = buildCodalNoticeParams({...query, page: 1});
@@ -618,6 +642,23 @@ function useCodalNotices(query: CodalNoticesQuery) {
     }, [query]);
 
     useEffect(() => {
+        if (!enabled) {
+            setState({
+                notices: [],
+                totalCount: 0,
+                page: 1,
+                loading: false,
+                loadingMore: false,
+                refreshing: false,
+                hasMore: false,
+                error: null,
+            });
+            loadedPageRef.current = 0;
+            setPageToLoad(1);
+            loadedPageRef.current = 0;
+            return;
+        }
+
         if (!didInitRef.current) {
             didInitRef.current = true;
             return;
@@ -634,15 +675,18 @@ function useCodalNotices(query: CodalNoticesQuery) {
             hasMore: true,
             error: null,
         }));
+        loadedPageRef.current = 0;
         setPageToLoad(1);
         setReloadKey((prev) => prev + 1);
-    }, [querySignature]);
+    }, [enabled, querySignature]);
 
     useEffect(() => {
+        if (!enabled) return;
+
         let active = true;
         const controller = new AbortController();
         const isFirstPage = pageToLoad === 1;
-        const requestLength = clamp(Math.floor(query.length), 1, CODAL_MAX_LENGTH);
+        const requestLength = clamp(Math.floor(query.length), 1, CODAL_MAX_PAGE_LENGTH);
         requestInFlightRef.current = true;
 
         setState((prev) => ({
@@ -653,28 +697,50 @@ function useCodalNotices(query: CodalNoticesQuery) {
             error: null,
         }));
 
-        const requestQuery: CodalNoticesQuery = {
-            ...query,
-            page: pageToLoad,
-            length: requestLength,
-        };
-
         const fetchNotices = async () => {
             try {
-                const queryString = buildCodalNoticeParams(requestQuery).toString();
-                const payload = await getCodalNotices<CodalNoticesResult>(queryString, controller.signal);
-                if (!active) return;
-                const incoming = payload.notices ?? [];
+                let mergedNotices: CodalNotice[] = [];
+                let totalCount = 0;
+                let lastLoadedPage = isFirstPage ? 0 : pageToLoad - 1;
+                const pagesToFetch = isFirstPage ? 1 : pagesPerLoad;
+
+                for (let index = 0; index < pagesToFetch; index += 1) {
+                    const requestPage = isFirstPage ? 1 : pageToLoad + index;
+                    const requestQuery: CodalNoticesQuery = {
+                        ...query,
+                        page: requestPage,
+                        length: requestLength,
+                    };
+                    const queryString = buildCodalNoticeParams(requestQuery).toString();
+                    const payload = await getCodalNotices<CodalNoticesResult>(queryString, controller.signal);
+                    if (!active) return;
+
+                    const incoming = payload.notices ?? [];
+                    totalCount = payload.totalCount ?? totalCount;
+                    mergedNotices = mergeUniqueNotices(mergedNotices, incoming);
+                    lastLoadedPage = requestPage;
+
+                    const reachedTotal = totalCount > 0 && mergedNotices.length >= totalCount;
+                    const pageIncomplete = incoming.length < requestLength;
+                    if (reachedTotal || pageIncomplete) break;
+                }
 
                 setState((prev) => {
-                    const notices = isFirstPage ? incoming : mergeUniqueNotices(prev.notices, incoming);
-                    const totalCount = payload.totalCount ?? prev.totalCount;
-                    const hasMore = totalCount > 0 ? notices.length < totalCount : incoming.length >= requestLength;
+                    const notices = isFirstPage
+                        ? mergedNotices
+                        : mergeUniqueNotices(prev.notices, mergedNotices);
+                    const resolvedTotalCount = totalCount > 0 ? totalCount : prev.totalCount;
+                    const hasMore =
+                        resolvedTotalCount > 0
+                            ? notices.length < resolvedTotalCount
+                            : mergedNotices.length >= requestLength;
+
+                    loadedPageRef.current = lastLoadedPage;
 
                     return {
                         notices,
-                        totalCount,
-                        page: pageToLoad,
+                        totalCount: resolvedTotalCount,
+                        page: lastLoadedPage,
                         loading: false,
                         loadingMore: false,
                         refreshing: false,
@@ -689,7 +755,7 @@ function useCodalNotices(query: CodalNoticesQuery) {
                     loading: false,
                     loadingMore: false,
                     refreshing: false,
-                    error: 'دریافت پیام‌های ناظر با خطا مواجه شد.',
+                    error: errorMessage,
                 }));
             } finally {
                 requestInFlightRef.current = false;
@@ -703,14 +769,14 @@ function useCodalNotices(query: CodalNoticesQuery) {
             requestInFlightRef.current = false;
             controller.abort();
         };
-    }, [pageToLoad, query, reloadKey]);
+    }, [enabled, errorMessage, pagesPerLoad, pageToLoad, query, reloadKey]);
 
     const loadMore = () => {
         if (requestInFlightRef.current) return;
         if (state.loading || state.loadingMore || state.refreshing || !state.hasMore) return;
         setState((prev) => ({...prev, loadingMore: true}));
         requestInFlightRef.current = true;
-        setPageToLoad((currentPage) => currentPage + 1);
+        setPageToLoad(loadedPageRef.current + 1);
     };
 
     const refresh = () => {
@@ -719,10 +785,16 @@ function useCodalNotices(query: CodalNoticesQuery) {
     };
 
     useEffect(() => {
+        if (!enabled || !autoRefresh) return;
+
         let timer: number;
         let active = true;
         const tick = () => {
             if (!active) return;
+            if (requestInFlightRef.current) {
+                timer = window.setTimeout(tick, 1000);
+                return;
+            }
             setPageToLoad(1);
             setReloadKey((prev) => prev + 1);
             timer = window.setTimeout(tick, state.error ? appConfig.apiErrorRetryMs : appConfig.codalNoticesRefreshMs);
@@ -733,124 +805,7 @@ function useCodalNotices(query: CodalNoticesQuery) {
             active = false;
             window.clearTimeout(timer);
         };
-    }, [querySignature, state.error]);
-
-    return {...state, loadMore, refresh};
-}
-
-function useTsetmcSymbolCodalNotices(instrumentCode: string, pageSize = 20) {
-    const [state, setState] = useState<{
-        notices: TsetmcCodalNotice[];
-        loading: boolean;
-        loadingMore: boolean;
-        refreshing: boolean;
-        hasMore: boolean;
-        error: string | null;
-    }>({
-        notices: [],
-        loading: true,
-        loadingMore: false,
-        refreshing: false,
-        hasMore: true,
-        error: null,
-    });
-    const [requestedLimit, setRequestedLimit] = useState(pageSize);
-    const [reloadKey, setReloadKey] = useState(0);
-    const previousInstrumentCodeRef = useRef('');
-
-    useEffect(() => {
-        const normalizedInstrumentCode = instrumentCode.trim();
-        if (previousInstrumentCodeRef.current === normalizedInstrumentCode) return;
-
-        previousInstrumentCodeRef.current = normalizedInstrumentCode;
-        setRequestedLimit(pageSize);
-        setState({
-            notices: [],
-            loading: normalizedInstrumentCode !== '',
-            loadingMore: false,
-            refreshing: false,
-            hasMore: true,
-            error: null,
-        });
-    }, [instrumentCode, pageSize]);
-
-    useEffect(() => {
-        const normalizedInstrumentCode = instrumentCode.trim();
-        if (normalizedInstrumentCode === '') {
-            setState({
-                notices: [],
-                loading: false,
-                loadingMore: false,
-                refreshing: false,
-                hasMore: false,
-                error: null,
-            });
-            return;
-        }
-
-        let active = true;
-        let timer = 0;
-        const controller = new AbortController();
-
-        const fetchNotices = async (isRefresh = false) => {
-            setState((prev) => ({
-                ...prev,
-                loading: !isRefresh && prev.notices.length === 0,
-                loadingMore: requestedLimit > prev.notices.length && prev.notices.length > 0,
-                refreshing: isRefresh && requestedLimit <= prev.notices.length && prev.notices.length > 0,
-                error: null,
-            }));
-
-            try {
-                const payload = await getTsetmcCodalNotices(normalizedInstrumentCode, requestedLimit, controller.signal);
-                if (!active) return;
-                const incoming = payload.notices ?? [];
-                setState({
-                    notices: incoming,
-                    loading: false,
-                    loadingMore: false,
-                    refreshing: false,
-                    hasMore: incoming.length >= requestedLimit,
-                    error: null,
-                });
-                return true;
-            } catch {
-                if (!active || controller.signal.aborted) return false;
-                setState((prev) => ({
-                    ...prev,
-                    loading: false,
-                    loadingMore: false,
-                    refreshing: false,
-                    error: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
-                }));
-                return false;
-            }
-        };
-
-        const tick = async (isRefresh = false) => {
-            const ok = await fetchNotices(isRefresh);
-            if (!active) return;
-            timer = window.setTimeout(
-                () => void tick(true),
-                ok ? appConfig.tsetmcClosingPriceRefreshMs : appConfig.apiErrorRetryMs
-            );
-        };
-
-        void tick();
-
-        return () => {
-            active = false;
-            window.clearTimeout(timer);
-            controller.abort();
-        };
-    }, [instrumentCode, requestedLimit, reloadKey]);
-
-    const refresh = () => setReloadKey((prev) => prev + 1);
-    const loadMore = () => {
-        if (state.loading || state.loadingMore || state.refreshing || !state.hasMore || state.error) return;
-        setState((prev) => ({...prev, loadingMore: true}));
-        setRequestedLimit((prev) => prev + pageSize);
-    };
+    }, [autoRefresh, enabled, querySignature, state.error]);
 
     return {...state, loadMore, refresh};
 }
@@ -900,10 +855,12 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
 
     return (
         <section dir="rtl" className={`${cardClass} overflow-hidden`}>
-            <div className="border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] px-4 py-4 sm:px-5">
+            <div
+                className="border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] px-4 py-4 sm:px-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-2 px-3 py-1 text-[10px] text-muted">
+                        <div
+                            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-2 px-3 py-1 text-[10px] text-muted">
                             <Wallet className="h-3.5 w-3.5 text-primary"/>
                             گزارشات مالی
                         </div>
@@ -918,7 +875,8 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                         disabled={loading}
                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 text-xs font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
                     >
-                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <RefreshCw className="h-3.5 w-3.5"/>}
+                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
+                            <RefreshCw className="h-3.5 w-3.5"/>}
                         بروزرسانی
                     </button>
                 </div>
@@ -926,23 +884,28 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
                         <div className="text-[10px] text-muted">تراکنش‌ها</div>
-                        <div className="mt-1 text-lg font-bold tabular-nums text-text">{formatFaInteger(totalCount)}</div>
+                        <div
+                            className="mt-1 text-lg font-bold tabular-nums text-text">{formatFaInteger(totalCount)}</div>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
                         <div className="text-[10px] text-muted">جریان خالص</div>
-                        <div className={`mt-1 text-lg font-bold tabular-nums ${totalNet >= 0 ? 'text-positive' : 'text-negative'}`}>
+                        <div
+                            className={`mt-1 text-lg font-bold tabular-nums ${totalNet >= 0 ? 'text-positive' : 'text-negative'}`}>
                             {totalNet >= 0 ? '+' : ''}{formatFaInteger(totalNet)} ریال
                         </div>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
                         <div className="text-[10px] text-muted">ورودی‌ها</div>
-                        <div className="mt-1 text-lg font-bold tabular-nums text-positive">{formatFaInteger(inflowCount)}</div>
+                        <div
+                            className="mt-1 text-lg font-bold tabular-nums text-positive">{formatFaInteger(inflowCount)}</div>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
                         <div className="text-[10px] text-muted">خروجی‌ها</div>
-                        <div className="mt-1 text-lg font-bold tabular-nums text-negative">{formatFaInteger(outflowCount)}</div>
+                        <div
+                            className="mt-1 text-lg font-bold tabular-nums text-negative">{formatFaInteger(outflowCount)}</div>
                     </div>
-                    <div className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
+                    <div
+                        className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
                         <div className="text-[10px] text-muted">آخرین وضعیت</div>
                         <div className="mt-1 text-sm font-semibold text-text">
                             {latestTx ? (latestTx.amount > 0 ? 'افزایش موجودی' : 'کاهش موجودی') : 'بدون تراکنش'}
@@ -953,13 +916,15 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
 
             <div className="p-4 sm:p-5">
                 {loading && txs.length === 0 ? (
-                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-surface-2 py-12 text-xs text-muted">
+                    <div
+                        className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-surface-2 py-12 text-xs text-muted">
                         <Loader2 className="h-4 w-4 animate-spin"/>
                         در حال بارگذاری گزارشات...
                     </div>
                 ) : txs.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-border/70 bg-surface-2 p-8 text-center">
-                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-surface text-muted">
+                        <div
+                            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-surface text-muted">
                             <Wallet className="h-5 w-5"/>
                         </div>
                         <div className="text-sm font-semibold text-text">هنوز تراکنشی ثبت نشده است</div>
@@ -980,10 +945,12 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                                         <span
                                             className={`mt-0.5 rounded-2xl p-2 ${isIncrease ? 'bg-positive/12 text-positive' : 'bg-negative/12 text-negative'}`}
                                         >
-                                            {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> : <ArrowDownLeft className="h-3.5 w-3.5"/>}
+                                            {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> :
+                                                <ArrowDownLeft className="h-3.5 w-3.5"/>}
                                         </span>
                                         <div className="min-w-0">
-                                            <div className="font-semibold leading-relaxed text-text">{tx.description}</div>
+                                            <div
+                                                className="font-semibold leading-relaxed text-text">{tx.description}</div>
                                             <div className="mt-1 text-[10px] text-muted">
                                                 {new Date(tx.createdAt).toLocaleDateString('fa-IR', {
                                                     year: 'numeric',
@@ -996,7 +963,8 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                                         </div>
                                     </div>
                                     <div className="shrink-0 text-left">
-                                        <div className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                        <div
+                                            className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
                                             {isIncrease ? '+' : ''}{tx.amount.toLocaleString('fa-IR')} ریال
                                         </div>
                                         <div className="mt-0.5 text-[10px] text-muted tabular-nums">
@@ -1015,7 +983,7 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
 
 type WalletActionType = 'ADD' | 'SUBTRACT' | 'SET' | 'PERCENT_ADD' | 'PERCENT_SUBTRACT';
 
-const WALLET_ACTIONS: {type: WalletActionType; label: string; hint: string}[] = [
+const WALLET_ACTIONS: { type: WalletActionType; label: string; hint: string }[] = [
     {type: 'ADD', label: 'افزایش', hint: 'واریز به کیف پول'},
     {type: 'SUBTRACT', label: 'کاهش', hint: 'برداشت از کیف پول'},
     {type: 'SET', label: 'تنظیم', hint: 'تعیین موجودی دقیق'},
@@ -1041,10 +1009,10 @@ const computeProjectedBalance = (currentBalance: number, actionType: WalletActio
 };
 
 function WalletTabContent({
-    userProfile,
-    accessToken,
-    onProfileUpdated,
-}: {
+                              userProfile,
+                              accessToken,
+                              onProfileUpdated,
+                          }: {
     userProfile?: UserProfile;
     accessToken: string;
     onProfileUpdated?: (profile: UserProfile) => void;
@@ -1115,15 +1083,20 @@ function WalletTabContent({
 
     return (
         <div className="space-y-3">
-            <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,250,252,0.98))] p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.95),rgba(15,23,42,0.98))]">
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_42%)]" />
-                <div className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-slate-900/5 blur-2xl dark:bg-white/5" />
-                <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl" />
+            <div
+                className="relative overflow-hidden rounded-3xl border border-border/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(248,250,252,0.98))] p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.35)] dark:bg-[linear-gradient(180deg,rgba(17,24,39,0.95),rgba(15,23,42,0.98))]">
+                <div
+                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.10),transparent_42%)]"/>
+                <div
+                    className="pointer-events-none absolute -left-8 -bottom-10 h-28 w-28 rounded-full bg-slate-900/5 blur-2xl dark:bg-white/5"/>
+                <div
+                    className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl"/>
 
                 <div className="relative z-10 space-y-4">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3 py-1 text-[10px] text-muted">
+                            <div
+                                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface px-3 py-1 text-[10px] text-muted">
                                 <Wallet className="h-3.5 w-3.5 text-emerald-600"/>
                                 کیف پول
                             </div>
@@ -1134,7 +1107,8 @@ function WalletTabContent({
                                 @{userProfile?.username}
                             </div>
                         </div>
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-surface text-emerald-600">
+                        <div
+                            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/70 bg-surface text-emerald-600">
                             <Wallet className="h-4 w-4"/>
                         </div>
                     </div>
@@ -1146,7 +1120,8 @@ function WalletTabContent({
                                 <div className="mt-1 text-[11px] text-muted">ریال</div>
                             </div>
                             <div className="min-w-0 text-left">
-                                <div className="break-all text-xl font-black leading-tight tabular-nums tracking-tight text-text sm:text-2xl">
+                                <div
+                                    className="break-all text-xl font-black leading-tight tabular-nums tracking-tight text-text sm:text-2xl">
                                     {currentBalance.toLocaleString('fa-IR')}
                                 </div>
                             </div>
@@ -1155,13 +1130,15 @@ function WalletTabContent({
                 </div>
             </div>
 
-            <form onSubmit={handleAdjust} className="space-y-3 rounded-3xl border border-border/70 bg-surface/90 p-4 shadow-sm backdrop-blur-sm">
+            <form onSubmit={handleAdjust}
+                  className="space-y-3 rounded-3xl border border-border/70 bg-surface/90 p-4 shadow-sm backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-2">
                     <div>
                         <h4 className="text-sm font-bold text-text">مدیریت موجودی</h4>
                         <p className="mt-1 text-[11px] text-muted">تنظیم دقیق، واریز، برداشت و عملیات درصدی</p>
                     </div>
-                    <span className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-muted">ریال</span>
+                    <span
+                        className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-muted">ریال</span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -1272,13 +1249,15 @@ function WalletTabContent({
                 </div>
 
                 {error ? (
-                    <div className="flex items-start gap-1.5 rounded-xl border border-negative/30 bg-negative/8 px-2.5 py-2 text-[10px] text-negative">
+                    <div
+                        className="flex items-start gap-1.5 rounded-xl border border-negative/30 bg-negative/8 px-2.5 py-2 text-[10px] text-negative">
                         <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
                         <span>{error}</span>
                     </div>
                 ) : null}
                 {success ? (
-                    <div className="flex items-start gap-1.5 rounded-xl border border-positive/30 bg-positive/8 px-2.5 py-2 text-[10px] text-positive">
+                    <div
+                        className="flex items-start gap-1.5 rounded-xl border border-positive/30 bg-positive/8 px-2.5 py-2 text-[10px] text-positive">
                         <Check className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
                         <span>{success}</span>
                     </div>
@@ -1993,6 +1972,8 @@ export default function TradingDashboard({
 
     const noticeListRef = useRef<HTMLDivElement | null>(null);
     const noticeLoadMoreRef = useRef<HTMLDivElement | null>(null);
+    const symbolNoticeListRef = useRef<HTMLDivElement | null>(null);
+    const symbolNoticeLoadMoreRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         void loadWatchlists();
@@ -2143,8 +2124,19 @@ export default function TradingDashboard({
     );
     const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
     const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;
+    const codalSymbol = activeSymbol.symbol.trim();
+    const symbolCodalQuery = useMemo<CodalNoticesQuery>(
+        () => ({
+            ...DEFAULT_CODAL_NOTICE_QUERY,
+            symbol: codalSymbol,
+            length: CODAL_MAX_LENGTH,
+        }),
+        [codalSymbol]
+    );
+    const symbolNoticesEnabled = codalSymbol !== '' && symbolTab === 'notices';
     const {
         notices: symbolCodalNotices,
+        totalCount: symbolCodalNoticesTotalCount,
         loading: symbolCodalNoticesLoading,
         loadingMore: symbolCodalNoticesLoadingMore,
         refreshing: symbolCodalNoticesRefreshing,
@@ -2152,8 +2144,12 @@ export default function TradingDashboard({
         error: symbolCodalNoticesError,
         loadMore: loadMoreSymbolCodalNotices,
         refresh: refreshSymbolCodalNotices,
-    } = useTsetmcSymbolCodalNotices(tsetmcInstrumentCode, 20);
-    const codalSymbol = activeSymbol.symbol.trim();
+    } = useCodalNotices(symbolCodalQuery, {
+        enabled: symbolNoticesEnabled,
+        autoRefresh: symbolNoticesEnabled,
+        pagesPerLoad: SYMBOL_NOTICE_PAGES_PER_LOAD,
+        errorMessage: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
+    });
     const codalSymbolUrl = codalSymbol
         ? `https://codal.ir/ReportList.aspx?search&Symbol=${encodeURIComponent(
             codalSymbol
@@ -2428,16 +2424,51 @@ export default function TradingDashboard({
         applyNoticeFilters(nextDraft);
     };
 
-    const handleSymbolCodalNoticeScroll = useCallback(
-        (event: UIEvent<HTMLDivElement>) => {
-            const target = event.currentTarget;
-            if (target.scrollTop <= 0) return;
-            const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-            if (distanceToBottom > 80) return;
-            loadMoreSymbolCodalNotices();
-        },
-        [loadMoreSymbolCodalNotices]
-    );
+    const shouldLoadMoreSymbolNotices = useMemo(() => {
+        if (symbolCodalNoticesError) return false;
+        if (!symbolCodalNoticesHasMore) return false;
+        if (symbolCodalNoticesLoading || symbolCodalNoticesLoadingMore || symbolCodalNoticesRefreshing) return false;
+        return symbolTab === 'notices';
+    }, [
+        symbolCodalNoticesError,
+        symbolCodalNoticesHasMore,
+        symbolCodalNoticesLoading,
+        symbolCodalNoticesLoadingMore,
+        symbolCodalNoticesRefreshing,
+        symbolTab,
+    ]);
+
+    const isWaitingForSymbolNoticeResults =
+        symbolCodalNoticesLoading || symbolCodalNoticesLoadingMore || symbolCodalNoticesRefreshing;
+
+    useEffect(() => {
+        const root = symbolNoticeListRef.current;
+        const sentinel = symbolNoticeLoadMoreRef.current;
+        if (!root || !sentinel) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) return;
+                    if (!shouldLoadMoreSymbolNotices) return;
+                    loadMoreSymbolCodalNotices();
+                });
+            },
+            {
+                root,
+                rootMargin: '120px 0px 120px 0px',
+                threshold: 0.1,
+            }
+        );
+
+        observer.observe(sentinel);
+
+        return () => observer.disconnect();
+    }, [
+        loadMoreSymbolCodalNotices,
+        shouldLoadMoreSymbolNotices,
+        symbolCodalNotices.length,
+    ]);
 
     useEffect(() => {
         const root = noticeListRef.current;
@@ -2469,9 +2500,18 @@ export default function TradingDashboard({
     ]);
 
     const orderFilters: Array<{ key: OrderFilter; label: string }> = [
-        {key: 'open', label: `درخواست شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'open').length)}`},
-        {key: 'done', label: `انجام شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'done').length)}`},
-        {key: 'failed', label: `ناموفق ${formatNumberFa(demoOrders.filter((order) => order.status === 'failed').length)}`},
+        {
+            key: 'open',
+            label: `درخواست شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'open').length)}`
+        },
+        {
+            key: 'done',
+            label: `انجام شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'done').length)}`
+        },
+        {
+            key: 'failed',
+            label: `ناموفق ${formatNumberFa(demoOrders.filter((order) => order.status === 'failed').length)}`
+        },
         {key: 'all', label: `همه ${formatNumberFa(demoOrders.length)}`},
     ];
 
@@ -2589,16 +2629,17 @@ export default function TradingDashboard({
                                         <span className="font-medium sm:text-sm">شاخص کل بورس</span>
                                         <span className="text-[11px] text-muted/80">بورس • فرابورس</span>
                                         {marketStateText && (
-                                            <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                                                isMarketOpen
-                                                    ? 'bg-positive/10 text-positive'
-                                                    : 'bg-muted/10 text-muted'
-                                            }`}>
+                                            <span
+                                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
+                                                    isMarketOpen
+                                                        ? 'bg-positive/10 text-positive'
+                                                        : 'bg-muted/10 text-muted'
+                                                }`}>
                                                 <span className={`h-1.5 w-1.5 rounded-full ${
                                                     isMarketOpen
                                                         ? 'bg-positive animate-pulse'
                                                         : 'bg-muted'
-                                                }`} />
+                                                }`}/>
                                                 {marketStateText}
                                             </span>
                                         )}
@@ -2842,56 +2883,57 @@ export default function TradingDashboard({
                         <p className="mt-2 text-xs text-muted">این بخش به‌زودی در دسترس خواهد بود.</p>
                     </section>
                 ) : (
-                <>
-                <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
-                    <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-6`}>
-                        {symbolLoading && !activeSymbolData ? (
-                            <div className="animate-pulse">
-                                <div className="mb-3 flex items-center justify-between gap-2">
-                                    <div>
-                                        <div className="h-5 w-24 rounded bg-border/60"/>
-                                        <div className="mt-2 h-4 w-32 rounded bg-border/45"/>
+                    <>
+                        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
+                            <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-6`}>
+                                {symbolLoading && !activeSymbolData ? (
+                                    <div className="animate-pulse">
+                                        <div className="mb-3 flex items-center justify-between gap-2">
+                                            <div>
+                                                <div className="h-5 w-24 rounded bg-border/60"/>
+                                                <div className="mt-2 h-4 w-32 rounded bg-border/45"/>
+                                            </div>
+                                            <div className="h-6 w-24 rounded-full bg-border/60"/>
+                                        </div>
+                                        <div className="mb-3 h-24 rounded-2xl bg-surface-2/60"/>
+                                        <div className="h-64 rounded-2xl border border-border/70 bg-surface-2/60"/>
+                                        <div className="mt-3 h-24 rounded-2xl bg-surface-2/60"/>
                                     </div>
-                                    <div className="h-6 w-24 rounded-full bg-border/60"/>
-                                </div>
-                                <div className="mb-3 h-24 rounded-2xl bg-surface-2/60"/>
-                                <div className="h-64 rounded-2xl border border-border/70 bg-surface-2/60"/>
-                                <div className="mt-3 h-24 rounded-2xl bg-surface-2/60"/>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="mb-3 flex items-center justify-between gap-2">
-                                    <div>
-                                        <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
-                                        <p className="text-xs text-muted">{activeSymbolSummary}</p>
-                                    </div>
-                                    <span
-                                        className="rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
+                                ) : (
+                                    <>
+                                        <div className="mb-3 flex items-center justify-between gap-2">
+                                            <div>
+                                                <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
+                                                <p className="text-xs text-muted">{activeSymbolSummary}</p>
+                                            </div>
+                                            <span
+                                                className="rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
                                         {symbolLoading ? 'در حال بارگذاری' : symbolRefreshing ? 'در حال به‌روزرسانی' : 'به‌روزرسانی زنده'}
                                     </span>
-                                </div>
-
-                                {symbolError && !activeSymbolData ? (
-                                    <div
-                                        className="mb-3 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span>{symbolError}</span>
-                                            <button
-                                                type="button"
-                                                onClick={refreshSymbolDetails}
-                                                className="rounded-full border border-negative/35 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
-                                            >
-                                                تلاش مجدد
-                                            </button>
                                         </div>
-                                    </div>
-                                ) : null}
 
-                                <div className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
-                                    <div className="mb-3 text-center text-xs font-medium text-muted">بازه مجاز روزانه
-                                    </div>
-                                    <div
-                                        className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
+                                        {symbolError && !activeSymbolData ? (
+                                            <div
+                                                className="mb-3 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span>{symbolError}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={refreshSymbolDetails}
+                                                        className="rounded-full border border-negative/35 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                                    >
+                                                        تلاش مجدد
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : null}
+
+                                        <div className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
+                                            <div className="mb-3 text-center text-xs font-medium text-muted">بازه مجاز
+                                                روزانه
+                                            </div>
+                                            <div
+                                                className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
                 <span
                     className={`text-left text-sm font-bold tabular-nums ${
                         symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
@@ -2900,507 +2942,511 @@ export default function TradingDashboard({
                   {formatNumberOrDash(symbolPrice)}
                 </span>
 
-                                        <div>
-                                            <div
-                                                className="mb-1 flex items-center justify-between text-[11px] text-muted">
-                                                <span className="tabular-nums">{formatNumberOrDash(dailyMin)}</span>
-                                                <span className="tabular-nums">{formatNumberOrDash(dailyMax)}</span>
-                                            </div>
+                                                <div>
+                                                    <div
+                                                        className="mb-1 flex items-center justify-between text-[11px] text-muted">
+                                                        <span
+                                                            className="tabular-nums">{formatNumberOrDash(dailyMin)}</span>
+                                                        <span
+                                                            className="tabular-nums">{formatNumberOrDash(dailyMax)}</span>
+                                                    </div>
 
-                                            <div className="relative h-2 rounded-full bg-border/45">
-                                                <div
-                                                    className={`absolute inset-y-0 left-0 rounded-full ${symbolPositive ? 'bg-positive/20' : 'bg-negative/20'}`}
-                                                    style={{width: `${markerPercent}%`}}
-                                                />
-                                                <div
-                                                    className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface shadow-card ${
-                                                        symbolPositive ? 'bg-positive' : 'bg-negative'
-                                                    }`}
-                                                    style={{left: `calc(${markerPercent}% - 8px)`}}
-                                                />
+                                                    <div className="relative h-2 rounded-full bg-border/45">
+                                                        <div
+                                                            className={`absolute inset-y-0 left-0 rounded-full ${symbolPositive ? 'bg-positive/20' : 'bg-negative/20'}`}
+                                                            style={{width: `${markerPercent}%`}}
+                                                        />
+                                                        <div
+                                                            className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface shadow-card ${
+                                                                symbolPositive ? 'bg-positive' : 'bg-negative'
+                                                            }`}
+                                                            style={{left: `calc(${markerPercent}% - 8px)`}}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                <div
-                                    className="thin-scrollbar max-h-[312px] overflow-auto rounded-2xl border border-border/70">
-                                    <table className="w-full min-w-[720px] text-xs">
-                                        <thead className="sticky top-0 z-10 bg-surface-2/95 text-muted backdrop-blur">
-                                        <tr>
-                                            <th className="px-3 py-2 text-right font-medium">تعداد فروش</th>
-                                            <th className="px-3 py-2 text-right font-medium">حجم فروش</th>
-                                            <th className="px-3 py-2 text-right font-medium">قیمت فروش</th>
-                                            <th className="px-3 py-2 text-right font-medium">قیمت خرید</th>
-                                            <th className="px-3 py-2 text-right font-medium">حجم خرید</th>
-                                            <th className="px-3 py-2 text-right font-medium">تعداد خرید</th>
-                                        </tr>
-                                        </thead>
-                                        <tbody>
-                                        {orderBookRows.map((row, idx) => {
-                                            const bestBuy = idx === 0 && row.bidPrice !== null;
-                                            const askVolumeWidth =
-                                                row.askVolume !== null && row.askVolume > 0
-                                                    ? clamp((row.askVolume / orderBookMaxVolumes.ask) * 100, 4, 100)
-                                                    : 0;
-                                            const bidVolumeWidth =
-                                                row.bidVolume !== null && row.bidVolume > 0
-                                                    ? clamp((row.bidVolume / orderBookMaxVolumes.bid) * 100, 4, 100)
-                                                    : 0;
-                                            const depthCellBaseClass =
-                                                theme === 'dark' ? 'from-transparent to-current/16' : 'from-transparent to-current/20';
-
-                                            return (
-                                                <tr
-                                                    key={row.id}
-                                                    className={`border-t border-border/50 transition hover:bg-surface-2/70 ${
-                                                        bestBuy ? 'bg-positive/10' : ''
-                                                    }`}
-                                                >
-                                                    <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askCount)}</td>
-                                                    <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
-                                                        <div
-                                                            className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                            style={{width: `${askVolumeWidth}%`}}
-                                                        />
-                                                        <span
-                                                            className="relative z-[1]">{formatNumberOrDash(row.askVolume)}</span>
-                                                    </td>
-                                                    <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-negative">
-                                                        <div
-                                                            className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                            style={{width: `${askVolumeWidth}%`}}
-                                                        />
-                                                        <span
-                                                            className="relative z-[1]">{formatNumberOrDash(row.askPrice)}</span>
-                                                    </td>
-                                                    <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-positive">
-                                                        <div
-                                                            className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                            style={{width: `${bidVolumeWidth}%`}}
-                                                        />
-                                                        <span
-                                                            className="relative z-[1]">{formatNumberOrDash(row.bidPrice)}</span>
-                                                    </td>
-                                                    <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
-                                                        <div
-                                                            className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                            style={{width: `${bidVolumeWidth}%`}}
-                                                        />
-                                                        <span
-                                                            className="relative z-[1]">{formatNumberOrDash(row.bidVolume)}</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidCount)}</td>
-                                                </tr>
-                                            );
-                                        })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                    {depthRows.length === 0 ? (
                                         <div
-                                            className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-4 text-center text-xs text-muted">
-                                            اطلاعات ورود/خروج حقیقی و حقوقی موجود نیست.
+                                            className="thin-scrollbar max-h-[312px] overflow-auto rounded-2xl border border-border/70">
+                                            <table className="w-full min-w-[720px] text-xs">
+                                                <thead
+                                                    className="sticky top-0 z-10 bg-surface-2/95 text-muted backdrop-blur">
+                                                <tr>
+                                                    <th className="px-3 py-2 text-right font-medium">تعداد فروش</th>
+                                                    <th className="px-3 py-2 text-right font-medium">حجم فروش</th>
+                                                    <th className="px-3 py-2 text-right font-medium">قیمت فروش</th>
+                                                    <th className="px-3 py-2 text-right font-medium">قیمت خرید</th>
+                                                    <th className="px-3 py-2 text-right font-medium">حجم خرید</th>
+                                                    <th className="px-3 py-2 text-right font-medium">تعداد خرید</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                {orderBookRows.map((row, idx) => {
+                                                    const bestBuy = idx === 0 && row.bidPrice !== null;
+                                                    const askVolumeWidth =
+                                                        row.askVolume !== null && row.askVolume > 0
+                                                            ? clamp((row.askVolume / orderBookMaxVolumes.ask) * 100, 4, 100)
+                                                            : 0;
+                                                    const bidVolumeWidth =
+                                                        row.bidVolume !== null && row.bidVolume > 0
+                                                            ? clamp((row.bidVolume / orderBookMaxVolumes.bid) * 100, 4, 100)
+                                                            : 0;
+                                                    const depthCellBaseClass =
+                                                        theme === 'dark' ? 'from-transparent to-current/16' : 'from-transparent to-current/20';
+
+                                                    return (
+                                                        <tr
+                                                            key={row.id}
+                                                            className={`border-t border-border/50 transition hover:bg-surface-2/70 ${
+                                                                bestBuy ? 'bg-positive/10' : ''
+                                                            }`}
+                                                        >
+                                                            <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askCount)}</td>
+                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
+                                                                <div
+                                                                    className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                                                                    style={{width: `${askVolumeWidth}%`}}
+                                                                />
+                                                                <span
+                                                                    className="relative z-[1]">{formatNumberOrDash(row.askVolume)}</span>
+                                                            </td>
+                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-negative">
+                                                                <div
+                                                                    className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                                                                    style={{width: `${askVolumeWidth}%`}}
+                                                                />
+                                                                <span
+                                                                    className="relative z-[1]">{formatNumberOrDash(row.askPrice)}</span>
+                                                            </td>
+                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-positive">
+                                                                <div
+                                                                    className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                                                                    style={{width: `${bidVolumeWidth}%`}}
+                                                                />
+                                                                <span
+                                                                    className="relative z-[1]">{formatNumberOrDash(row.bidPrice)}</span>
+                                                            </td>
+                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
+                                                                <div
+                                                                    className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
+                                                                    style={{width: `${bidVolumeWidth}%`}}
+                                                                />
+                                                                <span
+                                                                    className="relative z-[1]">{formatNumberOrDash(row.bidVolume)}</span>
+                                                            </td>
+                                                            <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidCount)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                </tbody>
+                                            </table>
                                         </div>
-                                    ) : (
-                                        depthRows.map((row) => (
-                                            <div key={row.id} className="mb-2 last:mb-0">
+
+                                        <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
+                                            {depthRows.length === 0 ? (
                                                 <div
-                                                    className="mb-1 grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
-                                                    <span/>
-                                                    <span className="text-center [direction:rtl] text-muted">
+                                                    className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-4 text-center text-xs text-muted">
+                                                    اطلاعات ورود/خروج حقیقی و حقوقی موجود نیست.
+                                                </div>
+                                            ) : (
+                                                depthRows.map((row) => (
+                                                    <div key={row.id} className="mb-2 last:mb-0">
+                                                        <div
+                                                            className="mb-1 grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
+                                                            <span/>
+                                                            <span className="text-center [direction:rtl] text-muted">
                         فروش{' '}
-                                                        <bdi dir="ltr" className="inline-block tabular-nums">
+                                                                <bdi dir="ltr" className="inline-block tabular-nums">
                           {`${formatNumberOrDash(row.sellCount)} * ${formatCompactAmountFa(row.sellVolume)} (${formatPercentOrDash(
                               row.sellPercent,
                               0
                           )})`}
                         </bdi>
-                                                        {' '}
-                                                        | خرید{' '}
-                                                        <bdi dir="ltr" className="inline-block tabular-nums">
+                                                                {' '}
+                                                                | خرید{' '}
+                                                                <bdi dir="ltr" className="inline-block tabular-nums">
                           {`${formatNumberOrDash(row.buyCount)} * ${formatCompactAmountFa(row.buyVolume)} (${formatPercentOrDash(
                               row.buyPercent,
                               0
                           )})`}
                         </bdi>
                       </span>
-                                                    <span
-                                                        className="text-right [direction:rtl] text-muted">{row.label}</span>
-                                                </div>
+                                                            <span
+                                                                className="text-right [direction:rtl] text-muted">{row.label}</span>
+                                                        </div>
 
-                                                <div
-                                                    className="grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
+                                                        <div
+                                                            className="grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
                                             <span
                                                 className="tabular-nums text-negative">{formatCompactAmountFa(row.sellVolume)}</span>
-                                                    <div className="relative h-2 rounded-full bg-border/45">
-                                                        <div
-                                                            className="absolute inset-y-0 left-0 rounded-full bg-negative/35"
-                                                            style={{width: `${row.sellPercent ?? 0}%`}}
-                                                        />
-                                                        <div
-                                                            className="absolute inset-y-0 right-0 rounded-full bg-positive/35"
-                                                            style={{width: `${row.buyPercent ?? 0}%`}}
-                                                        />
+                                                            <div className="relative h-2 rounded-full bg-border/45">
+                                                                <div
+                                                                    className="absolute inset-y-0 left-0 rounded-full bg-negative/35"
+                                                                    style={{width: `${row.sellPercent ?? 0}%`}}
+                                                                />
+                                                                <div
+                                                                    className="absolute inset-y-0 right-0 rounded-full bg-positive/35"
+                                                                    style={{width: `${row.buyPercent ?? 0}%`}}
+                                                                />
+                                                            </div>
+                                                            <span
+                                                                className="text-right tabular-nums text-positive">{formatCompactAmountFa(row.buyVolume)}</span>
+                                                        </div>
                                                     </div>
-                                                    <span
-                                                        className="text-right tabular-nums text-positive">{formatCompactAmountFa(row.buyVolume)}</span>
-                                                </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        <div className="mt-4 rounded-xl border border-border/70 bg-surface-2 p-1">
+                                            <div className="flex flex-wrap items-center gap-1 text-xs">
+                                                {orderbookTabs.map((tab) => (
+                                                    <button
+                                                        key={tab.key}
+                                                        type="button"
+                                                        onClick={() => setOrderbookTab(tab.key)}
+                                                        className={`rounded-lg px-3 py-1.5 transition ${
+                                                            orderbookTab === tab.key
+                                                                ? 'bg-surface text-text shadow-sm'
+                                                                : 'text-muted hover:text-text'
+                                                        }`}
+                                                    >
+                                                        {tab.label}
+                                                    </button>
+                                                ))}
                                             </div>
-                                        ))
-                                    )}
-                                </div>
+                                        </div>
 
-                                <div className="mt-4 rounded-xl border border-border/70 bg-surface-2 p-1">
-                                    <div className="flex flex-wrap items-center gap-1 text-xs">
-                                        {orderbookTabs.map((tab) => (
-                                            <button
-                                                key={tab.key}
-                                                type="button"
-                                                onClick={() => setOrderbookTab(tab.key)}
-                                                className={`rounded-lg px-3 py-1.5 transition ${
-                                                    orderbookTab === tab.key
-                                                        ? 'bg-surface text-text shadow-sm'
-                                                        : 'text-muted hover:text-text'
-                                                }`}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                                        <p className="mt-2 text-xs text-muted">{orderbookTabCaption[orderbookTab]}</p>
+                                    </>
+                                )}
+                            </section>
 
-                                <p className="mt-2 text-xs text-muted">{orderbookTabCaption[orderbookTab]}</p>
-                            </>
-                        )}
-                    </section>
-
-                    <section dir="rtl" className={`${cardClass} p-3 md:col-span-1 xl:col-span-3`}>
-                        {symbolLoading && !activeSymbolData ? (
-                            <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 animate-pulse">
-                                <div className="mb-2 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2.5 w-2.5 rounded-full bg-border/60"/>
-                                        <div className="h-5 w-24 rounded bg-border/60"/>
-                                    </div>
-                                    <div className="h-4 w-32 rounded bg-border/45"/>
-                                </div>
-                                <div className="mb-3 flex items-center gap-2">
-                                    <div className="h-6 w-12 rounded-full bg-border/60"/>
-                                    <div className="h-6 w-12 rounded-full bg-border/60"/>
-                                </div>
-                                <div className="mb-2 h-10 w-32 rounded bg-border/60"/>
-                                <div className="mb-4 h-5 w-16 rounded bg-border/45"/>
-                                <div className="mt-2 space-y-2 text-xs">
-                                    <div className="flex items-center justify-between">
-                                        <div className="h-4 w-12 rounded bg-border/45"/>
-                                        <div className="h-4 w-24 rounded bg-border/60"/>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="h-4 w-12 rounded bg-border/45"/>
-                                        <div className="h-4 w-16 rounded bg-border/60"/>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : symbolError && !activeSymbolData ? (
-                            <div
-                                className="rounded-2xl border border-negative/30 bg-negative/10 p-4 text-center text-negative">
-                                <AlertCircle className="mx-auto mb-2 h-6 w-6 opacity-80"/>
-                                <p className="text-sm font-semibold mb-2">اطلاعات یافت نشد یا درخواست با خطا مواجه
-                                    شد.</p>
-                                <button
-                                    type="button"
-                                    onClick={refreshSymbolDetails}
-                                    className="rounded-full border border-negative/35 bg-negative/10 px-4 py-1.5 text-xs font-semibold transition hover:bg-negative/15"
-                                >
-                                    تلاش مجدد
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                <div className="mb-2 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span
-                                            className={`h-2.5 w-2.5 rounded-full ${symbolPositive ? 'bg-positive' : 'bg-negative'}`}/>
-                                        <h2 className="text-base font-semibold text-text">{activeSymbolData?.title ?? activeSymbol.symbol}</h2>
-                                    </div>
-                                    <span
-                                        className="text-xs text-muted">{activeSymbolData?.subtitle ?? activeSymbol.name}</span>
-                                </div>
-
-                                <div className="mb-3 flex items-center gap-2">
-                                    {codalSymbolUrl ? (
-                                        <a
-                                            href={codalSymbolUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive transition hover:bg-positive/20"
-                                        >
-                                            کدال
-                                        </a>
-                                    ) : (
-                                        <span
-                                            className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive">
-                      کدال
-                    </span>
-                                    )}
-
-                                    {(activeSymbolData?.exchangeBadge || activeSymbol.type !== 'UNKNOWN') && (
-                                        tsetmcSymbolUrl ? (
-                                            <a
-                                                href={tsetmcSymbolUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="rounded-full border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition hover:border-primary/40 hover:text-text"
-                                            >
-                                                {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
-                                            </a>
-                                        ) : (
-                                            <span
-                                                className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-muted border border-border/60">
-                          {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
-                        </span>
-                                        )
-                                    )}
-                                </div>
-
-                                <div
-                                    className="text-4xl font-bold tabular-nums tracking-tight text-text">{formatNumberOrDash(symbolPrice)}</div>
-                                <div
-                                    className={`mt-1 text-sm font-semibold tabular-nums ${
-                                        symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
-                                    }`}
-                                >
-                                    {formatPercentOrDash(symbolPercent)}
-                                </div>
-
-                                <div className="mt-2 space-y-1 text-xs">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted">پایانی</span>
-                                        <span className="font-medium tabular-nums text-text">
-                      {formatNumberOrDash(activeSymbolData?.closePrice)} ({formatPercentOrDash(activeSymbolData?.closePricePercent)})
-                    </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted">
-                                            {activeSymbolData?.source === 'fund' ? 'حباب' : 'وضعیت'}
-                                        </span>
-                                        <span className="font-medium tabular-nums text-text">
-                                            {activeSymbolData?.source === 'fund'
-                                                ? formatPercentOrDash(activeSymbolData?.bubblePercent)
-                                                : activeSymbolData?.stateTitle ?? 'ناموجود'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="mt-3 rounded-xl border border-border/70 bg-surface-2 p-1">
-                            <div className="grid grid-cols-2 gap-1 text-xs">
-                                <button
-                                    type="button"
-                                    onClick={() => setSymbolTab('notices')}
-                                    className={`rounded-lg px-2 py-2 transition ${
-                                        symbolTab === 'notices'
-                                            ? 'bg-surface text-text shadow-sm'
-                                            : 'text-muted hover:text-text'
-                                    }`}
-                                >
-                                    اطلاعیه‌ها
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setSymbolTab('details')}
-                                    className={`rounded-lg px-2 py-2 transition ${
-                                        symbolTab === 'details'
-                                            ? 'bg-surface text-text shadow-sm'
-                                            : 'text-muted hover:text-text'
-                                    }`}
-                                >
-                                    جزئیات نماد
-                                </button>
-                            </div>
-                        </div>
-
-                        {symbolTab === 'notices' ? (
-                            <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                <div className="mb-2 flex items-center justify-between border-b border-border/60 pb-2">
-                                    <div className="flex items-center gap-2 text-xs text-muted">
-                                        <Bell className="h-4 w-4"/>
-                                        اطلاعیه‌های کدال
-                                        <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] tabular-nums">
-                                            {formatNumberFa(symbolCodalNotices.length)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        {symbolCodalNoticesRefreshing ? (
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted"/>
-                                        ) : null}
-                                        <button
-                                            type="button"
-                                            onClick={refreshSymbolCodalNotices}
-                                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/80 bg-surface text-muted transition hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45"
-                                            aria-label="refresh symbol codal notices"
-                                        >
-                                            <RefreshCw className="h-3.5 w-3.5"/>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div
-                                    onScroll={handleSymbolCodalNoticeScroll}
-                                    className="thin-scrollbar max-h-44 space-y-2 overflow-y-auto pl-1"
-                                >
-                                    {symbolCodalNoticesLoading && symbolCodalNotices.length === 0 ? (
-                                        Array.from({length: 3}, (_, index) => (
-                                            <div
-                                                key={`symbol-codal-skeleton-${index + 1}`}
-                                                className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
-                                            >
-                                                <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
-                                                <div className="h-3 w-2/5 rounded bg-border/45"/>
+                            <section dir="rtl" className={`${cardClass} p-3 md:col-span-1 xl:col-span-3`}>
+                                {symbolLoading && !activeSymbolData ? (
+                                    <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 animate-pulse">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-2.5 w-2.5 rounded-full bg-border/60"/>
+                                                <div className="h-5 w-24 rounded bg-border/60"/>
                                             </div>
-                                        ))
-                                    ) : null}
-
-                                    {symbolCodalNoticesError ? (
-                                        <div
-                                            className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
-                                            <div className="mb-2 flex items-center gap-2">
-                                                <AlertCircle className="h-4 w-4"/>
-                                                {symbolCodalNoticesError}
+                                            <div className="h-4 w-32 rounded bg-border/45"/>
+                                        </div>
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <div className="h-6 w-12 rounded-full bg-border/60"/>
+                                            <div className="h-6 w-12 rounded-full bg-border/60"/>
+                                        </div>
+                                        <div className="mb-2 h-10 w-32 rounded bg-border/60"/>
+                                        <div className="mb-4 h-5 w-16 rounded bg-border/45"/>
+                                        <div className="mt-2 space-y-2 text-xs">
+                                            <div className="flex items-center justify-between">
+                                                <div className="h-4 w-12 rounded bg-border/45"/>
+                                                <div className="h-4 w-24 rounded bg-border/60"/>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={refreshSymbolCodalNotices}
-                                                className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
-                                            >
-                                                تلاش مجدد
-                                            </button>
+                                            <div className="flex items-center justify-between">
+                                                <div className="h-4 w-12 rounded bg-border/45"/>
+                                                <div className="h-4 w-16 rounded bg-border/60"/>
+                                            </div>
                                         </div>
-                                    ) : null}
-
-                                    {!symbolCodalNoticesLoading &&
-                                    !symbolCodalNoticesError &&
-                                    symbolCodalNotices.length === 0 ? (
-                                        <div
-                                            className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-6 text-center text-xs text-muted">
-                                            اطلاعیه‌ای برای این نماد پیدا نشد.
-                                        </div>
-                                    ) : null}
-
-                                    {symbolCodalNotices.map((notice, index) => {
-                                        const trackingNumber = notice.trackingNumber?.trim() ?? '';
-                                        const noticeKey = notice.noticeId ?? (trackingNumber || String(index));
-                                        const reportHref = trackingNumber
-                                            ? `https://codal.ir/Reports/Decision.aspx?LetterSerial=${encodeURIComponent(trackingNumber)}`
-                                            : codalSymbolUrl;
-                                        return (
-                                            <article
-                                                key={`${noticeKey}-${notice.publishedDate ?? 'date'}`}
-                                                className="rounded-xl border border-border/70 bg-surface px-3 py-2.5"
-                                            >
-                                                <div className="flex items-start justify-between gap-2">
-                                                    <h4 className="min-w-0 text-xs font-semibold leading-6 text-text">
-                                                        {notice.title?.trim() || 'بدون عنوان'}
-                                                    </h4>
-                                                    {reportHref ? (
-                                                        <a
-                                                            href={reportHref}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-surface-2 text-muted transition hover:border-primary/40 hover:text-text"
-                                                            aria-label="open codal notice"
-                                                        >
-                                                            <ExternalLink className="h-3.5 w-3.5"/>
-                                                        </a>
-                                                    ) : null}
-                                                </div>
-
-                                                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
-                                                    <span
-                                                        className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-surface-2 px-2 py-0.5">
-                                                        <FileText className="h-3 w-3"/>
-                                                        {notice.symbol?.trim() || activeSymbol.symbol}
-                                                    </span>
-                                                    <span
-                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2 py-0.5">
-                                                        {formatTsetmcNoticeDate(notice.publishedDate)}
-                                                    </span>
-                                                    {trackingNumber ? (
-                                                        <span
-                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2 py-0.5 tabular-nums">
-                                                            {toLtrIsolated(trackingNumber)}
-                                                        </span>
-                                                    ) : null}
-                                                </div>
-                                            </article>
-                                        );
-                                    })}
-
-                                    {symbolCodalNoticesLoadingMore ? (
-                                        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                            در حال بارگذاری اطلاعیه‌های بیشتر...
-                                        </div>
-                                    ) : null}
-
-                                    {!symbolCodalNoticesLoading &&
-                                    !symbolCodalNoticesLoadingMore &&
-                                    !symbolCodalNoticesHasMore &&
-                                    symbolCodalNotices.length > 0 ? (
-                                        <div className="py-1 text-center text-[11px] text-muted">
-                                            همه اطلاعیه‌ها نمایش داده شد.
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        ) : (
-                            <div
-                                className="thin-scrollbar mt-3 max-h-[336px] space-y-1 overflow-y-auto rounded-2xl border border-border/70 p-2">
-                                {symbolError && !activeSymbolData ? (
+                                    </div>
+                                ) : symbolError && !activeSymbolData ? (
                                     <div
-                                        className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
-                                        <div className="mb-2 flex items-center gap-2">
-                                            <AlertCircle className="h-4 w-4"/>
-                                            {symbolError}
-                                        </div>
+                                        className="rounded-2xl border border-negative/30 bg-negative/10 p-4 text-center text-negative">
+                                        <AlertCircle className="mx-auto mb-2 h-6 w-6 opacity-80"/>
+                                        <p className="text-sm font-semibold mb-2">اطلاعات یافت نشد یا درخواست با خطا
+                                            مواجه
+                                            شد.</p>
                                         <button
                                             type="button"
                                             onClick={refreshSymbolDetails}
-                                            className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                            className="rounded-full border border-negative/35 bg-negative/10 px-4 py-1.5 text-xs font-semibold transition hover:bg-negative/15"
                                         >
                                             تلاش مجدد
                                         </button>
                                     </div>
-                                ) : null}
-
-                                {symbolLoading && !activeSymbolData
-                                    ? Array.from({length: 6}, (_, index) => (
-                                        <div key={`symbol-detail-skeleton-${index + 1}`}
-                                             className="rounded-lg px-2 py-2">
-                                            <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60"/>
-                                            <div className="h-3 w-1/2 animate-pulse rounded bg-border/45"/>
+                                ) : (
+                                    <div className="rounded-2xl border border-border/70 bg-surface-2 p-3">
+                                        <div className="mb-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                        <span
+                                            className={`h-2.5 w-2.5 rounded-full ${symbolPositive ? 'bg-positive' : 'bg-negative'}`}/>
+                                                <h2 className="text-base font-semibold text-text">{activeSymbolData?.title ?? activeSymbol.symbol}</h2>
+                                            </div>
+                                            <span
+                                                className="text-xs text-muted">{activeSymbolData?.subtitle ?? activeSymbol.name}</span>
                                         </div>
-                                    ))
-                                    : null}
 
-                                {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
-                                    <div
-                                        className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
-                                        اطلاعات نماد موجود نیست.
+                                        <div className="mb-3 flex items-center gap-2">
+                                            {codalSymbolUrl ? (
+                                                <a
+                                                    href={codalSymbolUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive transition hover:bg-positive/20"
+                                                >
+                                                    کدال
+                                                </a>
+                                            ) : (
+                                                <span
+                                                    className="rounded-full bg-positive/15 px-2.5 py-1 text-[11px] font-medium text-positive">
+                      کدال
+                    </span>
+                                            )}
+
+                                            {(activeSymbolData?.exchangeBadge || activeSymbol.type !== 'UNKNOWN') && (
+                                                tsetmcSymbolUrl ? (
+                                                    <a
+                                                        href={tsetmcSymbolUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="rounded-full border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition hover:border-primary/40 hover:text-text"
+                                                    >
+                                                        {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
+                                                    </a>
+                                                ) : (
+                                                    <span
+                                                        className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-muted border border-border/60">
+                          {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
+                        </span>
+                                                )
+                                            )}
+                                        </div>
+
+                                        <div
+                                            className="text-4xl font-bold tabular-nums tracking-tight text-text">{formatNumberOrDash(symbolPrice)}</div>
+                                        <div
+                                            className={`mt-1 text-sm font-semibold tabular-nums ${
+                                                symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
+                                            }`}
+                                        >
+                                            {formatPercentOrDash(symbolPercent)}
+                                        </div>
+
+                                        <div className="mt-2 space-y-1 text-xs">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-muted">پایانی</span>
+                                                <span className="font-medium tabular-nums text-text">
+                      {formatNumberOrDash(activeSymbolData?.closePrice)} ({formatPercentOrDash(activeSymbolData?.closePricePercent)})
+                    </span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                        <span className="text-muted">
+                                            {activeSymbolData?.source === 'fund' ? 'حباب' : 'وضعیت'}
+                                        </span>
+                                                <span className="font-medium tabular-nums text-text">
+                                            {activeSymbolData?.source === 'fund'
+                                                ? formatPercentOrDash(activeSymbolData?.bubblePercent)
+                                                : activeSymbolData?.stateTitle ?? 'ناموجود'}
+                                        </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                ) : null}
+                                )}
 
-                                {symbolDetails.map((item) => (
+                                <div className="mt-3 rounded-xl border border-border/70 bg-surface-2 p-1">
+                                    <div className="grid grid-cols-2 gap-1 text-xs">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSymbolTab('notices')}
+                                            className={`rounded-lg px-2 py-2 transition ${
+                                                symbolTab === 'notices'
+                                                    ? 'bg-surface text-text shadow-sm'
+                                                    : 'text-muted hover:text-text'
+                                            }`}
+                                        >
+                                            اطلاعیه‌ها
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setSymbolTab('details')}
+                                            className={`rounded-lg px-2 py-2 transition ${
+                                                symbolTab === 'details'
+                                                    ? 'bg-surface text-text shadow-sm'
+                                                    : 'text-muted hover:text-text'
+                                            }`}
+                                        >
+                                            جزئیات نماد
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {symbolTab === 'notices' ? (
+                                    <div className="mt-3">
+                                        <div
+                                            ref={symbolNoticeListRef}
+                                            className="thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
+                                        >
+                                            {(isWaitingForSymbolNoticeResults ||
+                                                (symbolCodalNotices.length === 0 && shouldLoadMoreSymbolNotices)) &&
+                                            symbolCodalNotices.length === 0 ? (
+                                                Array.from({length: 4}, (_, index) => (
+                                                    <div
+                                                        key={`symbol-codal-skeleton-${index + 1}`}
+                                                        className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
+                                                    >
+                                                        <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
+                                                        <div className="mb-3 h-4 w-3/5 rounded bg-border/60"/>
+                                                        <div className="h-3 w-2/5 rounded bg-border/45"/>
+                                                    </div>
+                                                ))
+                                            ) : null}
+
+                                            {symbolCodalNoticesError ? (
+                                                <div
+                                                    className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                                    <div className="mb-2 flex items-center gap-2">
+                                                        <AlertCircle className="h-4 w-4"/>
+                                                        {symbolCodalNoticesError}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={refreshSymbolCodalNotices}
+                                                        className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                                    >
+                                                        تلاش مجدد
+                                                    </button>
+                                                </div>
+                                            ) : null}
+
+                                            {!isWaitingForSymbolNoticeResults &&
+                                            !shouldLoadMoreSymbolNotices &&
+                                            symbolCodalNotices.length === 0 &&
+                                            !symbolCodalNoticesError ? (
+                                                <div
+                                                    className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-6 text-center text-xs text-muted">
+                                                    اطلاعیه‌ای برای این نماد پیدا نشد.
+                                                </div>
+                                            ) : null}
+
+                                            {symbolCodalNotices.map((notice) => {
+                                                const noticeGroup = toSingleNoticeGroup(notice);
+                                                const visibleSymbols = noticeGroup.symbols.slice(0, 3);
+                                                const extraSymbolsCount = noticeGroup.symbols.length - visibleSymbols.length;
+
+                                                return (
+                                                    <article
+                                                        key={noticeGroup.id}
+                                                        role="button"
+                                                        tabIndex={0}
+                                                        onClick={() => setActiveNoticeGroup(noticeGroup)}
+                                                        onKeyDown={(event) => {
+                                                            if (event.key === 'Enter' || event.key === ' ') {
+                                                                event.preventDefault();
+                                                                setActiveNoticeGroup(noticeGroup);
+                                                            }
+                                                        }}
+                                                        className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
+                                                    >
+                                                        <h4 className="text-sm leading-7 font-semibold text-text">
+                                                            {noticeGroup.title}
+                                                        </h4>
+
+                                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                            {visibleSymbols.map((symbol) => (
+                                                                <span
+                                                                    key={`${noticeGroup.id}-${symbol}`}
+                                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
+                                                                >
+                                                            {symbol}
+                                                        </span>
+                                                            ))}
+
+                                                            {extraSymbolsCount > 0 ? (
+                                                                <span
+                                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+                                                            + {formatFaInteger(extraSymbolsCount)}
+                                                        </span>
+                                                            ) : null}
+
+                                                            {noticeGroup.hasUnderSupervision ? (
+                                                                <span
+                                                                    className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
+                                                            تحت نظارت
+                                                        </span>
+                                                            ) : null}
+                                                        </div>
+
+                                                        <p className="mt-2 text-[11px] text-muted">
+                                                            {noticeGroup.publishDateTime}
+                                                        </p>
+                                                    </article>
+                                                );
+                                            })}
+
+                                            <div ref={symbolNoticeLoadMoreRef} className="h-6 w-full"/>
+
+                                            {symbolCodalNoticesLoadingMore && shouldLoadMoreSymbolNotices ? (
+                                                <div
+                                                    className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                                                    در حال بارگذاری اطلاعیه‌های بیشتر...
+                                                </div>
+                                            ) : null}
+
+                                            {!symbolCodalNoticesLoading &&
+                                            !shouldLoadMoreSymbolNotices &&
+                                            symbolCodalNotices.length > 0 ? (
+                                                <div className="py-1 text-center text-[11px] text-muted">
+                                                    همه اطلاعیه‌ها نمایش داده شد.
+                                                </div>
+                                            ) : null}
+                                        </div>
+
+                                        <div
+                                            className="mt-2 flex h-5 items-center justify-between px-1 text-[11px] text-muted">
+                                    <span className="flex items-center gap-1.5">
+                                        {symbolCodalNoticesRefreshing ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                                        ) : null}
+                                        <span>تعداد کل: {formatNumberFa(symbolCodalNoticesTotalCount)}</span>
+                                    </span>
+                                            <span>نمایش داده شده: {formatNumberFa(symbolCodalNotices.length)}</span>
+                                        </div>
+                                    </div>
+                                ) : (
                                     <div
-                                        key={item.label}
-                                        className="flex items-center justify-between rounded-lg px-2 py-2 text-xs transition hover:bg-surface-2"
-                                    >
-                                        <span className="text-muted">{item.label}</span>
-                                        <span className="font-medium tabular-nums text-text">
+                                        className="thin-scrollbar mt-3 max-h-[336px] space-y-1 overflow-y-auto rounded-2xl border border-border/70 p-2">
+                                        {symbolError && !activeSymbolData ? (
+                                            <div
+                                                className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                                <div className="mb-2 flex items-center gap-2">
+                                                    <AlertCircle className="h-4 w-4"/>
+                                                    {symbolError}
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={refreshSymbolDetails}
+                                                    className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                                >
+                                                    تلاش مجدد
+                                                </button>
+                                            </div>
+                                        ) : null}
+
+                                        {symbolLoading && !activeSymbolData
+                                            ? Array.from({length: 6}, (_, index) => (
+                                                <div key={`symbol-detail-skeleton-${index + 1}`}
+                                                     className="rounded-lg px-2 py-2">
+                                                    <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60"/>
+                                                    <div className="h-3 w-1/2 animate-pulse rounded bg-border/45"/>
+                                                </div>
+                                            ))
+                                            : null}
+
+                                        {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
+                                            <div
+                                                className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
+                                                اطلاعات نماد موجود نیست.
+                                            </div>
+                                        ) : null}
+
+                                        {symbolDetails.map((item) => (
+                                            <div
+                                                key={item.label}
+                                                className="flex items-center justify-between rounded-lg px-2 py-2 text-xs transition hover:bg-surface-2"
+                                            >
+                                                <span className="text-muted">{item.label}</span>
+                                                <span className="font-medium tabular-nums text-text">
                       {item.valueType === 'number'
                           ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
                           : item.valueType === 'percent'
@@ -3411,140 +3457,149 @@ export default function TradingDashboard({
                                       ? item.value || 'ناموجود'
                                       : 'ناموجود'}
                     </span>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
+                            </section>
+
+                            <div className="hidden md:block md:col-span-1 xl:col-span-3">
+                                <WatchlistPanel
+                                    activeTab={sidebarTab}
+                                    onTabChange={setSidebarTab}
+                                    watchlists={watchlists}
+                                    selectedWatchlistId={selectedWatchlistId}
+                                    onSelectWatchlist={setSelectedWatchlistId}
+                                    loading={watchlistsLoading}
+                                    error={watchlistsError}
+                                    onRetry={() => void loadWatchlists()}
+                                    onRequestCreateWatchlist={openCreateWatchlistModal}
+                                    onRequestEditWatchlist={openEditWatchlistModal}
+                                    onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
+                                    onSelectSymbol={setSelectedSymbol}
+                                    onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
+                                    watchlistBusy={watchlistBusy}
+                                    currentSymbolKey={selectedSymbol.key}
+                                    currentSymbolPrice={selectedSymbolLivePrice}
+                                    userProfile={userProfile}
+                                    accessToken={accessToken}
+                                    onProfileUpdated={onProfileUpdated}
+                                />
                             </div>
-                        )}
-                    </section>
+                        </section>
 
-                    <div className="hidden md:block md:col-span-1 xl:col-span-3">
-                        <WatchlistPanel
-                            activeTab={sidebarTab}
-                            onTabChange={setSidebarTab}
-                            watchlists={watchlists}
-                            selectedWatchlistId={selectedWatchlistId}
-                            onSelectWatchlist={setSelectedWatchlistId}
-                            loading={watchlistsLoading}
-                            error={watchlistsError}
-                            onRetry={() => void loadWatchlists()}
-                            onRequestCreateWatchlist={openCreateWatchlistModal}
-                            onRequestEditWatchlist={openEditWatchlistModal}
-                            onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
-                            onSelectSymbol={setSelectedSymbol}
-                            onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
-                            watchlistBusy={watchlistBusy}
-                            currentSymbolKey={selectedSymbol.key}
-                            currentSymbolPrice={selectedSymbolLivePrice}
-                            userProfile={userProfile}
-                            accessToken={accessToken}
-                            onProfileUpdated={onProfileUpdated}
-                        />
-                    </div>
-                </section>
+                        <section className="grid grid-cols-1 gap-4 xl:grid-cols-12 [direction:ltr]">
+                            <section dir="rtl" className={`${cardClass} p-3 xl:col-span-8`}>
+                                <div
+                                    className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+                                    <div
+                                        className="inline-flex rounded-xl border border-border/80 bg-surface-2 p-1 text-xs">
+                                        {bottomPanelTabs.map((tab) => (
+                                            <button
+                                                key={tab.key}
+                                                type="button"
+                                                onClick={() => setBottomPanelTab(tab.key)}
+                                                className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 font-semibold transition ${
+                                                    bottomPanelTab === tab.key
+                                                        ? 'bg-surface text-text shadow-sm'
+                                                        : 'text-muted hover:text-text'
+                                                }`}
+                                            >
+                                                {tab.key === 'orders' ? <FileText className="h-3.5 w-3.5"/> :
+                                                    <Wallet className="h-3.5 w-3.5"/>}
+                                                {tab.label}
+                                            </button>
+                                        ))}
+                                    </div>
 
-                <section className="grid grid-cols-1 gap-4 xl:grid-cols-12 [direction:ltr]">
-                    <section dir="rtl" className={`${cardClass} p-3 xl:col-span-8`}>
-                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-                            <div className="inline-flex rounded-xl border border-border/80 bg-surface-2 p-1 text-xs">
-                                {bottomPanelTabs.map((tab) => (
-                                    <button
-                                        key={tab.key}
-                                        type="button"
-                                        onClick={() => setBottomPanelTab(tab.key)}
-                                        className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-3 font-semibold transition ${
-                                            bottomPanelTab === tab.key
-                                                ? 'bg-surface text-text shadow-sm'
-                                                : 'text-muted hover:text-text'
-                                        }`}
-                                    >
-                                        {tab.key === 'orders' ? <FileText className="h-3.5 w-3.5"/> : <Wallet className="h-3.5 w-3.5"/>}
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {bottomPanelTab === 'orders' ? (
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    {orderFilters.map((chip) => (
-                                        <button
-                                            key={chip.key}
-                                            type="button"
-                                            onClick={() => setOrderFilter(chip.key)}
-                                            className={`rounded-full border px-3 py-1 text-[11px] transition ${
-                                                orderFilter === chip.key
-                                                    ? 'border-primary/40 bg-primary/15 text-primary'
-                                                    : 'border-border/80 bg-surface-2 text-muted hover:text-text'
-                                            }`}
-                                        >
-                                            {chip.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 text-[11px] text-muted">
+                                    {bottomPanelTab === 'orders' ? (
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            {orderFilters.map((chip) => (
+                                                <button
+                                                    key={chip.key}
+                                                    type="button"
+                                                    onClick={() => setOrderFilter(chip.key)}
+                                                    className={`rounded-full border px-3 py-1 text-[11px] transition ${
+                                                        orderFilter === chip.key
+                                                            ? 'border-primary/40 bg-primary/15 text-primary'
+                                                            : 'border-border/80 bg-surface-2 text-muted hover:text-text'
+                                                    }`}
+                                                >
+                                                    {chip.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 text-[11px] text-muted">
                                     <span className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1">
                                         تعداد دارایی‌ها {formatNumberFa(demoPortfolioRows.length)}
                                     </span>
-                                    <span className="rounded-full border border-positive/25 bg-positive/10 px-2.5 py-1 text-positive">
+                                            <span
+                                                className="rounded-full border border-positive/25 bg-positive/10 px-2.5 py-1 text-positive">
                                         ارزش خالص {formatCompactAmountFa(
-                                            demoPortfolioRows.reduce(
-                                                (sum, row) => sum + row.quantity * (row.livePrice ?? row.buyPrice),
-                                                0
-                                            )
-                                        )} ریال
+                                                demoPortfolioRows.reduce(
+                                                    (sum, row) => sum + row.quantity * (row.livePrice ?? row.buyPrice),
+                                                    0
+                                                )
+                                            )} ریال
                                     </span>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
 
-                        <div className="thin-scrollbar max-h-[360px] min-h-[255px] overflow-auto rounded-2xl border border-border/70 bg-surface-2/70">
-                            {tradingAccountLoading ? (
-                                <div className="flex min-h-[255px] items-center justify-center gap-2 text-xs text-muted">
-                                    <Loader2 className="h-4 w-4 animate-spin"/>
-                                    در حال دریافت اطلاعات معاملاتی...
-                                </div>
-                            ) : tradingAccountError ? (
-                                <div className="flex min-h-[255px] flex-col items-center justify-center gap-3 px-4 text-center text-xs text-negative">
-                                    <AlertCircle className="h-5 w-5"/>
-                                    {tradingAccountError}
-                                </div>
-                            ) : bottomPanelTab === 'orders' && filteredOrders.length === 0 ? (
-                                <div className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
-                                    سفارشی با فیلتر فعلی پیدا نشد.
-                                </div>
-                            ) : bottomPanelTab === 'portfolio' && demoPortfolioRows.length === 0 ? (
-                                <div className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
-                                    سبد سهام شما خالی است.
-                                </div>
-                            ) : bottomPanelTab === 'orders' ? (
-                                <table className="w-full min-w-[860px] border-collapse text-right text-xs">
-                                    <thead>
-                                    <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
-                                        <th className="px-3 py-3">نوع سفارش</th>
-                                        <th className="px-3 py-3">نماد</th>
-                                        <th className="px-3 py-3">تعداد</th>
-                                        <th className="px-3 py-3">قیمت سفارش</th>
-                                        <th className="px-3 py-3">قیمت لحظه‌ای</th>
-                                        <th className="px-3 py-3">زمان</th>
-                                        <th className="px-3 py-3">وضعیت سفارش</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {filteredOrders.map((order) => {
-                                        const isBuy = order.type === 'buy';
-                                        const statusClass =
-                                            order.status === 'done'
-                                                ? 'border-positive/35 bg-positive/10 text-positive'
-                                                : order.status === 'failed'
-                                                    ? 'border-negative/35 bg-negative/10 text-negative'
-                                                    : 'border-primary/35 bg-primary/10 text-primary';
+                                <div
+                                    className="thin-scrollbar max-h-[360px] min-h-[255px] overflow-auto rounded-2xl border border-border/70 bg-surface-2/70">
+                                    {tradingAccountLoading ? (
+                                        <div
+                                            className="flex min-h-[255px] items-center justify-center gap-2 text-xs text-muted">
+                                            <Loader2 className="h-4 w-4 animate-spin"/>
+                                            در حال دریافت اطلاعات معاملاتی...
+                                        </div>
+                                    ) : tradingAccountError ? (
+                                        <div
+                                            className="flex min-h-[255px] flex-col items-center justify-center gap-3 px-4 text-center text-xs text-negative">
+                                            <AlertCircle className="h-5 w-5"/>
+                                            {tradingAccountError}
+                                        </div>
+                                    ) : bottomPanelTab === 'orders' && filteredOrders.length === 0 ? (
+                                        <div
+                                            className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
+                                            سفارشی با فیلتر فعلی پیدا نشد.
+                                        </div>
+                                    ) : bottomPanelTab === 'portfolio' && demoPortfolioRows.length === 0 ? (
+                                        <div
+                                            className="flex min-h-[255px] items-center justify-center px-4 text-center text-xs text-muted">
+                                            سبد سهام شما خالی است.
+                                        </div>
+                                    ) : bottomPanelTab === 'orders' ? (
+                                        <table className="w-full min-w-[860px] border-collapse text-right text-xs">
+                                            <thead>
+                                            <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                                <th className="px-3 py-3">نوع سفارش</th>
+                                                <th className="px-3 py-3">نماد</th>
+                                                <th className="px-3 py-3">تعداد</th>
+                                                <th className="px-3 py-3">قیمت سفارش</th>
+                                                <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                                <th className="px-3 py-3">زمان</th>
+                                                <th className="px-3 py-3">وضعیت سفارش</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            {filteredOrders.map((order) => {
+                                                const isBuy = order.type === 'buy';
+                                                const statusClass =
+                                                    order.status === 'done'
+                                                        ? 'border-positive/35 bg-positive/10 text-positive'
+                                                        : order.status === 'failed'
+                                                            ? 'border-negative/35 bg-negative/10 text-negative'
+                                                            : 'border-primary/35 bg-primary/10 text-primary';
 
-                                        return (
-                                            <tr
-                                                key={order.id}
-                                                className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
-                                            >
-                                                <td className="px-3 py-3">
+                                                return (
+                                                    <tr
+                                                        key={order.id}
+                                                        className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                                    >
+                                                        <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex min-w-16 items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
                                                             isBuy
@@ -3554,215 +3609,218 @@ export default function TradingDashboard({
                                                     >
                                                         {isBuy ? 'خرید' : 'فروش'}
                                                     </span>
-                                                </td>
-                                                <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(order.livePrice)}</td>
-                                                <td className="px-3 py-3 text-muted">{order.time}</td>
-                                                <td className="px-3 py-3">
-                                                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
+                                                        </td>
+                                                        <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(order.livePrice)}</td>
+                                                        <td className="px-3 py-3 text-muted">{order.time}</td>
+                                                        <td className="px-3 py-3">
+                                                    <span
+                                                        className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
                                                         {order.statusLabel}
                                                     </span>
-                                                </td>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            </tbody>
+                                        </table>
+                                    ) : (
+                                        <table className="w-full min-w-[760px] border-collapse text-right text-xs">
+                                            <thead>
+                                            <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                                <th className="px-3 py-3">نماد</th>
+                                                <th className="px-3 py-3">زمان</th>
+                                                <th className="px-3 py-3">تعداد</th>
+                                                <th className="px-3 py-3">قیمت خرید</th>
+                                                <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                                <th className="px-3 py-3">ارزش خالص</th>
                                             </tr>
-                                        );
-                                    })}
-                                    </tbody>
-                                </table>
-                            ) : (
-                                <table className="w-full min-w-[760px] border-collapse text-right text-xs">
-                                    <thead>
-                                    <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
-                                        <th className="px-3 py-3">نماد</th>
-                                        <th className="px-3 py-3">زمان</th>
-                                        <th className="px-3 py-3">تعداد</th>
-                                        <th className="px-3 py-3">قیمت خرید</th>
-                                        <th className="px-3 py-3">قیمت لحظه‌ای</th>
-                                        <th className="px-3 py-3">ارزش خالص</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    {demoPortfolioRows.map((row) => {
-                                        const livePrice = row.livePrice ?? row.buyPrice;
-                                        const netValue = row.quantity * livePrice;
-                                        const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
+                                            </thead>
+                                            <tbody>
+                                            {demoPortfolioRows.map((row) => {
+                                                const livePrice = row.livePrice ?? row.buyPrice;
+                                                const netValue = row.quantity * livePrice;
+                                                const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
 
-                                        return (
-                                            <tr
-                                                key={row.id}
-                                                className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
-                                            >
-                                                <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
-                                                <td className="px-3 py-3 text-muted">{row.time}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
-                                                <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
-                                                <td className="px-3 py-3">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
-                                                        <span
-                                                            className={`text-[11px] font-semibold tabular-nums ${
-                                                                gainPercent === null
-                                                                    ? 'text-muted'
-                                                                    : gainPercent >= 0
-                                                                        ? 'text-positive'
-                                                                        : 'text-negative'
-                                                            }`}
-                                                        >
+                                                return (
+                                                    <tr
+                                                        key={row.id}
+                                                        className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                                    >
+                                                        <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
+                                                        <td className="px-3 py-3 text-muted">{row.time}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
+                                                        <td className="px-3 py-3">
+                                                            <div className="flex flex-col gap-1">
+                                                                <span
+                                                                    className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
+                                                                <span
+                                                                    className={`text-[11px] font-semibold tabular-nums ${
+                                                                        gainPercent === null
+                                                                            ? 'text-muted'
+                                                                            : gainPercent >= 0
+                                                                                ? 'text-positive'
+                                                                                : 'text-negative'
+                                                                    }`}
+                                                                >
                                                             {formatPercentOrDash(gainPercent)}
                                                         </span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </section>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </section>
 
-                    <section dir="rtl" className={`${cardClass} p-3 xl:col-span-4`}>
-                        <div className="mb-3 flex items-center justify-between border-b border-border/60 pb-2">
-                            <div className="flex items-center gap-2">
-                                <h3 className="text-sm font-semibold text-text">پیام‌های ناظر</h3>
-                                <span
-                                    className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] tabular-nums text-muted">
+                            <section dir="rtl" className={`${cardClass} p-3 xl:col-span-4`}>
+                                <div className="mb-3 flex items-center justify-between border-b border-border/60 pb-2">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-sm font-semibold text-text">پیام‌های ناظر</h3>
+                                        <span
+                                            className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] tabular-nums text-muted">
                   {formatNumberFa(groupedNotices.length)}
                 </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                {codalNoticesRefreshing ?
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted"/> : null}
-                                <button
-                                    type="button"
-                                    onClick={openNoticeFilter}
-                                    className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-surface-2 text-muted transition hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45 ${
-                                        hasActiveNoticeFilters ? 'border-primary/45 text-primary' : 'border-border/80'
-                                    }`}
-                                    aria-label="open notice filters"
-                                >
-                                    <Filter className="h-4 w-4"/>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div ref={noticeListRef} className="thin-scrollbar h-[324px] space-y-2 overflow-y-auto pl-1">
-                            {(isWaitingForNoticeResults || (groupedNotices.length === 0 && shouldLoadMoreNotices)) &&
-                            groupedNotices.length === 0 ? (
-                                Array.from({length: 4}, (_, index) => (
-                                    <div
-                                        key={`notice-skeleton-${index + 1}`}
-                                        className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
-                                    >
-                                        <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
-                                        <div className="mb-3 h-4 w-3/5 rounded bg-border/60"/>
-                                        <div className="h-3 w-2/5 rounded bg-border/45"/>
                                     </div>
-                                ))
-                            ) : null}
 
-                            {codalNoticesError ? (
-                                <div
-                                    className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
-                                    <div className="mb-2 flex items-center gap-2">
-                                        <AlertCircle className="h-4 w-4"/>
-                                        {codalNoticesError}
+                                    <div className="flex items-center gap-2">
+                                        {codalNoticesRefreshing ?
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted"/> : null}
+                                        <button
+                                            type="button"
+                                            onClick={openNoticeFilter}
+                                            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border bg-surface-2 text-muted transition hover:text-text focus-visible:ring-2 focus-visible:ring-primary/45 ${
+                                                hasActiveNoticeFilters ? 'border-primary/45 text-primary' : 'border-border/80'
+                                            }`}
+                                            aria-label="open notice filters"
+                                        >
+                                            <Filter className="h-4 w-4"/>
+                                        </button>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={refreshCodalNotices}
-                                        className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
-                                    >
-                                        تلاش مجدد
-                                    </button>
                                 </div>
-                            ) : null}
 
-                            {!isWaitingForNoticeResults &&
-                            !shouldLoadMoreNotices &&
-                            groupedNotices.length === 0 &&
-                            !codalNoticesError ? (
-                                <div
-                                    className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-6 text-center text-xs text-muted">
-                                    موردی با فیلتر فعلی پیدا نشد.
-                                </div>
-                            ) : null}
+                                <div ref={noticeListRef}
+                                     className="thin-scrollbar h-[324px] space-y-2 overflow-y-auto pl-1">
+                                    {(isWaitingForNoticeResults || (groupedNotices.length === 0 && shouldLoadMoreNotices)) &&
+                                    groupedNotices.length === 0 ? (
+                                        Array.from({length: 4}, (_, index) => (
+                                            <div
+                                                key={`notice-skeleton-${index + 1}`}
+                                                className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
+                                            >
+                                                <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
+                                                <div className="mb-3 h-4 w-3/5 rounded bg-border/60"/>
+                                                <div className="h-3 w-2/5 rounded bg-border/45"/>
+                                            </div>
+                                        ))
+                                    ) : null}
 
-                            {groupedNotices.map((group) => {
-                                const visibleSymbols = group.symbols.slice(0, 4);
-                                const extraSymbolsCount = group.symbols.length - visibleSymbols.length;
+                                    {codalNoticesError ? (
+                                        <div
+                                            className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                            <div className="mb-2 flex items-center gap-2">
+                                                <AlertCircle className="h-4 w-4"/>
+                                                {codalNoticesError}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={refreshCodalNotices}
+                                                className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                            >
+                                                تلاش مجدد
+                                            </button>
+                                        </div>
+                                    ) : null}
 
-                                return (
-                                    <article
-                                        key={group.id}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => setActiveNoticeGroup(group)}
-                                        onKeyDown={(event) => {
-                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                event.preventDefault();
-                                                setActiveNoticeGroup(group);
-                                            }
-                                        }}
-                                        className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
-                                    >
-                                        <h4 className="text-sm leading-7 font-semibold text-text">{group.title}</h4>
+                                    {!isWaitingForNoticeResults &&
+                                    !shouldLoadMoreNotices &&
+                                    groupedNotices.length === 0 &&
+                                    !codalNoticesError ? (
+                                        <div
+                                            className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-6 text-center text-xs text-muted">
+                                            موردی با فیلتر فعلی پیدا نشد.
+                                        </div>
+                                    ) : null}
 
-                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                            {visibleSymbols.map((symbol) => (
-                                                <span
-                                                    key={`${group.id}-${symbol}`}
-                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
-                                                >
+                                    {groupedNotices.map((group) => {
+                                        const visibleSymbols = group.symbols.slice(0, 4);
+                                        const extraSymbolsCount = group.symbols.length - visibleSymbols.length;
+
+                                        return (
+                                            <article
+                                                key={group.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => setActiveNoticeGroup(group)}
+                                                onKeyDown={(event) => {
+                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                        event.preventDefault();
+                                                        setActiveNoticeGroup(group);
+                                                    }
+                                                }}
+                                                className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
+                                            >
+                                                <h4 className="text-sm leading-7 font-semibold text-text">{group.title}</h4>
+
+                                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                    {visibleSymbols.map((symbol) => (
+                                                        <span
+                                                            key={`${group.id}-${symbol}`}
+                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
+                                                        >
                           {symbol}
                         </span>
-                                            ))}
+                                                    ))}
 
-                                            {extraSymbolsCount > 0 ? (
-                                                <span
-                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+                                                    {extraSymbolsCount > 0 ? (
+                                                        <span
+                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
                           + {formatFaInteger(extraSymbolsCount)}
                         </span>
-                                            ) : null}
+                                                    ) : null}
 
-                                            {group.hasUnderSupervision ? (
-                                                <span
-                                                    className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
+                                                    {group.hasUnderSupervision ? (
+                                                        <span
+                                                            className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
                           تحت نظارت
                         </span>
-                                            ) : null}
+                                                    ) : null}
+                                                </div>
+
+                                                <p className="mt-2 text-[11px] text-muted">{group.publishDateTime}</p>
+                                            </article>
+                                        );
+                                    })}
+
+                                    <div ref={noticeLoadMoreRef} className="h-6 w-full"/>
+
+                                    {codalNoticesLoadingMore && shouldLoadMoreNotices ? (
+                                        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                                            در حال بارگذاری پیام‌های بیشتر...
                                         </div>
+                                    ) : null}
 
-                                        <p className="mt-2 text-[11px] text-muted">{group.publishDateTime}</p>
-                                    </article>
-                                );
-                            })}
-
-                            <div ref={noticeLoadMoreRef} className="h-6 w-full"/>
-
-                            {codalNoticesLoadingMore && shouldLoadMoreNotices ? (
-                                <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                    در حال بارگذاری پیام‌های بیشتر...
+                                    {!codalNoticesLoading && !shouldLoadMoreNotices && groupedNotices.length > 0 ? (
+                                        <div className="py-1 text-center text-[11px] text-muted">همه پیام‌ها نمایش داده
+                                            شد.</div>
+                                    ) : null}
                                 </div>
-                            ) : null}
 
-                            {!codalNoticesLoading && !shouldLoadMoreNotices && groupedNotices.length > 0 ? (
-                                <div className="py-1 text-center text-[11px] text-muted">همه پیام‌ها نمایش داده
-                                    شد.</div>
-                            ) : null}
-                        </div>
-
-                        <div className="mt-2 flex h-5 items-center justify-between px-1 text-[11px] text-muted">
-                            <span>تعداد کل: {formatNumberFa(codalNoticesTotalCount)}</span>
-                            <span>نمایش داده شده: {formatNumberFa(groupedNotices.length)}</span>
-                        </div>
-                    </section>
-                </section>
-                </>
+                                <div className="mt-2 flex h-5 items-center justify-between px-1 text-[11px] text-muted">
+                                    <span>تعداد کل: {formatNumberFa(codalNoticesTotalCount)}</span>
+                                    <span>نمایش داده شده: {formatNumberFa(groupedNotices.length)}</span>
+                                </div>
+                            </section>
+                        </section>
+                    </>
                 )}
             </main>
 
@@ -4204,7 +4262,9 @@ export default function TradingDashboard({
                         className="relative w-full max-w-[620px] rounded-2xl border border-border/70 bg-surface shadow-card"
                     >
                         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                            <h3 className="text-xl font-semibold text-text">پیام ناظر</h3>
+                            <h3 className="text-xl font-semibold text-text">
+                                {activeNoticeGroup.hasUnderSupervision ? 'پیام ناظر' : 'اطلاعیه'}
+                            </h3>
                             <button
                                 type="button"
                                 onClick={() => setActiveNoticeGroup(null)}
