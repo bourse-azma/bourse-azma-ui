@@ -15,6 +15,7 @@ import type {
     TsetmcEtfInfo,
     TsetmcInstrumentInfo,
 } from './types';
+import {buildDepthRowsFromClientType, calculateDepthPercent} from './depthMapper';
 
 type DetailsSources = {
     symbol: SymbolSearchSuggestion;
@@ -141,16 +142,37 @@ const toOrderBookFromTsetmc = (levels: TsetmcBestLimitLevel[] | null): SymbolOrd
     if (!levels || levels.length === 0) return [];
     return [...levels]
         .sort((a, b) => (a.levelNumber ?? 0) - (b.levelNumber ?? 0))
-        .map((level, index) => ({
-            id: `tsetmc-${index + 1}`,
-            level: level.levelNumber,
-            askCount: level.askOrderCount,
-            askVolume: level.askVolume,
-            askPrice: level.askPrice,
-            bidPrice: level.bidPrice,
-            bidVolume: level.bidVolume,
-            bidCount: level.bidOrderCount,
-        }));
+        .map((level, index) =>
+            normalizeOrderBookSides({
+                id: `tsetmc-${index + 1}`,
+                level: level.levelNumber,
+                askCount: level.askOrderCount,
+                askVolume: level.askVolume,
+                askPrice: level.askPrice,
+                bidPrice: level.bidPrice,
+                bidVolume: level.bidVolume,
+                bidCount: level.bidOrderCount,
+            })
+        );
+};
+
+const normalizeOrderBookSides = (row: SymbolOrderBookRow): SymbolOrderBookRow => {
+    const askPrice = row.askPrice ?? 0;
+    const bidPrice = row.bidPrice ?? 0;
+
+    if (askPrice > 0 && bidPrice > 0 && askPrice < bidPrice) {
+        return {
+            ...row,
+            askCount: row.bidCount,
+            askVolume: row.bidVolume,
+            askPrice: row.bidPrice,
+            bidPrice: row.askPrice,
+            bidVolume: row.askVolume,
+            bidCount: row.askCount,
+        };
+    }
+
+    return row;
 };
 
 const toOrderBookFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): SymbolOrderBookRow[] => {
@@ -158,99 +180,99 @@ const toOrderBookFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): Sy
     return snapshot.bestLimits
         .map((item, index) => {
             const row = toRecord(item);
-            return {
+            return normalizeOrderBookSides({
                 id: `snapshot-${index + 1}`,
                 level: pickNumber(row, 'rowNumber', 'levelNumber', 'number'),
                 askCount: pickNumber(row, 'numberSupply', 'askOrderCount', 'zOrdMeOf'),
                 askVolume: pickNumber(row, 'supplyVolume', 'askVolume', 'qTitMeOf'),
-                askPrice: pickNumber(row, 'supplyPrice', 'askPrice', 'pMeOf'),
-                bidPrice: pickNumber(row, 'demandPrice', 'bidPrice', 'pMeDem'),
+                askPrice: pickNumber(row, 'supplyPrice', 'askPrice', 'pMeOf', 'sellPrice'),
+                bidPrice: pickNumber(row, 'demandPrice', 'bidPrice', 'pMeDem', 'buyPrice'),
                 bidVolume: pickNumber(row, 'demandVolume', 'bidVolume', 'qTitMeDem'),
                 bidCount: pickNumber(row, 'numberRequests', 'bidOrderCount', 'zOrdMeDem'),
-            } satisfies SymbolOrderBookRow;
+            });
         })
         .sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
 };
 
-const calculatePercent = (part: number | null, total: number | null) => {
-    if (part === null || total === null || total <= 0) return null;
-    return (part / total) * 100;
+const mergeOrderBookRows = (
+    primary: SymbolOrderBookRow[],
+    fallback: SymbolOrderBookRow[]
+): SymbolOrderBookRow[] => {
+    if (primary.length === 0) return fallback;
+    if (fallback.length === 0) return primary;
+
+    const mergedLength = Math.max(primary.length, fallback.length, 5);
+    return Array.from({length: mergedLength}, (_, index) => {
+        const primaryRow = primary[index];
+        const fallbackRow = fallback[index];
+        if (!primaryRow) return fallbackRow;
+        if (!fallbackRow) return primaryRow;
+
+        const pickSide = (
+            primaryValue: number | null,
+            fallbackValue: number | null
+        ) => (primaryValue !== null && primaryValue > 0 ? primaryValue : fallbackValue);
+
+        return normalizeOrderBookSides({
+            id: primaryRow.id,
+            level: primaryRow.level ?? fallbackRow.level,
+            askCount: pickSide(primaryRow.askCount, fallbackRow.askCount),
+            askVolume: pickSide(primaryRow.askVolume, fallbackRow.askVolume),
+            askPrice: pickSide(primaryRow.askPrice, fallbackRow.askPrice),
+            bidPrice: pickSide(primaryRow.bidPrice, fallbackRow.bidPrice),
+            bidVolume: pickSide(primaryRow.bidVolume, fallbackRow.bidVolume),
+            bidCount: pickSide(primaryRow.bidCount, fallbackRow.bidCount),
+        });
+    }).slice(0, 5);
 };
 
-const sumKnownValues = (...values: Array<number | null>) =>
-    values.every((value): value is number => value !== null) ? values.reduce((sum, value) => sum + value, 0) : null;
+const sumNullableValues = (...values: Array<number | null | undefined>) =>
+    values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
-const toDepthFromTsetmc = (clientType: TsetmcClientType | null): SymbolDepthRow[] => {
-    if (!clientType) return [];
-    const totalBuy = sumKnownValues(clientType.individualBuyVolume, clientType.institutionalBuyVolume);
-    const totalSell = sumKnownValues(clientType.individualSellVolume, clientType.institutionalSellVolume);
-
-    return [
-        {
-            id: 'real',
-            label: 'حقیقی',
-            buyCount: clientType.individualBuyCount,
-            sellCount: clientType.individualSellCount,
-            buyVolume: clientType.individualBuyVolume,
-            sellVolume: clientType.individualSellVolume,
-            buyPercent: calculatePercent(clientType.individualBuyVolume, totalBuy),
-            sellPercent: calculatePercent(clientType.individualSellVolume, totalSell),
-        },
-        {
-            id: 'legal',
-            label: 'حقوقی',
-            buyCount: clientType.institutionalBuyCount,
-            sellCount: clientType.institutionalSellCount,
-            buyVolume: clientType.institutionalBuyVolume,
-            sellVolume: clientType.institutionalSellVolume,
-            buyPercent: calculatePercent(clientType.institutionalBuyVolume, totalBuy),
-            sellPercent: calculatePercent(clientType.institutionalSellVolume, totalSell),
-        },
-    ];
-};
+const toDepthFromTsetmc = buildDepthRowsFromClientType;
 
 const toDepthFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): SymbolDepthRow[] => {
     if (!snapshot || snapshot.clientTypes.length === 0) return [];
     const row = toRecord(snapshot.clientTypes[0]);
 
-    const individualBuyVolume = pickNumber(row, 'sumIndividualBuyVolume', 'individualBuyVolume', 'buy_N_Volume');
+    const individualBuyVolume = pickNumber(row, 'sumIndividualBuyVolume', 'individualBuyVolume', 'buy_I_Volume');
     const institutionalBuyVolume = pickNumber(
         row,
         'sumNonIndividualBuyVolume',
         'institutionalBuyVolume',
-        'buy_I_Volume'
+        'buy_N_Volume'
     );
-    const individualSellVolume = pickNumber(row, 'sumIndividualSellVolume', 'individualSellVolume', 'sell_N_Volume');
+    const individualSellVolume = pickNumber(row, 'sumIndividualSellVolume', 'individualSellVolume', 'sell_I_Volume');
     const institutionalSellVolume = pickNumber(
         row,
         'sumNonIndividualSellVolume',
         'institutionalSellVolume',
-        'sell_I_Volume'
+        'sell_N_Volume'
     );
 
-    const totalBuy = sumKnownValues(individualBuyVolume, institutionalBuyVolume);
-    const totalSell = sumKnownValues(individualSellVolume, institutionalSellVolume);
+    const totalBuy = sumNullableValues(individualBuyVolume, institutionalBuyVolume);
+    const totalSell = sumNullableValues(individualSellVolume, institutionalSellVolume);
 
     return [
         {
             id: 'real',
             label: 'حقیقی',
-            buyCount: pickNumber(row, 'numberIndividualsBuyers', 'buy_CountN'),
-            sellCount: pickNumber(row, 'numberIndividualsSellers', 'sell_CountN'),
+            buyCount: pickNumber(row, 'numberIndividualsBuyers', 'buy_CountI'),
+            sellCount: pickNumber(row, 'numberIndividualsSellers', 'sell_CountI'),
             buyVolume: individualBuyVolume,
             sellVolume: individualSellVolume,
-            buyPercent: calculatePercent(individualBuyVolume, totalBuy),
-            sellPercent: calculatePercent(individualSellVolume, totalSell),
+            buyPercent: calculateDepthPercent(individualBuyVolume, totalBuy),
+            sellPercent: calculateDepthPercent(individualSellVolume, totalSell),
         },
         {
             id: 'legal',
             label: 'حقوقی',
-            buyCount: pickNumber(row, 'numberNonIndividualBuyers', 'buy_CountI'),
-            sellCount: pickNumber(row, 'numberNonIndividualSellers', 'sell_CountI'),
+            buyCount: pickNumber(row, 'numberNonIndividualBuyers', 'buy_CountN'),
+            sellCount: pickNumber(row, 'numberNonIndividualSellers', 'sell_CountN'),
             buyVolume: institutionalBuyVolume,
             sellVolume: institutionalSellVolume,
-            buyPercent: calculatePercent(institutionalBuyVolume, totalBuy),
-            sellPercent: calculatePercent(institutionalSellVolume, totalSell),
+            buyPercent: calculateDepthPercent(institutionalBuyVolume, totalBuy),
+            sellPercent: calculateDepthPercent(institutionalSellVolume, totalSell),
         },
     ];
 };
@@ -482,8 +504,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
             marketLabel = '';
         }
     }
-    const orderBook = toOrderBookFromTsetmc(tsetmcBestLimits);
-    const orderBookFallback = toOrderBookFromSnapshot(snapshot);
+    const orderBook = mergeOrderBookRows(toOrderBookFromTsetmc(tsetmcBestLimits), toOrderBookFromSnapshot(snapshot));
     const depth = toDepthFromTsetmc(tsetmcClientType);
     const depthFallback = toDepthFromSnapshot(snapshot);
 
@@ -511,8 +532,8 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         navCancel,
         navAnnouncementAt,
         lastTradeAt,
-        orderBook: orderBook.length > 0 ? orderBook : orderBookFallback,
-        depth: depth.length > 0 ? depth : depthFallback,
+        orderBook,
+        depth: depth.some((row) => (row.buyVolume ?? 0) > 0 || (row.sellVolume ?? 0) > 0) ? depth : depthFallback,
         detailRows: toDetailRows({
             source,
             tradeVolume,

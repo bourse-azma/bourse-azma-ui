@@ -73,8 +73,10 @@ export type TsetmcBestLimitLevel = {
 export type TsetmcClientType = {
     institutionalBuyVolume: number | null;
     individualBuyVolume: number | null;
+    uncategorizedBuyVolume: number | null;
     institutionalBuyCount: number | null;
     individualBuyCount: number | null;
+    uncategorizedBuyCount: number | null;
     institutionalSellVolume: number | null;
     individualSellVolume: number | null;
     institutionalSellCount: number | null;

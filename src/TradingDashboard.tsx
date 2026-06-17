@@ -35,6 +35,9 @@ import type {SymbolSearchSuggestion} from './features/symbol-search/types';
 import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
 import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
+import OrderBookPanel from './features/symbol-search/OrderBookPanel';
+import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
+import {normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import {getPortfolioHoldings, getTradingOrders, type PortfolioHolding, type TradingOrder} from './features/trading/api';
 import {
     createDefaultNoticeFilters,
@@ -278,6 +281,20 @@ export const formatPercentFa = (value: number, digits = 2) => {
 
 const formatNumberOrDash = (value: number | null | undefined, digits = 0) =>
     value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatNumberFa(value, digits);
+
+const formatOrderBookValue = (value: number | null | undefined, digits = 0) => {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return '—';
+    }
+    return formatNumberFa(value, digits);
+};
+
+const formatDepthPercent = (value: number | null | undefined) => {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return '0%';
+    }
+    return formatPercentFa(value, 0);
+};
 
 const formatPercentOrDash = (value: number | null | undefined, digits = 2) =>
     value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatPercentFa(value, digits);
@@ -2040,47 +2057,10 @@ export default function TradingDashboard({
         return clamp(((symbolPrice - dailyMin) / (dailyMax - dailyMin)) * 100, 3, 96);
     }, [dailyMax, dailyMin, symbolPrice]);
 
-    const orderBookRows = useMemo(() => {
-        const rows = activeSymbolData?.orderBook ?? [];
-        if (rows.length >= 5) return rows.slice(0, 5);
-        if (rows.length === 0) {
-            return Array.from({length: 5}, (_, index) => ({
-                id: `empty-row-${index + 1}`,
-                level: index + 1,
-                askCount: null,
-                askVolume: null,
-                askPrice: null,
-                bidPrice: null,
-                bidVolume: null,
-                bidCount: null,
-            }));
-        }
-        return [...rows, ...Array.from({length: 5 - rows.length}, (_, index) => ({
-            id: `filler-row-${index + 1}`,
-            level: rows.length + index + 1,
-            askCount: null,
-            askVolume: null,
-            askPrice: null,
-            bidPrice: null,
-            bidVolume: null,
-            bidCount: null,
-        }))];
-    }, [activeSymbolData?.orderBook]);
-
-    const orderBookMaxVolumes = useMemo(() => {
-        const maxAskVolume = orderBookRows.reduce((max, row) => {
-            const current = row.askVolume ?? 0;
-            return current > max ? current : max;
-        }, 0);
-        const maxBidVolume = orderBookRows.reduce((max, row) => {
-            const current = row.bidVolume ?? 0;
-            return current > max ? current : max;
-        }, 0);
-        return {
-            ask: maxAskVolume > 0 ? maxAskVolume : 1,
-            bid: maxBidVolume > 0 ? maxBidVolume : 1,
-        };
-    }, [orderBookRows]);
+    const orderBookRows = useMemo(
+        () => normalizeOrderBookRows(activeSymbolData?.orderBook ?? []),
+        [activeSymbolData?.orderBook]
+    );
 
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
@@ -2967,135 +2947,15 @@ export default function TradingDashboard({
                                             </div>
                                         </div>
 
-                                        <div
-                                            className="thin-scrollbar max-h-[312px] overflow-auto rounded-2xl border border-border/70">
-                                            <table className="w-full min-w-[720px] text-xs">
-                                                <thead
-                                                    className="sticky top-0 z-10 bg-surface-2/95 text-muted backdrop-blur">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-right font-medium">تعداد فروش</th>
-                                                    <th className="px-3 py-2 text-right font-medium">حجم فروش</th>
-                                                    <th className="px-3 py-2 text-right font-medium">قیمت فروش</th>
-                                                    <th className="px-3 py-2 text-right font-medium">قیمت خرید</th>
-                                                    <th className="px-3 py-2 text-right font-medium">حجم خرید</th>
-                                                    <th className="px-3 py-2 text-right font-medium">تعداد خرید</th>
-                                                </tr>
-                                                </thead>
-                                                <tbody>
-                                                {orderBookRows.map((row, idx) => {
-                                                    const bestBuy = idx === 0 && row.bidPrice !== null;
-                                                    const askVolumeWidth =
-                                                        row.askVolume !== null && row.askVolume > 0
-                                                            ? clamp((row.askVolume / orderBookMaxVolumes.ask) * 100, 4, 100)
-                                                            : 0;
-                                                    const bidVolumeWidth =
-                                                        row.bidVolume !== null && row.bidVolume > 0
-                                                            ? clamp((row.bidVolume / orderBookMaxVolumes.bid) * 100, 4, 100)
-                                                            : 0;
-                                                    const depthCellBaseClass =
-                                                        theme === 'dark' ? 'from-transparent to-current/16' : 'from-transparent to-current/20';
-
-                                                    return (
-                                                        <tr
-                                                            key={row.id}
-                                                            className={`border-t border-border/50 transition hover:bg-surface-2/70 ${
-                                                                bestBuy ? 'bg-positive/10' : ''
-                                                            }`}
-                                                        >
-                                                            <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.askCount)}</td>
-                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
-                                                                <div
-                                                                    className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                                    style={{width: `${askVolumeWidth}%`}}
-                                                                />
-                                                                <span
-                                                                    className="relative z-[1]">{formatNumberOrDash(row.askVolume)}</span>
-                                                            </td>
-                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-negative">
-                                                                <div
-                                                                    className={`pointer-events-none absolute inset-y-[5px] right-0 bg-gradient-to-l text-negative transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                                    style={{width: `${askVolumeWidth}%`}}
-                                                                />
-                                                                <span
-                                                                    className="relative z-[1]">{formatNumberOrDash(row.askPrice)}</span>
-                                                            </td>
-                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums font-semibold text-positive">
-                                                                <div
-                                                                    className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                                    style={{width: `${bidVolumeWidth}%`}}
-                                                                />
-                                                                <span
-                                                                    className="relative z-[1]">{formatNumberOrDash(row.bidPrice)}</span>
-                                                            </td>
-                                                            <td className="relative overflow-hidden px-3 py-2 tabular-nums text-muted">
-                                                                <div
-                                                                    className={`pointer-events-none absolute inset-y-[5px] left-0 bg-gradient-to-r text-positive transition-[width] duration-700 ease-out ${depthCellBaseClass}`}
-                                                                    style={{width: `${bidVolumeWidth}%`}}
-                                                                />
-                                                                <span
-                                                                    className="relative z-[1]">{formatNumberOrDash(row.bidVolume)}</span>
-                                                            </td>
-                                                            <td className="px-3 py-2 tabular-nums text-muted">{formatNumberOrDash(row.bidCount)}</td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        <OrderBookPanel rows={orderBookRows} formatNumber={formatOrderBookValue}/>
 
                                         <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                            {depthRows.length === 0 ? (
-                                                <div
-                                                    className="rounded-xl border border-dashed border-border/70 bg-surface px-3 py-4 text-center text-xs text-muted">
-                                                    اطلاعات ورود/خروج حقیقی و حقوقی موجود نیست.
-                                                </div>
-                                            ) : (
-                                                depthRows.map((row) => (
-                                                    <div key={row.id} className="mb-2 last:mb-0">
-                                                        <div
-                                                            className="mb-1 grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
-                                                            <span/>
-                                                            <span className="text-center [direction:rtl] text-muted">
-                        فروش{' '}
-                                                                <bdi dir="ltr" className="inline-block tabular-nums">
-                          {`${formatNumberOrDash(row.sellCount)} * ${formatCompactAmountFa(row.sellVolume)} (${formatPercentOrDash(
-                              row.sellPercent,
-                              0
-                          )})`}
-                        </bdi>
-                                                                {' '}
-                                                                | خرید{' '}
-                                                                <bdi dir="ltr" className="inline-block tabular-nums">
-                          {`${formatNumberOrDash(row.buyCount)} * ${formatCompactAmountFa(row.buyVolume)} (${formatPercentOrDash(
-                              row.buyPercent,
-                              0
-                          )})`}
-                        </bdi>
-                      </span>
-                                                            <span
-                                                                className="text-right [direction:rtl] text-muted">{row.label}</span>
-                                                        </div>
-
-                                                        <div
-                                                            className="grid grid-cols-[90px_1fr_80px] items-center gap-2 text-[11px] [direction:ltr]">
-                                            <span
-                                                className="tabular-nums text-negative">{formatCompactAmountFa(row.sellVolume)}</span>
-                                                            <div className="relative h-2 rounded-full bg-border/45">
-                                                                <div
-                                                                    className="absolute inset-y-0 left-0 rounded-full bg-negative/35"
-                                                                    style={{width: `${row.sellPercent ?? 0}%`}}
-                                                                />
-                                                                <div
-                                                                    className="absolute inset-y-0 right-0 rounded-full bg-positive/35"
-                                                                    style={{width: `${row.buyPercent ?? 0}%`}}
-                                                                />
-                                                            </div>
-                                                            <span
-                                                                className="text-right tabular-nums text-positive">{formatCompactAmountFa(row.buyVolume)}</span>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
+                                            <OrderBookDepthPanel
+                                                rows={depthRows}
+                                                formatCount={formatOrderBookValue}
+                                                formatVolume={formatCompactAmountFa}
+                                                formatPercent={formatDepthPercent}
+                                            />
                                         </div>
 
                                         <div className="mt-4 rounded-xl border border-border/70 bg-surface-2 p-1">
