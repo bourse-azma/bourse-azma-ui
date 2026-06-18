@@ -38,6 +38,8 @@ import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
 import {normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
+import AccountStatusBar from './features/trading/AccountStatusBar';
+import {computeAccountSummary} from './features/trading/accountSummary';
 import {getPortfolioHoldings, getTradingOrders, type PortfolioHolding, type TradingOrder} from './features/trading/api';
 import {useInstrumentLivePrices} from './features/trading/useInstrumentLivePrices';
 import {
@@ -1736,38 +1738,28 @@ export default function TradingDashboard({
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), message, tone});
     }, []);
 
-    useEffect(() => {
-        let active = true;
-
-        const loadTradingAccount = async () => {
-            setTradingAccountLoading(true);
-            setTradingAccountError(null);
-            try {
-                const [orders, holdings] = await Promise.all([
-                    getTradingOrders(accessToken),
-                    getPortfolioHoldings(accessToken),
-                ]);
-                if (!active) return;
-                setTradingOrders(orders);
-                setPortfolioHoldings(holdings);
-            } catch (error) {
-                if (!active) return;
-                setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
-                setTradingOrders([]);
-                setPortfolioHoldings([]);
-            } finally {
-                if (active) {
-                    setTradingAccountLoading(false);
-                }
-            }
-        };
-
-        void loadTradingAccount();
-
-        return () => {
-            active = false;
-        };
+    const loadTradingAccount = useCallback(async () => {
+        setTradingAccountLoading(true);
+        setTradingAccountError(null);
+        try {
+            const [orders, holdings] = await Promise.all([
+                getTradingOrders(accessToken),
+                getPortfolioHoldings(accessToken),
+            ]);
+            setTradingOrders(orders);
+            setPortfolioHoldings(holdings);
+        } catch (error) {
+            setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
+            setTradingOrders([]);
+            setPortfolioHoldings([]);
+        } finally {
+            setTradingAccountLoading(false);
+        }
     }, [accessToken]);
+
+    useEffect(() => {
+        void loadTradingAccount();
+    }, [loadTradingAccount]);
 
     const replaceWatchlistInState = useCallback((updatedWatchlist: Watchlist) => {
         setWatchlists((prev) => {
@@ -2122,14 +2114,21 @@ export default function TradingDashboard({
     );
     const demoPortfolioRows = useMemo<DemoPortfolioRow[]>(
         () =>
-            portfolioHoldings.map((holding) => ({
-                id: String(holding.id),
-                time: formatInstantFa(holding.acquiredAt),
-                symbol: holding.symbol,
-                quantity: holding.quantity,
-                buyPrice: Number(holding.buyPrice),
-                livePrice: resolveDisplayLivePrice(holding.instrumentCode),
-            })),
+            portfolioHoldings.map((holding) => {
+                const apiLivePrice = Number(holding.livePrice);
+                const resolvedLivePrice = resolveDisplayLivePrice(holding.instrumentCode);
+
+                return {
+                    id: String(holding.id),
+                    time: formatInstantFa(holding.acquiredAt),
+                    symbol: holding.symbol,
+                    quantity: holding.quantity,
+                    buyPrice: Number(holding.buyPrice),
+                    livePrice:
+                        resolvedLivePrice ??
+                        (Number.isFinite(apiLivePrice) && apiLivePrice > 0 ? apiLivePrice : null),
+                };
+            }),
         [portfolioHoldings, resolveDisplayLivePrice]
     );
     const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
@@ -2225,22 +2224,51 @@ export default function TradingDashboard({
         [clock]
     );
 
-    const footerStats = useMemo(
-        () => [
-            {
-                label: 'خالص دارایی',
-                value: formatNumberWithUnit(activeSymbolData?.marketValue, 'ریال'),
-            },
-            {label: 'حجم معاملات', value: formatNumberWithUnit(activeSymbolData?.tradeVolume, 'سهم')},
-            {label: 'ارزش معاملات', value: formatNumberWithUnit(activeSymbolData?.tradeValue, 'ریال')},
-            {label: 'حجم مبنا', value: formatNumberOrDash(activeSymbolData?.baseVolume)},
-            {
-                label: 'NAV ابطال',
-                value: activeSymbolData?.source === 'fund' ? formatNumberOrDash(activeSymbolData.navCancel) : 'ناموجود'
-            },
-        ],
-        [activeSymbolData]
-    );
+    const accountSummary = useMemo(() => {
+        const holdings = portfolioHoldings.map((holding) => {
+            const apiLivePrice = Number(holding.livePrice);
+            const resolvedLivePrice = resolveDisplayLivePrice(holding.instrumentCode);
+
+            return {
+                quantity: holding.quantity,
+                buyPrice: Number(holding.buyPrice),
+                livePrice:
+                    resolvedLivePrice ??
+                    (Number.isFinite(apiLivePrice) && apiLivePrice > 0 ? apiLivePrice : null),
+            };
+        });
+
+        return computeAccountSummary(userProfile?.balance ?? 0, holdings, tradingOrders);
+    }, [portfolioHoldings, resolveDisplayLivePrice, tradingOrders, userProfile?.balance]);
+
+    const refreshAccountStatus = useCallback(async () => {
+        const tasks: Promise<void>[] = [loadTradingAccount()];
+
+        if (userProfile?.id && onProfileUpdated) {
+            tasks.push(
+                (async () => {
+                    const response = await fetch(`/api/v1/users/${userProfile.id}`, {
+                        headers: {Authorization: `Bearer ${accessToken}`},
+                    });
+                    if (!response.ok) return;
+                    const data = (await response.json()) as { result?: UserProfile };
+                    if (data.result) {
+                        onProfileUpdated(data.result);
+                    }
+                })()
+            );
+        }
+
+        await Promise.all(tasks);
+    }, [accessToken, loadTradingAccount, onProfileUpdated, userProfile?.id]);
+
+    const openWalletPanel = useCallback(() => {
+        setMainNavTab('بازار');
+        setSidebarTab('wallet');
+        if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+            setDrawerOpen(true);
+        }
+    }, []);
 
     const noticeYearOptions = useMemo(() => {
         const years = new Set<number>();
@@ -3721,19 +3749,12 @@ export default function TradingDashboard({
                 )}
             </main>
 
-            <footer className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/90 backdrop-blur-xl">
-                <div className="thin-scrollbar overflow-x-auto">
-                    <div className="mx-auto flex min-w-max max-w-[1800px] items-center px-3 py-2 sm:px-4">
-                        {footerStats.map((stat, index) => (
-                            <div key={stat.label} className="flex items-center gap-2 px-3 text-xs">
-                                <span className="text-muted">{stat.label}</span>
-                                <span className="font-semibold tabular-nums text-text">{stat.value}</span>
-                                {index !== footerStats.length - 1 ? <span className="text-border">|</span> : null}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </footer>
+            <AccountStatusBar
+                summary={accountSummary}
+                loading={tradingAccountLoading}
+                onRefresh={refreshAccountStatus}
+                onDepositClick={openWalletPanel}
+            />
 
             {watchlistToast ? (
                 <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[70] flex justify-center px-3">
