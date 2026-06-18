@@ -39,6 +39,7 @@ import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
 import {normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import {getPortfolioHoldings, getTradingOrders, type PortfolioHolding, type TradingOrder} from './features/trading/api';
+import {useInstrumentLivePrices} from './features/trading/useInstrumentLivePrices';
 import {
     createDefaultNoticeFilters,
     type JalaliDateParts,
@@ -2033,6 +2034,35 @@ export default function TradingDashboard({
     const selectedSymbolLivePrice =
         activeSymbol.key === selectedSymbol.key ? activeSymbolData?.closePrice ?? activeSymbolData?.lastPrice ?? null : null;
 
+    const tradingInstrumentCodes = useMemo(
+        () => [
+            ...tradingOrders.map((order) => order.instrumentCode),
+            ...portfolioHoldings.map((holding) => holding.instrumentCode),
+        ],
+        [portfolioHoldings, tradingOrders]
+    );
+    const instrumentLivePrices = useInstrumentLivePrices(tradingInstrumentCodes);
+
+    const resolveDisplayLivePrice = useCallback(
+        (instrumentCode: string) => {
+            const normalized = instrumentCode.trim();
+            if (normalized === '') return null;
+
+            const cachedPrice = instrumentLivePrices[normalized];
+            if (cachedPrice !== null && cachedPrice !== undefined) {
+                return cachedPrice;
+            }
+
+            const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+            if (normalized === activeInstrumentCode) {
+                return symbolPrice;
+            }
+
+            return null;
+        },
+        [activeSymbol.instrumentCode, instrumentLivePrices, symbolPrice]
+    );
+
     const favoriteButtonTitle = selectedWatchlist
         ? isSymbolInSelectedWatchlist
             ? 'حذف نماد از دیده‌بان'
@@ -2074,7 +2104,7 @@ export default function TradingDashboard({
                 symbol: order.symbol,
                 quantity: order.quantity,
                 orderPrice: Number(order.orderPrice),
-                livePrice: Number(order.livePrice),
+                livePrice: resolveDisplayLivePrice(order.instrumentCode),
                 time: formatInstantFa(order.orderTime),
                 status:
                     order.status === 'COMPLETED'
@@ -2084,7 +2114,7 @@ export default function TradingDashboard({
                             : 'open',
                 statusLabel: order.statusLabel,
             })),
-        [tradingOrders]
+        [resolveDisplayLivePrice, tradingOrders]
     );
     const filteredOrders = useMemo(
         () => (orderFilter === 'all' ? demoOrders : demoOrders.filter((order) => order.status === orderFilter)),
@@ -2098,9 +2128,9 @@ export default function TradingDashboard({
                 symbol: holding.symbol,
                 quantity: holding.quantity,
                 buyPrice: Number(holding.buyPrice),
-                livePrice: Number(holding.livePrice),
+                livePrice: resolveDisplayLivePrice(holding.instrumentCode),
             })),
-        [portfolioHoldings]
+        [portfolioHoldings, resolveDisplayLivePrice]
     );
     const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
     const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;

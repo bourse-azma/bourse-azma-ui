@@ -33,6 +33,15 @@ export type PortfolioHolding = {
     netValue: number;
 };
 
+export type CreateTradingOrderRequest = {
+    side: 'BUY' | 'SELL';
+    symbol: string;
+    instrumentCode: string;
+    quantity: number;
+    orderPrice: number;
+    livePrice: number;
+};
+
 const firstFieldError = (errors?: Record<string, string>) => {
     if (!errors) return null;
     const firstKey = Object.keys(errors)[0];
@@ -61,12 +70,18 @@ const tryParseJson = (text: string) => {
     }
 };
 
-const request = async <T>(path: string, accessToken: string, fallbackError: string): Promise<T> => {
+const request = async <T>(
+    path: string,
+    accessToken: string,
+    fallbackError: string,
+    init?: RequestInit
+): Promise<T> => {
     const response = await fetch(path, {
-        method: 'GET',
+        ...init,
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
+            ...(init?.headers ?? {}),
         },
     });
 
@@ -92,7 +107,13 @@ const request = async <T>(path: string, accessToken: string, fallbackError: stri
 };
 
 export const getTradingOrders = (accessToken: string) =>
-    request<TradingOrder[]>('/api/v1/trading/orders', accessToken, 'دریافت سفارشات ناموفق بود.');
+    request<TradingOrder[]>('/api/v1/trading/orders', accessToken, 'دریافت سفارشات ناموفق بود.', {method: 'GET'});
 
 export const getPortfolioHoldings = (accessToken: string) =>
-    request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.');
+    request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.', {method: 'GET'});
+
+export const createTradingOrder = (accessToken: string, payload: CreateTradingOrderRequest) =>
+    request<TradingOrder>('/api/v1/trading/orders', accessToken, 'ثبت سفارش ناموفق بود.', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
