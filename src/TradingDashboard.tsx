@@ -216,12 +216,14 @@ type NoticeGroup = {
 };
 
 type WatchlistModalState =
-    | { mode: 'create' }
+    | { mode: 'create'; pendingSymbol?: SymbolSearchSuggestion }
     | {
     mode: 'edit';
     watchlistId: number;
     originalName: string;
 };
+
+const WATCHLIST_TABLE_GRID = 'grid grid-cols-[minmax(0,1fr)_5.25rem_4.5rem] items-center gap-x-2';
 
 type WatchlistToast = {
     id: number;
@@ -1605,10 +1607,10 @@ function WatchlistPanel({
 
                     <section className="rounded-xl border border-border/70 bg-surface">
                         <header
-                            className="grid grid-cols-[1.5fr_1fr_auto] items-center gap-2 border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted">
+                            className={`${WATCHLIST_TABLE_GRID} border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted`}>
                             <span>نام نماد</span>
-                            <span className="text-center">قیمت</span>
-                            <span className="text-left pl-2">عملیات</span>
+                            <span className="text-center">قیمت لحظه‌ای</span>
+                            <span className="text-center">عملیات</span>
                         </header>
 
                         {selectedWatchlist.symbols.length === 0 ? (
@@ -1632,7 +1634,7 @@ function WatchlistPanel({
                                     return (
                                         <div
                                             key={symbol.id}
-                                            className="grid grid-cols-[1.4fr_0.9fr_auto] items-center gap-2 border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0 transition hover:bg-surface-2/60"
+                                            className={`${WATCHLIST_TABLE_GRID} border-b border-border/60 px-2 py-2.5 text-xs last:border-b-0 transition hover:bg-surface-2/60`}
                                         >
                                             <button
                                                 type="button"
@@ -1653,7 +1655,7 @@ function WatchlistPanel({
                                             <span className="text-center tabular-nums text-text">
                                                 {formatNumberOrDash(livePrice)}
                                             </span>
-                                            <div className="flex items-center justify-end gap-1 pl-1">
+                                            <div className="flex items-center justify-center gap-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => onSelectSymbol({
@@ -1727,7 +1729,6 @@ export default function TradingDashboard({
     const {
         data: activeSymbolData,
         loading: symbolLoading,
-        refreshing: symbolRefreshing,
         error: symbolError,
         refresh: refreshSymbolDetails,
     } = useSymbolDetails(activeSymbol);
@@ -1898,8 +1899,8 @@ export default function TradingDashboard({
         setDrawerOpen(true);
     }, []);
 
-    const openCreateWatchlistModal = useCallback(() => {
-        setWatchlistModal({mode: 'create'});
+    const openCreateWatchlistModal = useCallback((pendingSymbol?: SymbolSearchSuggestion) => {
+        setWatchlistModal({mode: 'create', pendingSymbol});
         setWatchlistNameDraft('');
         setWatchlistNameError(null);
     }, []);
@@ -1938,10 +1939,24 @@ export default function TradingDashboard({
         try {
             if (watchlistModal.mode === 'create') {
                 const created = await createWatchlist(accessToken, normalizedName);
-                setWatchlists((prev) => [...prev, created].sort((a, b) => a.id - b.id));
-                setSelectedWatchlistId(created.id);
+                let savedWatchlist = created;
+                if (watchlistModal.pendingSymbol) {
+                    savedWatchlist = await addSymbolToWatchlist(
+                        accessToken,
+                        created.id,
+                        watchlistModal.pendingSymbol
+                    );
+                }
+                setWatchlists((prev) => [...prev, savedWatchlist].sort((a, b) => a.id - b.id));
+                setSelectedWatchlistId(savedWatchlist.id);
                 setWatchlistModal(null);
-                showWatchlistToast(`دیدبان ${created.name} ساخته شد.`);
+                if (watchlistModal.pendingSymbol) {
+                    showWatchlistToast(
+                        `دیدبان ${savedWatchlist.name} ساخته شد و نماد ${watchlistModal.pendingSymbol.symbol} اضافه شد.`
+                    );
+                } else {
+                    showWatchlistToast(`دیدبان ${savedWatchlist.name} ساخته شد.`);
+                }
             } else {
                 const updated = await updateWatchlist(accessToken, watchlistModal.watchlistId, normalizedName);
                 replaceWatchlistInState(updated);
@@ -2007,7 +2022,7 @@ export default function TradingDashboard({
         if (watchlistBusy) return;
 
         if (!selectedWatchlist) {
-            openCreateWatchlistModal();
+            openCreateWatchlistModal(selectedSymbol);
             return;
         }
 
@@ -3109,12 +3124,9 @@ export default function TradingDashboard({
                             <section dir="rtl" className={`${cardClass} self-start p-3 md:col-span-2 xl:col-span-6`}>
                                 {symbolLoading && !activeSymbolData ? (
                                     <div className="animate-pulse">
-                                        <div className="mb-3 flex items-center justify-between gap-2">
-                                            <div>
-                                                <div className="h-5 w-24 rounded bg-border/60"/>
-                                                <div className="mt-2 h-4 w-32 rounded bg-border/45"/>
-                                            </div>
-                                            <div className="h-6 w-24 rounded-full bg-border/60"/>
+                                        <div className="mb-3">
+                                            <div className="h-5 w-24 rounded bg-border/60"/>
+                                            <div className="mt-2 h-4 w-32 rounded bg-border/45"/>
                                         </div>
                                         <div className="mb-3 h-24 rounded-2xl bg-surface-2/60"/>
                                         <div className="h-64 rounded-2xl border border-border/70 bg-surface-2/60"/>
@@ -3122,15 +3134,9 @@ export default function TradingDashboard({
                                     </div>
                                 ) : (
                                     <>
-                                        <div className="mb-3 flex items-center justify-between gap-2">
-                                            <div>
-                                                <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
-                                                <p className="text-xs text-muted">{activeSymbolSummary}</p>
-                                            </div>
-                                            <span
-                                                className="rounded-full border border-border/80 bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
-                                        {symbolLoading ? 'در حال بارگذاری' : symbolRefreshing ? 'در حال به‌روزرسانی' : 'به‌روزرسانی زنده'}
-                                    </span>
+                                        <div className="mb-3">
+                                            <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
+                                            <p className="text-xs text-muted">{activeSymbolSummary}</p>
                                         </div>
 
                                         {symbolError && !activeSymbolData ? (
