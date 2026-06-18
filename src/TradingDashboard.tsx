@@ -39,6 +39,7 @@ import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
+import IndustriesTabContent from './features/industries/IndustriesTabContent';
 import {type AccountSummary, computeAccountSummary} from './features/trading/accountSummary';
 import {
     cancelTradingOrder,
@@ -1445,18 +1446,10 @@ function WatchlistPanel({
             </div>
 
             {activeTab === 'industries' ? (
-                <div
-                    className="flex min-h-[292px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
-                    <div className="mb-4 grid grid-cols-2 gap-2 opacity-70">
-                        <div className="h-11 w-11 rounded-lg bg-border/60"/>
-                        <div className="h-11 w-11 rounded-lg bg-border/75"/>
-                        <div className="h-11 w-11 rounded-lg bg-border/75"/>
-                        <div className="h-11 w-11 rounded-lg bg-border/60"/>
-                    </div>
-
-                    <h3 className="text-sm font-semibold text-text">{emptyTitle}</h3>
-                    <p className="mt-1 text-xs text-muted">{emptyHelp}</p>
-                </div>
+                <IndustriesTabContent
+                    accessToken={accessToken}
+                    onSelectSymbol={onSelectSymbol}
+                />
             ) : null}
 
             {activeTab === 'wallet' ? (
