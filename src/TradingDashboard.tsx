@@ -34,9 +34,11 @@ import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
 import type {SymbolSearchSuggestion} from './features/symbol-search/types';
 import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
 import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
+import {usePeerGroup} from './features/symbol-search/usePeerGroup';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
+import PeerGroupPanel, {ORDERBOOK_SLOT_HEIGHT_CLASS} from './features/symbol-search/PeerGroupPanel';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import IndustriesTabContent from './features/industries/IndustriesTabContent';
@@ -1731,6 +1733,13 @@ export default function TradingDashboard({
     } = useSymbolDetails(activeSymbol);
 
     const [orderbookTab, setOrderbookTab] = useState<OrderbookTab>('info');
+    const {
+        rows: peerGroupRows,
+        sectorName: peerGroupSectorName,
+        loading: peerGroupLoading,
+        error: peerGroupError,
+        refresh: refreshPeerGroup,
+    } = usePeerGroup(activeSymbol.instrumentCode, orderbookTab === 'peers');
     const [symbolTab, setSymbolTab] = useState<SymbolTab>('details');
     const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
     const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
@@ -3140,57 +3149,7 @@ export default function TradingDashboard({
                                             </div>
                                         ) : null}
 
-                                        <div className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
-                                            <div className="mb-3 text-center text-xs font-medium text-muted">بازه مجاز
-                                                روزانه
-                                            </div>
-                                            <div
-                                                className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
-                <span
-                    className={`text-left text-sm font-bold tabular-nums ${
-                        symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
-                    }`}
-                >
-                  {formatNumberOrDash(symbolPrice)}
-                </span>
-
-                                                <div>
-                                                    <div
-                                                        className="mb-1 flex items-center justify-between text-[11px] text-muted">
-                                                        <span
-                                                            className="tabular-nums">{formatNumberOrDash(dailyMin)}</span>
-                                                        <span
-                                                            className="tabular-nums">{formatNumberOrDash(dailyMax)}</span>
-                                                    </div>
-
-                                                    <div className="relative h-2 rounded-full bg-border/45">
-                                                        <div
-                                                            className={`absolute inset-y-0 left-0 rounded-full ${symbolPositive ? 'bg-positive/20' : 'bg-negative/20'}`}
-                                                            style={{width: `${markerPercent}%`}}
-                                                        />
-                                                        <div
-                                                            className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface shadow-card ${
-                                                                symbolPositive ? 'bg-positive' : 'bg-negative'
-                                                            }`}
-                                                            style={{left: `calc(${markerPercent}% - 8px)`}}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <OrderBookPanel rows={orderBookRows} formatNumber={formatOrderBookValue}/>
-
-                                        <div className="mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                            <OrderBookDepthPanel
-                                                rows={depthRows}
-                                                formatCount={formatOrderBookValue}
-                                                formatVolume={formatCompactAmountFa}
-                                                formatPercent={formatDepthPercent}
-                                            />
-                                        </div>
-
-                                        <div className="mt-4 rounded-xl border border-border/70 bg-surface-2 p-1">
+                                        <div className="mb-3 rounded-xl border border-border/70 bg-surface-2 p-1">
                                             <div className="flex flex-wrap items-center gap-1 text-xs">
                                                 {orderbookTabs.map((tab) => (
                                                     <button
@@ -3209,7 +3168,89 @@ export default function TradingDashboard({
                                             </div>
                                         </div>
 
-                                        <p className="mt-2 text-xs text-muted">{orderbookTabCaption[orderbookTab]}</p>
+                                        {orderbookTab === 'peers' ? (
+                                            <PeerGroupPanel
+                                                rows={peerGroupRows}
+                                                sectorName={peerGroupSectorName}
+                                                activeSymbol={activeSymbol.symbol}
+                                                loading={peerGroupLoading}
+                                                error={peerGroupError}
+                                                onRetry={refreshPeerGroup}
+                                                onSelectSymbol={setSelectedSymbol}
+                                                formatNumber={formatOrderBookValue}
+                                                formatCompactAmount={formatCompactAmountFa}
+                                                formatPercent={formatPercentOrDash}
+                                            />
+                                        ) : orderbookTab === 'technical' ? (
+                                            <div
+                                                className={`flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} items-center justify-center rounded-2xl border border-dashed border-border/70 bg-surface-2 px-4 text-center text-xs text-muted`}
+                                            >
+                                                {orderbookTabCaption.technical}
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className={`flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} flex-col overflow-hidden`}>
+                                                <div
+                                                    className="mb-3 shrink-0 rounded-2xl border border-border/70 bg-surface-2 p-4">
+                                                    <div
+                                                        className="mb-3 text-center text-xs font-medium text-muted">بازه
+                                                        مجاز
+                                                        روزانه
+                                                    </div>
+                                                    <div
+                                                        className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
+                <span
+                    className={`text-left text-sm font-bold tabular-nums ${
+                        symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
+                    }`}
+                >
+                  {formatNumberOrDash(symbolPrice)}
+                </span>
+
+                                                        <div>
+                                                            <div
+                                                                className="mb-1 flex items-center justify-between text-[11px] text-muted">
+                                                                <span
+                                                                    className="tabular-nums">{formatNumberOrDash(dailyMin)}</span>
+                                                                <span
+                                                                    className="tabular-nums">{formatNumberOrDash(dailyMax)}</span>
+                                                            </div>
+
+                                                            <div className="relative h-2 rounded-full bg-border/45">
+                                                                <div
+                                                                    className={`absolute inset-y-0 left-0 rounded-full ${symbolPositive ? 'bg-positive/20' : 'bg-negative/20'}`}
+                                                                    style={{width: `${markerPercent}%`}}
+                                                                />
+                                                                <div
+                                                                    className={`absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-surface shadow-card ${
+                                                                        symbolPositive ? 'bg-positive' : 'bg-negative'
+                                                                    }`}
+                                                                    style={{left: `calc(${markerPercent}% - 8px)`}}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex min-h-0 flex-1 flex-col">
+                                                    <OrderBookPanel
+                                                        rows={orderBookRows}
+                                                        formatNumber={formatOrderBookValue}
+                                                        fillHeight
+                                                    />
+                                                </div>
+
+                                                <div
+                                                    className="mt-3 shrink-0 rounded-2xl border border-border/70 bg-surface-2 p-3">
+                                                    <OrderBookDepthPanel
+                                                        rows={depthRows}
+                                                        formatCount={formatOrderBookValue}
+                                                        formatVolume={formatCompactAmountFa}
+                                                        formatPercent={formatDepthPercent}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                     </>
                                 )}
                             </section>

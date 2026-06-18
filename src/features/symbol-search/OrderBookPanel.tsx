@@ -7,11 +7,13 @@ type OrderBookPanelProps = {
     formatNumber: (value: number | null | undefined, digits?: number) => string;
     /** When provided, bid/ask price cells become clickable and call back with the price. */
     onSelectPrice?: (price: number) => void;
+    /** Expand the scroll area to fill the parent flex slot instead of using a fixed max height. */
+    fillHeight?: boolean;
 };
 
 const hasPositiveValue = (value: number | null | undefined) => (value ?? 0) > 0;
 
-export default function OrderBookPanel({rows, formatNumber, onSelectPrice}: OrderBookPanelProps) {
+export default function OrderBookPanel({rows, formatNumber, onSelectPrice, fillHeight = false}: OrderBookPanelProps) {
     const maxVolumes = getOrderBookMaxVolumes(rows);
     const isInteractive = typeof onSelectPrice === 'function';
 
@@ -22,7 +24,10 @@ export default function OrderBookPanel({rows, formatNumber, onSelectPrice}: Orde
     };
 
     return (
-        <div dir="ltr" className="overflow-hidden rounded-2xl border border-border/70">
+        <div
+            dir="ltr"
+            className={`overflow-hidden rounded-2xl border border-border/70 ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''}`}
+        >
             <div className="grid grid-cols-2 border-b border-border/60 bg-surface-2/95 text-[11px] text-muted">
                 <div className="grid grid-cols-[minmax(3.5rem,0.9fr)_1fr_1fr] border-l border-border/60">
                     <span className="px-2 py-2 text-center font-medium">تعداد</span>
@@ -36,7 +41,9 @@ export default function OrderBookPanel({rows, formatNumber, onSelectPrice}: Orde
                 </div>
             </div>
 
-            <div className="thin-scrollbar max-h-[280px] overflow-y-auto">
+            <div
+                className={`thin-scrollbar overflow-y-auto ${fillHeight ? 'min-h-0 flex-1' : 'max-h-[280px]'}`}
+            >
                 {rows.map((row) => {
                     const askPower = volumeToBarPercent(row.askVolume ?? 0, maxVolumes.ask);
                     const bidPower = volumeToBarPercent(row.bidVolume ?? 0, maxVolumes.bid);

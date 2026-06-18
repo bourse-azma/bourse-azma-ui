@@ -40,10 +40,16 @@ export type TsetmcClosingPriceInfo = {
     tradeValue: number | null;
 };
 
+export type TsetmcSectorInfo = {
+    sectorCode: string | null;
+    sectorName: string | null;
+};
+
 export type TsetmcInstrumentInfo = {
     instrumentCode: string | null;
     symbol: string | null;
     fullName: string | null;
+    sector: TsetmcSectorInfo | null;
     staticPriceThreshold: {
         minAllowedPrice: number | null;
         maxAllowedPrice: number | null;
@@ -154,6 +160,50 @@ export type SymbolDetailRow = {
     value: number | string | null;
     valueType: 'number' | 'percent' | 'currency' | 'plain' | 'datetime';
     digits?: number;
+};
+
+export type TsetmcRelatedCompanyItem = {
+    instrumentCode: string | null;
+    symbol: string | null;
+    fullName: string | null;
+    closingPrice: number | null;
+    lastTradePrice: number | null;
+    dayMinPrice: number | null;
+    dayMaxPrice: number | null;
+    priceChange: number | null;
+    tradeCount: number | null;
+    tradeVolume: number | null;
+    tradeValue: number | null;
+};
+
+export type TsetmcRelatedCompanyHistoryItem = {
+    instrumentCode: string | null;
+    eventDate: number | null;
+    closingPrice: number | null;
+    lastTradePrice: number | null;
+    tradeCount: number | null;
+    tradeVolume: number | null;
+    tradeValue: number | null;
+};
+
+export type TsetmcRelatedCompaniesResult = {
+    relatedCompanies: TsetmcRelatedCompanyItem[];
+    relatedCompanyThirtyDayHistory: TsetmcRelatedCompanyHistoryItem[];
+};
+
+export type PeerGroupRow = {
+    instrumentCode: string;
+    symbol: string;
+    fullName: string | null;
+    closingPrice: number | null;
+    closingPercent: number | null;
+    lastPrice: number | null;
+    lastPercent: number | null;
+    dayMinPrice: number | null;
+    dayMaxPrice: number | null;
+    tradeCount: number | null;
+    tradeVolume: number | null;
+    tradeValue: number | null;
 };
 
 export type SymbolDetailsViewModel = {
