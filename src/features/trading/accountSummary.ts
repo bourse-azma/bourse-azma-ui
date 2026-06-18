@@ -15,11 +15,29 @@ type HoldingInput = Pick<PortfolioHolding, 'quantity' | 'buyPrice'> & {
     livePrice: number | null;
 };
 
-type OrderInput = Pick<TradingOrder, 'side' | 'quantity' | 'orderPrice' | 'status'>;
+type OrderInput = Pick<TradingOrder, 'side' | 'quantity' | 'remainingQuantity' | 'orderPrice' | 'status' | 'orderValue'>;
 
 const toNumber = (value: unknown) => {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const isActiveBuyOrder = (order: OrderInput) => {
+    const side = String(order.side).toUpperCase();
+    const status = String(order.status).toUpperCase();
+    return side === 'BUY' && (status === 'REQUESTED' || status === 'PARTIALLY_FILLED' || status === 'TRIGGER_PENDING');
+};
+
+const orderCommittedAmount = (order: OrderInput) => {
+    const remaining = toNumber(order.remainingQuantity);
+    if (remaining > 0) {
+        return toNumber(order.orderPrice) * remaining;
+    }
+    const orderValue = toNumber(order.orderValue);
+    if (orderValue > 0) {
+        return orderValue;
+    }
+    return toNumber(order.orderPrice) * toNumber(order.quantity);
 };
 
 export const computeAccountSummary = (
@@ -27,7 +45,7 @@ export const computeAccountSummary = (
     holdings: HoldingInput[],
     orders: OrderInput[]
 ): AccountSummary => {
-    const customerBalance = toNumber(walletBalance);
+    const walletTotal = toNumber(walletBalance);
 
     const portfolioValue = holdings.reduce((sum, holding) => {
         const quantity = toNumber(holding.quantity);
@@ -44,10 +62,13 @@ export const computeAccountSummary = (
     const portfolioGrowthPercent = portfolioCost > 0 ? (portfolioGrowth / portfolioCost) * 100 : 0;
 
     const blockedAmount = orders
-        .filter((order) => order.side === 'BUY' && order.status === 'REQUESTED')
-        .reduce((sum, order) => sum + toNumber(order.orderPrice) * toNumber(order.quantity), 0);
+        .filter(isActiveBuyOrder)
+        .reduce((sum, order) => sum + orderCommittedAmount(order), 0);
 
-    const buyingPower = Math.max(customerBalance - blockedAmount, 0);
+    // مانده مشتری = کل موجودی نقدی کیف پول
+    const customerBalance = walletTotal;
+    // قدرت خرید / موجودی قابل استفاده = مانده منهای سفارش‌های خرید باز
+    const buyingPower = Math.max(walletTotal - blockedAmount, 0);
     const netAssets = portfolioValue + customerBalance;
 
     return {

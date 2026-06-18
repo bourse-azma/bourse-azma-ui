@@ -5,12 +5,21 @@ import {getOrderBookMaxVolumes, volumeToBarPercent} from './orderBookUtils';
 type OrderBookPanelProps = {
     rows: SymbolOrderBookRow[];
     formatNumber: (value: number | null | undefined, digits?: number) => string;
+    /** When provided, bid/ask price cells become clickable and call back with the price. */
+    onSelectPrice?: (price: number) => void;
 };
 
 const hasPositiveValue = (value: number | null | undefined) => (value ?? 0) > 0;
 
-export default function OrderBookPanel({rows, formatNumber}: OrderBookPanelProps) {
+export default function OrderBookPanel({rows, formatNumber, onSelectPrice}: OrderBookPanelProps) {
     const maxVolumes = getOrderBookMaxVolumes(rows);
+    const isInteractive = typeof onSelectPrice === 'function';
+
+    const handleSelect = (price: number | null) => {
+        if (isInteractive && price !== null && Number.isFinite(price) && price > 0) {
+            onSelectPrice?.(price);
+        }
+    };
 
     return (
         <div dir="ltr" className="overflow-hidden rounded-2xl border border-border/70">
@@ -49,10 +58,22 @@ export default function OrderBookPanel({rows, formatNumber}: OrderBookPanelProps
                                     >
                                         {formatNumber(row.askVolume)}
                                     </span>
-                                    <span
-                                        className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-negative">
-                                        {formatNumber(row.askPrice)}
-                                    </span>
+                                    {isInteractive ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelect(row.askPrice)}
+                                            disabled={!hasPositiveValue(row.askPrice)}
+                                            title={hasPositiveValue(row.askPrice) ? 'انتخاب این قیمت' : undefined}
+                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-negative transition hover:bg-negative/10 disabled:cursor-default disabled:hover:bg-transparent"
+                                        >
+                                            {formatNumber(row.askPrice)}
+                                        </button>
+                                    ) : (
+                                        <span
+                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-negative">
+                                            {formatNumber(row.askPrice)}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -60,10 +81,22 @@ export default function OrderBookPanel({rows, formatNumber}: OrderBookPanelProps
                             <div className="grid grid-cols-[1fr_1fr_minmax(3.5rem,0.9fr)]">
                                 <div className="relative col-span-2 grid grid-cols-2 overflow-hidden">
                                     <DepthFill percent={bidPower} tone="positive" origin="left"/>
-                                    <span
-                                        className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-positive">
-                                        {formatNumber(row.bidPrice)}
-                                    </span>
+                                    {isInteractive ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelect(row.bidPrice)}
+                                            disabled={!hasPositiveValue(row.bidPrice)}
+                                            title={hasPositiveValue(row.bidPrice) ? 'انتخاب این قیمت' : undefined}
+                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-positive transition hover:bg-positive/10 disabled:cursor-default disabled:hover:bg-transparent"
+                                        >
+                                            {formatNumber(row.bidPrice)}
+                                        </button>
+                                    ) : (
+                                        <span
+                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-positive">
+                                            {formatNumber(row.bidPrice)}
+                                        </span>
+                                    )}
                                     <span
                                         className={`relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums ${hasPositiveValue(row.bidVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
                                     >

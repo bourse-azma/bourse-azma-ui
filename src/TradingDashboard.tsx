@@ -39,9 +39,20 @@ import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
 import {normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
-import {computeAccountSummary} from './features/trading/accountSummary';
-import {getPortfolioHoldings, getTradingOrders, type PortfolioHolding, type TradingOrder} from './features/trading/api';
+import {type AccountSummary, computeAccountSummary} from './features/trading/accountSummary';
+import {
+    cancelTradingOrder,
+    type CreateOrderResult,
+    getPortfolioHoldings,
+    getTradingOrders,
+    type OrderSide,
+    type OrderStatusType,
+    type PortfolioHolding,
+    type TradingOrder
+} from './features/trading/api';
 import {useInstrumentLivePrices} from './features/trading/useInstrumentLivePrices';
+import OrderPlacementModal from './features/trading/order-placement/OrderPlacementModal';
+import type {OrderSymbolContext} from './features/trading/order-placement/types';
 import {
     createDefaultNoticeFilters,
     type JalaliDateParts,
@@ -64,20 +75,23 @@ type SidebarTab = 'watchlist' | 'industries' | 'wallet';
 type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
-type OrderFilter = 'open' | 'done' | 'failed' | 'all';
+type OrderFilter = 'open' | 'partial' | 'done' | 'cancelled' | 'failed' | 'all';
 type BottomPanelTab = 'orders' | 'portfolio';
-type OrderStatus = Exclude<OrderFilter, 'all'>;
 
 type DemoOrderRow = {
-    id: string;
+    id: number;
     type: 'buy' | 'sell';
     symbol: string;
     quantity: number;
+    remainingQuantity: number;
+    executedQuantity: number;
     orderPrice: number;
+    averageExecutedPrice: number | null;
     livePrice: number | null;
     time: string;
-    status: OrderStatus;
+    status: OrderStatusType;
     statusLabel: string;
+    cancellable: boolean;
 };
 
 type DemoPortfolioRow = {
@@ -1030,10 +1044,12 @@ const computeProjectedBalance = (currentBalance: number, actionType: WalletActio
 
 function WalletTabContent({
                               userProfile,
+                              accountSummary,
                               accessToken,
                               onProfileUpdated,
                           }: {
     userProfile?: UserProfile;
+    accountSummary: AccountSummary;
     accessToken: string;
     onProfileUpdated?: (profile: UserProfile) => void;
 }) {
@@ -1044,7 +1060,8 @@ function WalletTabContent({
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    const currentBalance = userProfile?.balance ?? 0;
+    const currentBalance = accountSummary.customerBalance;
+    const {buyingPower, blockedAmount} = accountSummary;
     const parsedValue = value.trim() === '' ? null : Number.parseFloat(value);
     const projectedBalance =
         parsedValue !== null && Number.isFinite(parsedValue)
@@ -1133,17 +1150,32 @@ function WalletTabContent({
                         </div>
                     </div>
 
-                    <div className="rounded-2xl border border-border/70 bg-surface/90 px-4 py-3">
-                        <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2 rounded-2xl border border-border/70 bg-surface/90 px-4 py-3">
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-muted">مانده مشتری</span>
+                            <span className="font-semibold tabular-nums text-text">
+                                {currentBalance.toLocaleString('fa-IR')} ریال
+                            </span>
+                        </div>
+                        {blockedAmount > 0 ? (
+                            <div className="flex items-center justify-between gap-3 text-xs">
+                                <span className="text-muted">بلوکه شده</span>
+                                <span className="font-semibold tabular-nums text-text">
+                                    {blockedAmount.toLocaleString('fa-IR')} ریال
+                                </span>
+                            </div>
+                        ) : null}
+                        <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2">
                             <div>
                                 <div className="text-[10px] text-muted">موجودی قابل استفاده</div>
-                                <div className="mt-1 text-[11px] text-muted">ریال</div>
+                                <div className="mt-1 text-[11px] text-muted">قدرت خرید</div>
                             </div>
                             <div className="min-w-0 text-left">
                                 <div
                                     className="break-all text-xl font-black leading-tight tabular-nums tracking-tight text-text sm:text-2xl">
-                                    {currentBalance.toLocaleString('fa-IR')}
+                                    {buyingPower.toLocaleString('fa-IR')}
                                 </div>
+                                <div className="mt-1 text-[10px] text-muted">ریال</div>
                             </div>
                         </div>
                     </div>
@@ -1314,6 +1346,7 @@ function WatchlistPanel({
                             currentSymbolKey,
                             currentSymbolPrice,
                             userProfile,
+                            accountSummary,
                             accessToken,
                             onProfileUpdated,
                         }: {
@@ -1334,6 +1367,7 @@ function WatchlistPanel({
     currentSymbolKey: string;
     currentSymbolPrice: number | null;
     userProfile?: UserProfile;
+    accountSummary: AccountSummary;
     accessToken: string;
     onProfileUpdated?: (profile: UserProfile) => void;
 }) {
@@ -1427,6 +1461,7 @@ function WatchlistPanel({
             {activeTab === 'wallet' ? (
                 <WalletTabContent
                     userProfile={userProfile}
+                    accountSummary={accountSummary}
                     accessToken={accessToken}
                     onProfileUpdated={onProfileUpdated}
                 />
@@ -1733,6 +1768,7 @@ export default function TradingDashboard({
     const [watchlistBusy, setWatchlistBusy] = useState(false);
     const [watchlistToast, setWatchlistToast] = useState<WatchlistToast | null>(null);
     const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
+    const [orderModalSide, setOrderModalSide] = useState<OrderSide | null>(null);
 
     const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), message, tone});
@@ -1757,9 +1793,49 @@ export default function TradingDashboard({
         }
     }, [accessToken]);
 
+    const refreshTradingAccountSilent = useCallback(async () => {
+        try {
+            const [orders, holdings] = await Promise.all([
+                getTradingOrders(accessToken),
+                getPortfolioHoldings(accessToken),
+            ]);
+            setTradingOrders(orders);
+            setPortfolioHoldings(holdings);
+        } catch {
+            // Keep the last known state during background polling.
+        }
+    }, [accessToken]);
+
     useEffect(() => {
         void loadTradingAccount();
     }, [loadTradingAccount]);
+
+    useEffect(() => {
+        let timer: number | undefined;
+
+        const tick = async () => {
+            await refreshTradingAccountSilent();
+            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        };
+
+        const hasActiveOrders = tradingOrders.some(
+            (order) =>
+                order.status === 'REQUESTED' ||
+                order.status === 'PARTIALLY_FILLED' ||
+                order.status === 'TRIGGER_PENDING'
+        );
+
+        if (!hasActiveOrders) {
+            return undefined;
+        }
+
+        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        return () => {
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
+        };
+    }, [refreshTradingAccountSilent, tradingOrders]);
 
     const replaceWatchlistInState = useCallback((updatedWatchlist: Watchlist) => {
         setWatchlists((prev) => {
@@ -2091,27 +2167,34 @@ export default function TradingDashboard({
     const demoOrders = useMemo<DemoOrderRow[]>(
         () =>
             tradingOrders.map((order) => ({
-                id: String(order.id),
+                id: order.id,
                 type: order.side === 'BUY' ? 'buy' : 'sell',
                 symbol: order.symbol,
                 quantity: order.quantity,
+                remainingQuantity: order.remainingQuantity,
+                executedQuantity: order.executedQuantity,
                 orderPrice: Number(order.orderPrice),
+                averageExecutedPrice: order.averageExecutedPrice,
                 livePrice: resolveDisplayLivePrice(order.instrumentCode),
                 time: formatInstantFa(order.orderTime),
-                status:
-                    order.status === 'COMPLETED'
-                        ? 'done'
-                        : order.status === 'FAILED'
-                            ? 'failed'
-                            : 'open',
+                status: order.status,
                 statusLabel: order.statusLabel,
+                cancellable: order.cancellable,
             })),
         [resolveDisplayLivePrice, tradingOrders]
     );
-    const filteredOrders = useMemo(
-        () => (orderFilter === 'all' ? demoOrders : demoOrders.filter((order) => order.status === orderFilter)),
-        [demoOrders, orderFilter]
-    );
+    const filteredOrders = useMemo(() => {
+        if (orderFilter === 'all') return demoOrders;
+        const statusMap: Record<Exclude<OrderFilter, 'all'>, OrderStatusType[]> = {
+            open: ['REQUESTED', 'TRIGGER_PENDING'],
+            partial: ['PARTIALLY_FILLED'],
+            done: ['COMPLETED'],
+            cancelled: ['CANCELLED'],
+            failed: ['FAILED'],
+        };
+        const statuses = statusMap[orderFilter];
+        return demoOrders.filter((order) => statuses.includes(order.status));
+    }, [demoOrders, orderFilter]);
     const demoPortfolioRows = useMemo<DemoPortfolioRow[]>(
         () =>
             portfolioHoldings.map((holding) => {
@@ -2261,6 +2344,96 @@ export default function TradingDashboard({
 
         await Promise.all(tasks);
     }, [accessToken, loadTradingAccount, onProfileUpdated, userProfile?.id]);
+
+    const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+
+    const orderLivePrice = symbolPrice ?? activeSymbolData?.closePrice ?? null;
+
+    // Sellable quantity = held shares − quantity already reserved by pending sell orders.
+    // Returns null when holdings data is unavailable so the UI never allows unlimited selling.
+    const availableToSell = useMemo<number | null>(() => {
+        if (activeInstrumentCode === '') return null;
+        if (tradingAccountError) return null;
+        const held = portfolioHoldings
+            .filter((holding) => holding.instrumentCode === activeInstrumentCode)
+            .reduce((sum, holding) => sum + holding.quantity, 0);
+        const reserved = tradingOrders
+            .filter(
+                (order) =>
+                    order.instrumentCode === activeInstrumentCode &&
+                    order.side === 'SELL' &&
+                    (order.status === 'REQUESTED' || order.status === 'PARTIALLY_FILLED' || order.status === 'TRIGGER_PENDING')
+            )
+            .reduce((sum, order) => sum + order.remainingQuantity, 0);
+        return Math.max(held - reserved, 0);
+    }, [activeInstrumentCode, portfolioHoldings, tradingAccountError, tradingOrders]);
+
+    const orderSymbolContext = useMemo<OrderSymbolContext>(
+        () => ({
+            symbol: activeSymbol.symbol,
+            instrumentCode: activeSymbol.instrumentCode,
+            name: activeSymbolData?.subtitle || activeSymbol.name,
+            lastPrice: symbolPrice,
+            closePrice: activeSymbolData?.closePrice ?? null,
+            changePercent: activeSymbolData?.lastPricePercent ?? null,
+            tradeVolume: activeSymbolData?.tradeVolume ?? null,
+            tradeCount: activeSymbolData?.tradeCount ?? null,
+        }),
+        [activeSymbol.instrumentCode, activeSymbol.name, activeSymbol.symbol, activeSymbolData, symbolPrice]
+    );
+
+    const orderValidationContext = useMemo(
+        () => ({
+            livePrice: orderLivePrice,
+            availableToSell,
+            buyingPower: accountSummary.buyingPower,
+        }),
+        [accountSummary.buyingPower, availableToSell, orderLivePrice]
+    );
+
+    const handleOrderPlaced = useCallback(
+        (result: CreateOrderResult, _closeAfter: boolean) => {
+            void _closeAfter;
+            const order = result.order;
+            const trades = result.trades;
+            let message: string;
+            if (order.status === 'COMPLETED') {
+                message = `${order.sideLabel} نماد ${order.symbol} با موفقیت اجرا شد. (${formatNumberFa(order.executedQuantity)} سهم)`;
+            } else if (order.status === 'PARTIALLY_FILLED') {
+                message = `${order.sideLabel} نماد ${order.symbol}: ${formatNumberFa(order.executedQuantity)} سهم اجرا شد، ${formatNumberFa(order.remainingQuantity)} سهم در صف.`;
+            } else if (trades.length > 0) {
+                message = `${order.sideLabel} نماد ${order.symbol} ثبت و بخشی اجرا شد.`;
+            } else {
+                message = `${order.sideLabel} نماد ${order.symbol} در صف ثبت شد.`;
+            }
+            showWatchlistToast(message, 'success');
+            setBottomPanelTab('orders');
+            void refreshAccountStatus();
+        },
+        [refreshAccountStatus, showWatchlistToast]
+    );
+
+    const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+
+    const handleCancelOrder = useCallback(
+        async (orderId: number) => {
+            if (cancellingOrderId !== null) return;
+            setCancellingOrderId(orderId);
+            try {
+                const result = await cancelTradingOrder(accessToken, orderId);
+                showWatchlistToast(`سفارش ${result.order.sideLabel} نماد ${result.order.symbol} لغو شد.`, 'success');
+                void refreshAccountStatus();
+            } catch (error) {
+                showWatchlistToast(
+                    error instanceof Error ? error.message : 'لغو سفارش ناموفق بود.',
+                    'error'
+                );
+            } finally {
+                setCancellingOrderId(null);
+            }
+        },
+        [accessToken, cancellingOrderId, refreshAccountStatus, showWatchlistToast]
+    );
 
     const openWalletPanel = useCallback(() => {
         setMainNavTab('بازار');
@@ -2540,15 +2713,23 @@ export default function TradingDashboard({
     const orderFilters: Array<{ key: OrderFilter; label: string }> = [
         {
             key: 'open',
-            label: `درخواست شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'open').length)}`
+            label: `فعال ${formatNumberFa(demoOrders.filter((o) => o.status === 'REQUESTED' || o.status === 'TRIGGER_PENDING').length)}`
+        },
+        {
+            key: 'partial',
+            label: `اجرای جزئی ${formatNumberFa(demoOrders.filter((o) => o.status === 'PARTIALLY_FILLED').length)}`
         },
         {
             key: 'done',
-            label: `انجام شده ${formatNumberFa(demoOrders.filter((order) => order.status === 'done').length)}`
+            label: `انجام شده ${formatNumberFa(demoOrders.filter((o) => o.status === 'COMPLETED').length)}`
+        },
+        {
+            key: 'cancelled',
+            label: `لغو شده ${formatNumberFa(demoOrders.filter((o) => o.status === 'CANCELLED').length)}`
         },
         {
             key: 'failed',
-            label: `ناموفق ${formatNumberFa(demoOrders.filter((order) => order.status === 'failed').length)}`
+            label: `ناموفق ${formatNumberFa(demoOrders.filter((o) => o.status === 'FAILED').length)}`
         },
         {key: 'all', label: `همه ${formatNumberFa(demoOrders.length)}`},
     ];
@@ -2849,6 +3030,7 @@ export default function TradingDashboard({
 
                             <button
                                 type="button"
+                                onClick={() => setOrderModalSide('BUY')}
                                 className="inline-flex h-10 items-center justify-center rounded-xl bg-positive px-4 text-sm font-semibold text-white shadow-glow transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-positive/50"
                             >
                                 خرید
@@ -2856,6 +3038,7 @@ export default function TradingDashboard({
 
                             <button
                                 type="button"
+                                onClick={() => setOrderModalSide('SELL')}
                                 className="inline-flex h-10 items-center justify-center rounded-xl bg-negative px-4 text-sm font-semibold text-white transition hover:brightness-105 focus-visible:ring-2 focus-visible:ring-negative/50"
                             >
                                 فروش
@@ -3407,6 +3590,7 @@ export default function TradingDashboard({
                                     currentSymbolKey={selectedSymbol.key}
                                     currentSymbolPrice={selectedSymbolLivePrice}
                                     userProfile={userProfile}
+                                    accountSummary={accountSummary}
                                     accessToken={accessToken}
                                     onProfileUpdated={onProfileUpdated}
                                 />
@@ -3497,27 +3681,35 @@ export default function TradingDashboard({
                                             سبد سهام شما خالی است.
                                         </div>
                                     ) : bottomPanelTab === 'orders' ? (
-                                        <table className="w-full min-w-[860px] border-collapse text-right text-xs">
+                                        <table className="w-full min-w-[1020px] border-collapse text-right text-xs">
                                             <thead>
                                             <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
-                                                <th className="px-3 py-3">نوع سفارش</th>
+                                                <th className="px-3 py-3">نوع</th>
                                                 <th className="px-3 py-3">نماد</th>
-                                                <th className="px-3 py-3">تعداد</th>
+                                                <th className="px-3 py-3">تعداد کل</th>
+                                                <th className="px-3 py-3">اجرا شده</th>
+                                                <th className="px-3 py-3">باقیمانده</th>
                                                 <th className="px-3 py-3">قیمت سفارش</th>
-                                                <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                                <th className="px-3 py-3">میانگین اجرا</th>
                                                 <th className="px-3 py-3">زمان</th>
-                                                <th className="px-3 py-3">وضعیت سفارش</th>
+                                                <th className="px-3 py-3">وضعیت</th>
+                                                <th className="px-3 py-3">عملیات</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             {filteredOrders.map((order) => {
                                                 const isBuy = order.type === 'buy';
                                                 const statusClass =
-                                                    order.status === 'done'
+                                                    order.status === 'COMPLETED'
                                                         ? 'border-positive/35 bg-positive/10 text-positive'
-                                                        : order.status === 'failed'
+                                                        : order.status === 'FAILED'
                                                             ? 'border-negative/35 bg-negative/10 text-negative'
-                                                            : 'border-primary/35 bg-primary/10 text-primary';
+                                                            : order.status === 'CANCELLED'
+                                                                ? 'border-warning/35 bg-warning/10 text-warning'
+                                                                : order.status === 'PARTIALLY_FILLED'
+                                                                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-600 dark:text-amber-400'
+                                                                    : 'border-primary/35 bg-primary/10 text-primary';
+                                                const isCancelling = cancellingOrderId === order.id;
 
                                                 return (
                                                     <tr
@@ -3526,7 +3718,7 @@ export default function TradingDashboard({
                                                     >
                                                         <td className="px-3 py-3">
                                                     <span
-                                                        className={`inline-flex min-w-16 items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
+                                                        className={`inline-flex min-w-14 items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
                                                             isBuy
                                                                 ? 'border-positive/35 bg-positive/10 text-positive'
                                                                 : 'border-negative/35 bg-negative/10 text-negative'
@@ -3537,14 +3729,39 @@ export default function TradingDashboard({
                                                         </td>
                                                         <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(order.livePrice)}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-text">{order.averageExecutedPrice ? formatNumberFa(order.averageExecutedPrice) : '—'}</td>
                                                         <td className="px-3 py-3 text-muted">{order.time}</td>
                                                         <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
                                                         {order.statusLabel}
                                                     </span>
+                                                        </td>
+                                                        <td className="px-3 py-3">
+                                                            {order.cancellable ? (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={isCancelling}
+                                                                    onClick={() => {
+                                                                        if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
+                                                                            void handleCancelOrder(order.id);
+                                                                        }
+                                                                    }}
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                >
+                                                                    {isCancelling ? (
+                                                                        <Loader2 className="h-3 w-3 animate-spin"/>
+                                                                    ) : (
+                                                                        <X className="h-3 w-3"/>
+                                                                    )}
+                                                                    لغو
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-[11px] text-muted">—</span>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 );
@@ -3756,6 +3973,24 @@ export default function TradingDashboard({
                 onDepositClick={openWalletPanel}
             />
 
+            {orderModalSide ? (
+                <OrderPlacementModal
+                    open
+                    initialSide={orderModalSide}
+                    symbol={orderSymbolContext}
+                    orderBookRows={orderBookRows}
+                    context={orderValidationContext}
+                    accessToken={accessToken}
+                    formatNumber={(value, digits) =>
+                        value === null || value === undefined || Number.isNaN(value)
+                            ? '—'
+                            : formatNumberFa(value, digits)
+                    }
+                    onClose={() => setOrderModalSide(null)}
+                    onOrderPlaced={handleOrderPlaced}
+                />
+            ) : null}
+
             {watchlistToast ? (
                 <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[70] flex justify-center px-3">
                     <div
@@ -3903,6 +4138,7 @@ export default function TradingDashboard({
                             currentSymbolKey={selectedSymbol.key}
                             currentSymbolPrice={selectedSymbolLivePrice}
                             userProfile={userProfile}
+                            accountSummary={accountSummary}
                             accessToken={accessToken}
                             onProfileUpdated={onProfileUpdated}
                         />

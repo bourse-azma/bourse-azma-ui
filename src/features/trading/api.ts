@@ -8,18 +8,44 @@ type ApiErrorResult = {
     errors?: Record<string, string>;
 };
 
+export type OrderSide = 'BUY' | 'SELL';
+export type OrderType = 'NORMAL' | 'CONDITIONAL';
+export type PriceType = 'CUSTOM' | 'MARKET';
+export type OrderValidity = 'TODAY' | 'DAY' | 'DAYS_30' | 'DAYS_90';
+export type TriggerComparator = 'GREATER_THAN' | 'LESS_THAN' | 'EQUAL';
+export type OrderStatusType =
+    'REQUESTED'
+    | 'PARTIALLY_FILLED'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'FAILED'
+    | 'TRIGGER_PENDING';
+
 export type TradingOrder = {
     id: number;
-    side: 'BUY' | 'SELL';
+    side: OrderSide;
     sideLabel: string;
     symbol: string;
     instrumentCode: string;
     quantity: number;
+    remainingQuantity: number;
+    executedQuantity: number;
     orderPrice: number;
     livePrice: number;
+    averageExecutedPrice: number | null;
+    orderValue?: number;
     orderTime: string;
-    status: 'REQUESTED' | 'COMPLETED' | 'FAILED';
+    cancelledAt: string | null;
+    status: OrderStatusType;
     statusLabel: string;
+    cancellable: boolean;
+    orderType?: OrderType;
+    orderTypeLabel?: string;
+    priceType?: PriceType;
+    validity?: OrderValidity;
+    expiresAt?: string | null;
+    triggerComparator?: TriggerComparator | null;
+    triggerPrice?: number | null;
 };
 
 export type PortfolioHolding = {
@@ -33,13 +59,39 @@ export type PortfolioHolding = {
     netValue: number;
 };
 
+export type TradeRecord = {
+    id: number;
+    quantity: number;
+    price: number;
+    value: number;
+    executedAt: string;
+};
+
+export type CreateOrderResult = {
+    order: TradingOrder;
+    trades: TradeRecord[];
+};
+
+export type CancelOrderResult = {
+    order: TradingOrder;
+};
+
+export type CreateTradingOrderTrigger = {
+    comparator: TriggerComparator;
+    price: number;
+};
+
 export type CreateTradingOrderRequest = {
-    side: 'BUY' | 'SELL';
+    side: OrderSide;
+    orderType: OrderType;
+    priceType: PriceType;
     symbol: string;
     instrumentCode: string;
     quantity: number;
-    orderPrice: number;
+    price: number | null;
     livePrice: number;
+    validityType: OrderValidity;
+    trigger: CreateTradingOrderTrigger | null;
 };
 
 const firstFieldError = (errors?: Record<string, string>) => {
@@ -113,7 +165,12 @@ export const getPortfolioHoldings = (accessToken: string) =>
     request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.', {method: 'GET'});
 
 export const createTradingOrder = (accessToken: string, payload: CreateTradingOrderRequest) =>
-    request<TradingOrder>('/api/v1/trading/orders', accessToken, 'ثبت سفارش ناموفق بود.', {
+    request<CreateOrderResult>('/api/v1/trading/orders', accessToken, 'ثبت سفارش ناموفق بود.', {
         method: 'POST',
         body: JSON.stringify(payload),
+    });
+
+export const cancelTradingOrder = (accessToken: string, orderId: number) =>
+    request<CancelOrderResult>(`/api/v1/trading/orders/${orderId}/cancel`, accessToken, 'لغو سفارش ناموفق بود.', {
+        method: 'POST',
     });
