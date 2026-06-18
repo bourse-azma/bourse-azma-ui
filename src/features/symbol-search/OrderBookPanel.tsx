@@ -9,11 +9,19 @@ type OrderBookPanelProps = {
     onSelectPrice?: (price: number) => void;
     /** Expand the scroll area to fill the parent flex slot instead of using a fixed max height. */
     fillHeight?: boolean;
+    /** Render without outer border/radius when nested inside a shared container. */
+    embedded?: boolean;
 };
 
 const hasPositiveValue = (value: number | null | undefined) => (value ?? 0) > 0;
 
-export default function OrderBookPanel({rows, formatNumber, onSelectPrice, fillHeight = false}: OrderBookPanelProps) {
+export default function OrderBookPanel({
+                                           rows,
+                                           formatNumber,
+                                           onSelectPrice,
+                                           fillHeight = false,
+                                           embedded = false,
+                                       }: OrderBookPanelProps) {
     const maxVolumes = getOrderBookMaxVolumes(rows);
     const isInteractive = typeof onSelectPrice === 'function';
 
@@ -26,7 +34,7 @@ export default function OrderBookPanel({rows, formatNumber, onSelectPrice, fillH
     return (
         <div
             dir="ltr"
-            className={`overflow-hidden rounded-2xl border border-border/70 ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''}`}
+            className={`overflow-hidden ${embedded ? '' : 'rounded-2xl border border-border/70'} ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''}`}
         >
             <div className="grid grid-cols-2 border-b border-border/60 bg-surface-2/95 text-[11px] text-muted">
                 <div className="grid grid-cols-[minmax(3.5rem,0.9fr)_1fr_1fr] border-l border-border/60">

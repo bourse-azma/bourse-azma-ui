@@ -3106,7 +3106,7 @@ export default function TradingDashboard({
                 ) : (
                     <>
                         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
-                            <section dir="rtl" className={`${cardClass} p-3 md:col-span-2 xl:col-span-6`}>
+                            <section dir="rtl" className={`${cardClass} self-start p-3 md:col-span-2 xl:col-span-6`}>
                                 {symbolLoading && !activeSymbolData ? (
                                     <div className="animate-pulse">
                                         <div className="mb-3 flex items-center justify-between gap-2">
@@ -3188,10 +3188,9 @@ export default function TradingDashboard({
                                                 {orderbookTabCaption.technical}
                                             </div>
                                         ) : (
-                                            <div
-                                                className={`flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} flex-col overflow-hidden`}>
+                                            <>
                                                 <div
-                                                    className="mb-3 shrink-0 rounded-2xl border border-border/70 bg-surface-2 p-4">
+                                                    className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
                                                     <div
                                                         className="mb-3 text-center text-xs font-medium text-muted">بازه
                                                         مجاز
@@ -3232,24 +3231,23 @@ export default function TradingDashboard({
                                                     </div>
                                                 </div>
 
-                                                <div className="flex min-h-0 flex-1 flex-col">
+                                                <div className="overflow-hidden rounded-2xl border border-border/70">
                                                     <OrderBookPanel
                                                         rows={orderBookRows}
                                                         formatNumber={formatOrderBookValue}
-                                                        fillHeight
+                                                        embedded
                                                     />
-                                                </div>
 
-                                                <div
-                                                    className="mt-3 shrink-0 rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                                    <OrderBookDepthPanel
-                                                        rows={depthRows}
-                                                        formatCount={formatOrderBookValue}
-                                                        formatVolume={formatCompactAmountFa}
-                                                        formatPercent={formatDepthPercent}
-                                                    />
+                                                    <div className="border-t border-border/60 bg-surface-2 p-3">
+                                                        <OrderBookDepthPanel
+                                                            rows={depthRows}
+                                                            formatCount={formatOrderBookValue}
+                                                            formatVolume={formatCompactAmountFa}
+                                                            formatPercent={formatDepthPercent}
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
                                     </>
                                 )}
