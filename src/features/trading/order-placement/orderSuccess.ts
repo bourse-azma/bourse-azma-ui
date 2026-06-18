@@ -1,0 +1,64 @@
+import type {CreateOrderResult} from '../api';
+
+export type OrderSuccessTone = 'buy' | 'sell';
+
+export type OrderSuccessDetails = {
+    title: string;
+    message: string;
+    tone: OrderSuccessTone;
+    symbol: string;
+    quantity: number;
+    executedQuantity: number;
+    statusLabel: string;
+};
+
+const formatQuantity = (value: number): string =>
+    new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 0}).format(value);
+
+export const buildOrderSuccessDetails = (
+    result: CreateOrderResult,
+    formatNumber: (value: number | null | undefined, digits?: number) => string = (value) =>
+        value === null || value === undefined ? '—' : formatQuantity(value)
+): OrderSuccessDetails => {
+    const {order, trades} = result;
+    const tone: OrderSuccessTone = order.side === 'BUY' ? 'buy' : 'sell';
+    const sideLabel = order.sideLabel;
+    const symbol = order.symbol;
+    const quantity = order.quantity;
+    const executedQuantity = order.executedQuantity;
+
+    let title: string;
+    let message: string;
+
+    if (order.status === 'COMPLETED') {
+        title = 'سفارش با موفقیت اجرا شد';
+        message = `${sideLabel} ${formatNumber(executedQuantity)} سهم از نماد ${symbol} انجام شد.`;
+    } else if (order.status === 'PARTIALLY_FILLED') {
+        title = 'سفارش بخشی اجرا شد';
+        message = `${formatNumber(executedQuantity)} سهم اجرا شد و ${formatNumber(order.remainingQuantity)} سهم در صف باقی ماند.`;
+    } else if (order.status === 'TRIGGER_PENDING') {
+        title = 'سفارش شرطی ثبت شد';
+        message = `سفارش ${sideLabel} نماد ${symbol} پس از برقراری شرط فعال می‌شود.`;
+    } else if (trades.length > 0) {
+        title = 'سفارش ثبت و بخشی اجرا شد';
+        message = `${sideLabel} نماد ${symbol}: ${formatNumber(executedQuantity)} سهم در معاملات اولیه اجرا شد.`;
+    } else {
+        title = 'سفارش ثبت شد';
+        message = `${sideLabel} ${formatNumber(quantity)} سهم نماد ${symbol} در صف قرار گرفت.`;
+    }
+
+    return {
+        title,
+        message,
+        tone,
+        symbol,
+        quantity,
+        executedQuantity,
+        statusLabel: order.statusLabel,
+    };
+};
+
+export const buildOrderSuccessToastMessage = (
+    result: CreateOrderResult,
+    formatNumber: (value: number | null | undefined, digits?: number) => string
+): string => buildOrderSuccessDetails(result, formatNumber).message;

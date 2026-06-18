@@ -1,8 +1,11 @@
 import {X} from 'lucide-react';
+import {useEffect, useMemo, useRef} from 'react';
 import OrderBookPanel from '../../symbol-search/OrderBookPanel';
 import type {SymbolOrderBookRow} from '../../symbol-search/types';
 import type {CreateOrderResult} from '../api';
 import OrderForm from './OrderForm';
+import OrderSuccessOverlay from './OrderSuccessOverlay';
+import {buildOrderSuccessDetails} from './orderSuccess';
 import {useOrderPlacement} from './useOrderPlacement';
 import type {OrderSide, OrderSymbolContext, OrderValidationContext} from './types';
 
@@ -40,6 +43,8 @@ export default function OrderPlacementModal({
                                                 onClose,
                                                 onOrderPlaced,
                                             }: OrderPlacementModalProps) {
+    const closeAfterSuccessRef = useRef(false);
+
     const controller = useOrderPlacement({
         open,
         initialSide,
@@ -47,10 +52,34 @@ export default function OrderPlacementModal({
         context,
         accessToken,
         onSuccess: (result, closeAfter) => {
+            closeAfterSuccessRef.current = closeAfter;
             onOrderPlaced(result, closeAfter);
-            if (closeAfter) onClose();
         },
     });
+
+    const successDetails = useMemo(
+        () =>
+            controller.successResult
+                ? buildOrderSuccessDetails(controller.successResult, formatNumber)
+                : null,
+        [controller.successResult, formatNumber]
+    );
+
+    useEffect(() => {
+        if (!controller.successResult) return;
+
+        const closeAfter = closeAfterSuccessRef.current;
+        const {clearSuccess} = controller;
+        const timer = window.setTimeout(() => {
+            if (closeAfter) {
+                onClose();
+            } else {
+                clearSuccess();
+            }
+        }, closeAfter ? 1400 : 2600);
+
+        return () => window.clearTimeout(timer);
+    }, [controller.clearSuccess, controller.successResult, onClose]);
 
     if (!open) return null;
 
@@ -86,77 +115,83 @@ export default function OrderPlacementModal({
                     </button>
                 </div>
 
-                <div className="thin-scrollbar grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">
-                    {/* Left (RTL: appears second): symbol information + order book */}
-                    <section className="order-2 space-y-3">
-                        <div className="rounded-2xl border border-border/70 bg-surface-2 p-4">
-                            <div className="flex items-start justify-between gap-2">
-                                <div>
-                                    <div className="text-lg font-bold text-text">{symbol.symbol}</div>
-                                    <p className="mt-0.5 text-xs text-muted">{symbol.name}</p>
-                                </div>
-                                <div className="text-left">
-                                    <div
-                                        className={`text-2xl font-bold tabular-nums ${
-                                            lastChange.positive ? 'text-positive' : 'text-negative'
-                                        }`}
-                                    >
-                                        {formatNumberOrDash(symbol.lastPrice, formatNumber)}
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                    {successDetails ? (
+                        <OrderSuccessOverlay details={successDetails} formatNumber={formatNumber}/>
+                    ) : null}
+
+                    <div className="thin-scrollbar grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">
+                        {/* Left (RTL: appears second): symbol information + order book */}
+                        <section className="order-2 space-y-3">
+                            <div className="rounded-2xl border border-border/70 bg-surface-2 p-4">
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <div className="text-lg font-bold text-text">{symbol.symbol}</div>
+                                        <p className="mt-0.5 text-xs text-muted">{symbol.name}</p>
                                     </div>
-                                    <div
-                                        className={`text-xs tabular-nums ${
-                                            lastChange.positive ? 'text-positive' : 'text-negative'
-                                        }`}
-                                    >
-                                        {lastChange.text}
+                                    <div className="text-left">
+                                        <div
+                                            className={`text-2xl font-bold tabular-nums ${
+                                                lastChange.positive ? 'text-positive' : 'text-negative'
+                                            }`}
+                                        >
+                                            {formatNumberOrDash(symbol.lastPrice, formatNumber)}
+                                        </div>
+                                        <div
+                                            className={`text-xs tabular-nums ${
+                                                lastChange.positive ? 'text-positive' : 'text-negative'
+                                            }`}
+                                        >
+                                            {lastChange.text}
+                                        </div>
                                     </div>
                                 </div>
+
+                                <dl className="mt-4 space-y-2 text-xs">
+                                    <div className="flex items-center justify-between">
+                                        <dt className="text-muted">قیمت پایانی</dt>
+                                        <dd className="tabular-nums font-medium text-text">
+                                            {formatNumberOrDash(symbol.closePrice, formatNumber)}
+                                        </dd>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <dt className="text-muted">حجم معاملات</dt>
+                                        <dd className="tabular-nums font-medium text-text">
+                                            {formatNumberOrDash(symbol.tradeVolume, formatNumber)}
+                                        </dd>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <dt className="text-muted">تعداد معاملات</dt>
+                                        <dd className="tabular-nums font-medium text-text">
+                                            {formatNumberOrDash(symbol.tradeCount, formatNumber)}
+                                        </dd>
+                                    </div>
+                                </dl>
                             </div>
 
-                            <dl className="mt-4 space-y-2 text-xs">
-                                <div className="flex items-center justify-between">
-                                    <dt className="text-muted">قیمت پایانی</dt>
-                                    <dd className="tabular-nums font-medium text-text">
-                                        {formatNumberOrDash(symbol.closePrice, formatNumber)}
-                                    </dd>
+                            {orderBookRows.length > 0 ? (
+                                <OrderBookPanel
+                                    rows={orderBookRows}
+                                    formatNumber={(value, digits) =>
+                                        value === null || value === undefined || Number.isNaN(value)
+                                            ? '—'
+                                            : formatNumber(value, digits)
+                                    }
+                                    onSelectPrice={controller.fillPrice}
+                                />
+                            ) : (
+                                <div
+                                    className="rounded-2xl border border-border/70 bg-surface-2 px-4 py-6 text-center text-xs text-muted">
+                                    دفتر سفارشات برای این نماد در دسترس نیست.
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <dt className="text-muted">حجم معاملات</dt>
-                                    <dd className="tabular-nums font-medium text-text">
-                                        {formatNumberOrDash(symbol.tradeVolume, formatNumber)}
-                                    </dd>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <dt className="text-muted">تعداد معاملات</dt>
-                                    <dd className="tabular-nums font-medium text-text">
-                                        {formatNumberOrDash(symbol.tradeCount, formatNumber)}
-                                    </dd>
-                                </div>
-                            </dl>
-                        </div>
+                            )}
+                        </section>
 
-                        {orderBookRows.length > 0 ? (
-                            <OrderBookPanel
-                                rows={orderBookRows}
-                                formatNumber={(value, digits) =>
-                                    value === null || value === undefined || Number.isNaN(value)
-                                        ? '—'
-                                        : formatNumber(value, digits)
-                                }
-                                onSelectPrice={controller.fillPrice}
-                            />
-                        ) : (
-                            <div
-                                className="rounded-2xl border border-border/70 bg-surface-2 px-4 py-6 text-center text-xs text-muted">
-                                دفتر سفارشات برای این نماد در دسترس نیست.
-                            </div>
-                        )}
-                    </section>
-
-                    {/* Right (RTL: appears first): order form */}
-                    <section className="order-1">
-                        <OrderForm controller={controller} context={context} formatNumber={formatNumber}/>
-                    </section>
+                        {/* Right (RTL: appears first): order form */}
+                        <section className="order-1">
+                            <OrderForm controller={controller} context={context} formatNumber={formatNumber}/>
+                        </section>
+                    </div>
                 </div>
             </div>
         </div>

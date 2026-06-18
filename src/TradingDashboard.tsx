@@ -222,6 +222,7 @@ type WatchlistModalState =
 
 type WatchlistToast = {
     id: number;
+    title?: string;
     message: string;
     tone: 'success' | 'error';
 };
@@ -1770,8 +1771,12 @@ export default function TradingDashboard({
     const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
     const [orderModalSide, setOrderModalSide] = useState<OrderSide | null>(null);
 
-    const showWatchlistToast = useCallback((message: string, tone: WatchlistToast['tone'] = 'success') => {
-        setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), message, tone});
+    const showWatchlistToast = useCallback((
+        message: string,
+        tone: WatchlistToast['tone'] = 'success',
+        title?: string
+    ) => {
+        setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), title, message, tone});
     }, []);
 
     const loadTradingAccount = useCallback(async () => {
@@ -2392,25 +2397,13 @@ export default function TradingDashboard({
     );
 
     const handleOrderPlaced = useCallback(
-        (result: CreateOrderResult, _closeAfter: boolean) => {
+        (_result: CreateOrderResult, _closeAfter: boolean) => {
+            void _result;
             void _closeAfter;
-            const order = result.order;
-            const trades = result.trades;
-            let message: string;
-            if (order.status === 'COMPLETED') {
-                message = `${order.sideLabel} نماد ${order.symbol} با موفقیت اجرا شد. (${formatNumberFa(order.executedQuantity)} سهم)`;
-            } else if (order.status === 'PARTIALLY_FILLED') {
-                message = `${order.sideLabel} نماد ${order.symbol}: ${formatNumberFa(order.executedQuantity)} سهم اجرا شد، ${formatNumberFa(order.remainingQuantity)} سهم در صف.`;
-            } else if (trades.length > 0) {
-                message = `${order.sideLabel} نماد ${order.symbol} ثبت و بخشی اجرا شد.`;
-            } else {
-                message = `${order.sideLabel} نماد ${order.symbol} در صف ثبت شد.`;
-            }
-            showWatchlistToast(message, 'success');
             setBottomPanelTab('orders');
             void refreshAccountStatus();
         },
-        [refreshAccountStatus, showWatchlistToast]
+        [refreshAccountStatus]
     );
 
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
@@ -3992,20 +3985,42 @@ export default function TradingDashboard({
             ) : null}
 
             {watchlistToast ? (
-                <div className="pointer-events-none fixed inset-x-0 bottom-3 z-[70] flex justify-center px-3">
+                <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex justify-center px-3">
                     <div
-                        className={`pointer-events-auto flex w-full max-w-xl items-center justify-between gap-3 rounded-xl border px-3 py-2 text-xs shadow-card ${
+                        className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-card animate-toast-in ${
                             watchlistToast.tone === 'error'
                                 ? 'border-negative/35 bg-negative/10 text-negative'
-                                : 'border-border/80 bg-surface text-text'
+                                : 'border-positive/35 bg-surface text-text shadow-[0_10px_30px_-12px_hsl(var(--positive)/0.45)]'
                         }`}
+                        role="status"
+                        aria-live="polite"
                     >
-                        <p>{watchlistToast.message}</p>
+                        <span
+                            className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                                watchlistToast.tone === 'error'
+                                    ? 'bg-negative/15 text-negative'
+                                    : 'bg-positive/15 text-positive'
+                            }`}
+                        >
+                            {watchlistToast.tone === 'error' ? (
+                                <AlertCircle className="h-4 w-4" aria-hidden="true"/>
+                            ) : (
+                                <Check className="h-4 w-4" aria-hidden="true"/>
+                            )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                            {watchlistToast.title ? (
+                                <p className="font-semibold text-text">{watchlistToast.title}</p>
+                            ) : null}
+                            <p className={watchlistToast.title ? 'mt-0.5 text-xs text-muted' : 'text-text'}>
+                                {watchlistToast.message}
+                            </p>
+                        </div>
                         <button
                             type="button"
                             onClick={() => setWatchlistToast(null)}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/70 bg-surface-2 text-muted transition hover:text-text"
-                            aria-label="close toast"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/70 bg-surface-2 text-muted transition hover:text-text"
+                            aria-label="بستن اعلان"
                         >
                             <X className="h-3.5 w-3.5"/>
                         </button>

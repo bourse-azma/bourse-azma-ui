@@ -43,6 +43,7 @@ export const useOrderPlacement = ({
     const [values, setValues] = useState<OrderFormValues>(() => buildDefaults(initialSide, context.livePrice));
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [successResult, setSuccessResult] = useState<CreateOrderResult | null>(null);
 
     // Reset the form whenever the dialog is (re)opened, the symbol changes,
     // or the requested side changes.
@@ -51,6 +52,7 @@ export const useOrderPlacement = ({
         setValues(buildDefaults(initialSide, context.livePrice));
         setSubmitError(null);
         setSubmitting(false);
+        setSuccessResult(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialSide, symbol.instrumentCode]);
 
@@ -107,7 +109,13 @@ export const useOrderPlacement = ({
     const validation = useMemo(() => validateOrder(values, context), [values, context]);
 
     const instrumentMissing = !symbol.instrumentCode || symbol.instrumentCode.trim() === '';
-    const canSubmit = validation.isValid && !instrumentMissing && !submitting;
+    const canSubmit = validation.isValid && !instrumentMissing && !submitting && !successResult;
+
+    const clearSuccess = useCallback(() => {
+        setSuccessResult(null);
+        setValues(buildDefaults(values.side, context.livePrice));
+        setSubmitError(null);
+    }, [context.livePrice, values.side]);
 
     const submit = useCallback(
         async (closeAfter: boolean) => {
@@ -150,6 +158,7 @@ export const useOrderPlacement = ({
                             ? {comparator: values.triggerComparator, price: triggerPrice}
                             : null,
                 });
+                setSuccessResult(orderResult);
                 onSuccess(orderResult, closeAfter);
             } catch (error) {
                 setSubmitError(error instanceof Error ? error.message : 'ثبت سفارش ناموفق بود.');
@@ -165,6 +174,7 @@ export const useOrderPlacement = ({
         validation,
         submitting,
         submitError,
+        successResult,
         canSubmit,
         instrumentMissing,
         setSide,
@@ -177,5 +187,6 @@ export const useOrderPlacement = ({
         setTriggerPrice,
         fillPrice,
         submit,
+        clearSuccess,
     };
 };
