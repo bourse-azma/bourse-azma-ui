@@ -37,7 +37,7 @@ import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
-import {normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
+import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import {type AccountSummary, computeAccountSummary} from './features/trading/accountSummary';
 import {
@@ -2165,6 +2165,9 @@ export default function TradingDashboard({
         [activeSymbolData?.orderBook]
     );
 
+    const orderBookBidPriceRange = useMemo(() => getBidPriceRange(orderBookRows), [orderBookRows]);
+    const orderBookAskPriceRange = useMemo(() => getAskPriceRange(orderBookRows), [orderBookRows]);
+
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
     const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(activeSymbol.type);
@@ -2392,8 +2395,10 @@ export default function TradingDashboard({
             livePrice: orderLivePrice,
             availableToSell,
             buyingPower: accountSummary.buyingPower,
+            bidPriceRange: orderBookBidPriceRange,
+            askPriceRange: orderBookAskPriceRange,
         }),
-        [accountSummary.buyingPower, availableToSell, orderLivePrice]
+        [accountSummary.buyingPower, availableToSell, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
     );
 
     const handleOrderPlaced = useCallback(

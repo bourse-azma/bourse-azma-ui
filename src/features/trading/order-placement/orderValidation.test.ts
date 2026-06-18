@@ -19,6 +19,8 @@ const baseContext = (overrides: Partial<OrderValidationContext> = {}): OrderVali
     livePrice: 1200,
     availableToSell: 100,
     buyingPower: 100_000_000,
+    bidPriceRange: {min: 900, max: 1100},
+    askPriceRange: {min: 950, max: 1150},
     ...overrides,
 });
 
@@ -123,4 +125,47 @@ test('buy exceeding buying power fails', () => {
     );
     assert.equal(result.isValid, false);
     assert.ok(result.errors.general);
+});
+
+test('buy custom price outside bid queue is rejected', () => {
+    const result = validateOrder(
+        baseValues({side: 'BUY', price: '800'}),
+        baseContext({bidPriceRange: {min: 900, max: 1100}})
+    );
+    assert.equal(result.isValid, false);
+    assert.ok(result.errors.price);
+});
+
+test('buy custom price inside bid queue is accepted', () => {
+    const result = validateOrder(
+        baseValues({side: 'BUY', price: '1000'}),
+        baseContext({bidPriceRange: {min: 900, max: 1100}})
+    );
+    assert.equal(result.isValid, true);
+});
+
+test('sell custom price outside ask queue is rejected', () => {
+    const result = validateOrder(
+        baseValues({side: 'SELL', price: '1200'}),
+        baseContext({askPriceRange: {min: 950, max: 1150}})
+    );
+    assert.equal(result.isValid, false);
+    assert.ok(result.errors.price);
+});
+
+test('conditional trigger price outside queue is rejected', () => {
+    const result = validateOrder(
+        baseValues({orderType: 'CONDITIONAL', triggerPrice: '700'}),
+        baseContext({bidPriceRange: {min: 900, max: 1100}})
+    );
+    assert.equal(result.isValid, false);
+    assert.ok(result.errors.triggerPrice);
+});
+
+test('market order ignores order book price range', () => {
+    const result = validateOrder(
+        baseValues({priceType: 'MARKET', price: ''}),
+        baseContext({bidPriceRange: {min: 900, max: 1100}})
+    );
+    assert.equal(result.isValid, true);
 });

@@ -1,4 +1,5 @@
 import type {OrderSide, OrderType, OrderValidity, PriceType, TriggerComparator,} from '../api';
+import type {OrderBookPriceRange} from '../../symbol-search/orderBookUtils';
 
 export type {OrderSide, OrderType, OrderValidity, PriceType, TriggerComparator};
 
@@ -31,6 +32,10 @@ export type OrderValidationContext = {
     availableToSell: number | null;
     /** Buying power in Rial; null when balance is unavailable. */
     buyingPower: number | null;
+    /** Min/max bid prices (buy queue) from the order book; null when unavailable. */
+    bidPriceRange: OrderBookPriceRange | null;
+    /** Min/max ask prices (sell queue) from the order book; null when unavailable. */
+    askPriceRange: OrderBookPriceRange | null;
 };
 
 export type OrderFieldErrors = Partial<

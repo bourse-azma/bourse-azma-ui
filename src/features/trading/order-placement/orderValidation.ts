@@ -1,4 +1,14 @@
-import type {OrderFieldErrors, OrderFormValues, OrderValidationContext, OrderValidationResult,} from './types';
+import type {
+    OrderFieldErrors,
+    OrderFormValues,
+    OrderSide,
+    OrderValidationContext,
+    OrderValidationResult,
+} from './types';
+import type {OrderBookPriceRange} from '../../symbol-search/orderBookUtils';
+
+export const ORDER_BOOK_PRICE_ERROR =
+    'این سایت در حالت دمو است؛ قیمت سفارش باید در محدوده صف خرید یا فروش باشد و ثبت قیمت خارج از این بازه امکان‌پذیر نیست.';
 
 const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
@@ -34,6 +44,28 @@ const isPositiveInteger = (value: number | null): value is number =>
 
 const isPositive = (value: number | null): value is number => value !== null && value > 0;
 
+const queuePriceRangeForSide = (
+    side: OrderSide,
+    context: OrderValidationContext
+): OrderBookPriceRange | null => (side === 'BUY' ? context.bidPriceRange : context.askPriceRange);
+
+const isPriceWithinQueueRange = (price: number, range: OrderBookPriceRange): boolean =>
+    price >= range.min && price <= range.max;
+
+const validateQueuePrice = (
+    price: number,
+    side: OrderSide,
+    context: OrderValidationContext,
+    errors: OrderFieldErrors,
+    field: 'price' | 'triggerPrice'
+) => {
+    const range = queuePriceRangeForSide(side, context);
+    if (range === null || isPriceWithinQueueRange(price, range)) {
+        return;
+    }
+    errors[field] = ORDER_BOOK_PRICE_ERROR;
+};
+
 export const validateOrder = (
     values: OrderFormValues,
     context: OrderValidationContext
@@ -58,6 +90,7 @@ export const validateOrder = (
             errors.triggerPrice = 'قیمت شرط باید بزرگ‌تر از صفر باشد.';
         } else {
             effectivePrice = triggerPrice;
+            validateQueuePrice(triggerPrice, values.side, context, errors, 'triggerPrice');
         }
     } else if (values.priceType === 'MARKET') {
         effectivePrice = isPositive(context.livePrice) ? context.livePrice : null;
@@ -72,6 +105,7 @@ export const validateOrder = (
             errors.price = 'قیمت باید بزرگ‌تر از صفر باشد.';
         } else {
             effectivePrice = price;
+            validateQueuePrice(price, values.side, context, errors, 'price');
         }
     }
 

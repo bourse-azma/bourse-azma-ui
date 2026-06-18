@@ -30,6 +30,26 @@ const createEmptyOrderBookRow = (level: number): SymbolOrderBookRow => ({
     bidCount: null,
 });
 
+export type OrderBookPriceRange = {
+    min: number;
+    max: number;
+};
+
+const collectPositivePrices = (values: Array<number | null | undefined>): number[] =>
+    values.filter((price): price is number => price !== null && price !== undefined && price > 0);
+
+export const getBidPriceRange = (rows: SymbolOrderBookRow[]): OrderBookPriceRange | null => {
+    const prices = collectPositivePrices(rows.map((row) => row.bidPrice));
+    if (prices.length === 0) return null;
+    return {min: Math.min(...prices), max: Math.max(...prices)};
+};
+
+export const getAskPriceRange = (rows: SymbolOrderBookRow[]): OrderBookPriceRange | null => {
+    const prices = collectPositivePrices(rows.map((row) => row.askPrice));
+    if (prices.length === 0) return null;
+    return {min: Math.min(...prices), max: Math.max(...prices)};
+};
+
 export const getOrderBookMaxVolumes = (rows: SymbolOrderBookRow[]) => {
     const maxAskVolume = rows.reduce((max, row) => Math.max(max, row.askVolume ?? 0), 0);
     const maxBidVolume = rows.reduce((max, row) => Math.max(max, row.bidVolume ?? 0), 0);
