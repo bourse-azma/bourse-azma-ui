@@ -183,6 +183,7 @@ export default function App() {
     const [editPhoneNumber, setEditPhoneNumber] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
+    const [editCurrentPassword, setEditCurrentPassword] = useState('');
 
     const clearSession = useCallback(() => {
         window.localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -283,6 +284,7 @@ export default function App() {
             setEditPhoneNumber(profile.phoneNumber);
             setEditEmail(profile.email);
             setEditPassword('');
+            setEditCurrentPassword('');
         }
         setSaveError(null);
         setSaveSuccess(null);
@@ -296,6 +298,7 @@ export default function App() {
         setSaveError(null);
         setSaveSuccess(null);
 
+        const newPassword = editPassword.trim();
         const payload = {
             id: profile.id,
             username: editUsername.trim().toLowerCase(),
@@ -304,12 +307,16 @@ export default function App() {
             nationalCode: toEnglishDigits(editNationalCode).trim(),
             phoneNumber: normalizePhoneNumber(editPhoneNumber),
             email: toEnglishDigits(editEmail).trim().toLowerCase(),
-            password: editPassword.trim() === '' ? null : editPassword.trim(),
+            password: newPassword === '' ? null : newPassword,
+            currentPassword: newPassword === '' ? null : editCurrentPassword.trim(),
         };
 
         try {
             if (!isPersianName(payload.firstName) || !isPersianName(payload.lastName)) {
                 throw new Error('نام و نام خانوادگی باید فقط با حروف فارسی وارد شوند.');
+            }
+            if (newPassword !== '' && payload.currentPassword === '') {
+                throw new Error('برای تغییر رمز عبور، رمز فعلی را وارد کنید.');
             }
 
             const response = await fetch('/api/v1/users', {
@@ -333,6 +340,7 @@ export default function App() {
             setSaveSuccess('اطلاعات پروفایل با موفقیت ذخیره شد.');
             setProfileEditMode(false);
             setEditPassword('');
+            setEditCurrentPassword('');
         } catch (error) {
             const message = error instanceof Error ? error.message : 'خطا در ویرایش پروفایل.';
             setSaveError(message);
@@ -465,19 +473,33 @@ export default function App() {
                                     />
                                 </div>
                                 {profileEditMode ? (
-                                    <div className="rounded-xl border border-border/70 bg-surface-2/60 p-3">
-                                        <FieldLabel title="رمز عبور جدید"/>
-                                        <input
-                                            name="new-password"
-                                            autoComplete="new-password"
-                                            value={editPassword}
-                                            onChange={(event) => setEditPassword(event.target.value)}
-                                            type="password"
-                                            className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                            placeholder="رمز جدید (در صورت نیاز وارد کنید)"
-                                        />
-                                        <p className="mt-1 text-[11px] text-muted">اگر این فیلد خالی بماند، رمز عبور
-                                            تغییر نمی‌کند.</p>
+                                    <div className="space-y-3 rounded-xl border border-border/70 bg-surface-2/60 p-3">
+                                        <div>
+                                            <FieldLabel title="رمز عبور فعلی"/>
+                                            <input
+                                                name="current-password"
+                                                autoComplete="current-password"
+                                                value={editCurrentPassword}
+                                                onChange={(event) => setEditCurrentPassword(event.target.value)}
+                                                type="password"
+                                                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                                                placeholder="فقط هنگام تغییر رمز عبور"
+                                            />
+                                        </div>
+                                        <div>
+                                            <FieldLabel title="رمز عبور جدید"/>
+                                            <input
+                                                name="new-password"
+                                                autoComplete="new-password"
+                                                value={editPassword}
+                                                onChange={(event) => setEditPassword(event.target.value)}
+                                                type="password"
+                                                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                                                placeholder="رمز جدید (در صورت نیاز وارد کنید)"
+                                            />
+                                            <p className="mt-1 text-[11px] text-muted">اگر این فیلد خالی بماند، رمز عبور
+                                                تغییر نمی‌کند.</p>
+                                        </div>
                                     </div>
                                 ) : null}
 
@@ -502,6 +524,7 @@ export default function App() {
                                                     setSaveError(null);
                                                     setSaveSuccess(null);
                                                     setEditPassword('');
+                                                    setEditCurrentPassword('');
                                                 }}
                                                 className="rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-muted transition hover:text-text"
                                             >

@@ -134,7 +134,6 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
     const [nationalCode, setNationalCode] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
-    const [initialBalance, setInitialBalance] = useState('1000000000'); // 1,000,000,000 Rials / 100M Tomans
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -243,11 +242,6 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 throw new Error('برای استفاده از رمز پیشنهادی، ابتدا تأیید کنید که آن را در جای امن نگه داشته‌اید.');
             }
 
-            const balanceValue = initialBalance ? parseFloat(initialBalance) : 0;
-            if (!Number.isFinite(balanceValue) || balanceValue < 0) {
-                throw new Error('موجودی اولیه نمی‌تواند منفی یا نامعتبر باشد.');
-            }
-
             const session = await submitAuthRequest('register', {
                 username: username.trim().toLowerCase(),
                 firstName: firstName.trim(),
@@ -256,7 +250,6 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 phoneNumber: normalizePhoneNumber(phoneNumber),
                 email: toEnglishDigits(email).trim().toLowerCase(),
                 password: trimmedPassword,
-                balance: balanceValue,
             });
             onAuthenticated(session);
         } catch (requestError) {
@@ -375,41 +368,9 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                 />
                             </div>
-                            <div>
-                                <FieldLabel title="موجودی اولیه (ریال)" required/>
-                                <div className="flex gap-2">
-                                    <input
-                                        name="initialBalance"
-                                        type="number"
-                                        value={initialBalance}
-                                        onChange={(event) => setInitialBalance(event.target.value)}
-                                        placeholder="موجودی اولیه به ریال"
-                                        min="0"
-                                        required
-                                        className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text tabular-nums"
-                                    />
-                                    <span
-                                        className="inline-flex shrink-0 items-center justify-center rounded-xl bg-surface-2 px-3 text-xs font-bold text-muted">
-                                        {initialBalance ? (parseFloat(initialBalance) / 10).toLocaleString('fa-IR') + ' تومان' : '۰ تومان'}
-                                    </span>
-                                </div>
-                                <div className="mt-1.5 flex flex-wrap gap-1">
-                                    {[100000000, 500000000, 1000000000, 5000000000].map((val) => (
-                                        <button
-                                            key={val}
-                                            type="button"
-                                            onClick={() => setInitialBalance(val.toString())}
-                                            className={`rounded-lg px-2 py-1 text-[10px] font-bold transition ${
-                                                initialBalance === val.toString()
-                                                    ? 'bg-primary/20 text-primary border border-primary/30'
-                                                    : 'bg-surface-2 text-muted border border-transparent hover:border-border'
-                                            }`}
-                                        >
-                                            {(val / 10).toLocaleString('fa-IR')} تومان
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                            <p className="rounded-xl border border-border/70 bg-surface-2/60 px-3 py-2 text-xs text-muted">
+                                موجودی اولیه کیف پول پس از ثبت‌نام به‌صورت خودکار توسط سیستم تنظیم می‌شود.
+                            </p>
                         </>
                     ) : (
                         <div>
