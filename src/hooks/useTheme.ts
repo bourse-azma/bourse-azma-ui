@@ -7,7 +7,7 @@ type DocumentWithViewTransition = Document & {
     startViewTransition?: (updateCallback: () => void) => ViewTransition;
 };
 
-const THEME_STORAGE_KEY = 'boors-theme';
+const THEME_STORAGE_KEY = 'bourse-theme';
 
 function getInitialTheme(): Theme {
     if (typeof window === 'undefined') return 'light';

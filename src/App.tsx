@@ -4,9 +4,9 @@ import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
 
-const SESSION_STORAGE_KEY = 'boors-azma-session';
-const SESSION_STORAGE_KEY_TEMP = 'boors-azma-session-temp';
-const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'boors-azma-access-token';
+const SESSION_STORAGE_KEY = 'bourse-azma-session';
+const SESSION_STORAGE_KEY_TEMP = 'bourse-azma-session-temp';
+const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
 
 type SessionState = {
     accessToken: string;

@@ -1,6 +1,6 @@
 import type {SymbolSearchSuggestion} from './types';
 
-const SELECTED_SYMBOL_STORAGE_KEY = 'boors-azma-selected-symbol';
+const SELECTED_SYMBOL_STORAGE_KEY = 'bourse-azma-selected-symbol';
 const LEGACY_URL_SYMBOL_KEY_PARAM = 'symbolKey';
 
 const isValidSymbolSearchSuggestion = (value: unknown): value is SymbolSearchSuggestion => {

@@ -2,7 +2,7 @@ import {useCallback, useEffect, useState} from 'react';
 import {Eye, EyeOff, Loader2, RefreshCw} from 'lucide-react';
 import type {AccountSummary} from './accountSummary';
 
-const HIDE_VALUES_STORAGE_KEY = 'boors-azma-hide-account-values';
+const HIDE_VALUES_STORAGE_KEY = 'bourse-azma-hide-account-values';
 
 const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
 

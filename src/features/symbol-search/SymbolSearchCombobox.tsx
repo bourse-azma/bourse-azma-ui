@@ -4,7 +4,7 @@ import {toMarketLabel} from './mappers';
 import type {SymbolSearchSuggestion} from './types';
 import {useSymbolSearch} from './useSymbolSearch';
 
-const RECENT_SYMBOLS_STORAGE_KEY = 'boors-azma-recent-symbols';
+const RECENT_SYMBOLS_STORAGE_KEY = 'bourse-azma-recent-symbols';
 const MAX_RECENT_ITEMS = 6;
 
 type SymbolSearchComboboxProps = {

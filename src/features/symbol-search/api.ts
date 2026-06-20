@@ -46,8 +46,8 @@ type FipiranFundsResult = {
     };
 };
 
-const SESSION_STORAGE_KEY = 'boors-azma-session';
-const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'boors-azma-access-token';
+const SESSION_STORAGE_KEY = 'bourse-azma-session';
+const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
 
 const getAccessToken = () => {
     if (typeof window === 'undefined') return null;
