@@ -13,7 +13,7 @@ export type OrderSuccessDetails = {
 };
 
 const formatQuantity = (value: number): string =>
-    new Intl.NumberFormat('fa-IR', {maximumFractionDigits: 0}).format(value);
+    new Intl.NumberFormat('en-US', {maximumFractionDigits: 0}).format(value);
 
 export const buildOrderSuccessDetails = (
     result: CreateOrderResult,

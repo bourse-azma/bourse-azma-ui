@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {type FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertCircle,
     ArrowDownLeft,
@@ -14,11 +14,12 @@ import {
     FileText,
     Filter,
     Loader2,
-    Menu,
+    MessageSquare,
     Moon,
     Pencil,
     Plus,
     RefreshCw,
+    Send,
     Star,
     Sun,
     Trash2,
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import type {Theme} from './hooks/useTheme';
 import {appConfig} from './config/appConfig';
+import bourseAzmaLogo from './assets/bourse-azma-logo.png';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
 import {getCodalNotices} from './features/symbol-search/api';
 import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
@@ -363,14 +365,14 @@ const extractApiErrorMessage = (data: unknown, fallback: string) => {
     return fallback;
 };
 
-const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
+const formatFaInteger = (value: number) => new Intl.NumberFormat('en-US').format(value);
 const formatFaPlainInteger = (value: number) =>
-    new Intl.NumberFormat('fa-IR', {useGrouping: false}).format(value);
+    new Intl.NumberFormat('en-US', {useGrouping: false}).format(value);
 
 const formatInstantFa = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'ناموجود';
-    return new Intl.DateTimeFormat('fa-IR', {
+    return new Intl.DateTimeFormat('fa-IR-u-nu-latn', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -992,7 +994,7 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                                             <div
                                                 className="font-semibold leading-relaxed text-text">{tx.description}</div>
                                             <div className="mt-1 text-[10px] text-muted">
-                                                {new Date(tx.createdAt).toLocaleDateString('fa-IR', {
+                                                {new Date(tx.createdAt).toLocaleDateString('fa-IR-u-nu-latn', {
                                                     year: 'numeric',
                                                     month: 'long',
                                                     day: 'numeric',
@@ -1005,10 +1007,10 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                                     <div className="shrink-0 text-left">
                                         <div
                                             className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
-                                            {isIncrease ? '+' : ''}{tx.amount.toLocaleString('fa-IR')} ریال
+                                            {isIncrease ? '+' : ''}{tx.amount.toLocaleString('en-US')} ریال
                                         </div>
                                         <div className="mt-0.5 text-[10px] text-muted tabular-nums">
-                                            موجودی: {tx.balanceAfter.toLocaleString('fa-IR')}
+                                            موجودی: {tx.balanceAfter.toLocaleString('en-US')}
                                         </div>
                                     </div>
                                 </div>
@@ -1016,6 +1018,225 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                         })}
                     </div>
                 )}
+            </div>
+        </section>
+    );
+}
+
+type SupportRequest = {
+    id: number;
+    subject: string;
+    message: string;
+    status: string;
+    createdAt: string;
+};
+
+function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: string; profileDisplayName: string }) {
+    const [requests, setRequests] = useState<SupportRequest[]>([]);
+    const [subject, setSubject] = useState('');
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+
+    const fetchRequests = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const res = await fetch('/api/v1/support-requests', {
+                headers: {Authorization: `Bearer ${accessToken}`},
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data?.result?.detail || data?.message || 'دریافت درخواست‌ها ناموفق بود.');
+            }
+            setRequests(Array.isArray(data.result) ? data.result : []);
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'دریافت درخواست‌ها ناموفق بود.');
+        } finally {
+            setLoading(false);
+        }
+    }, [accessToken]);
+
+    useEffect(() => {
+        void fetchRequests();
+    }, [fetchRequests]);
+
+    const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const normalizedSubject = subject.trim().replace(/\s+/g, ' ');
+        const normalizedMessage = message.trim().replace(/\s+/g, ' ');
+        if (!normalizedSubject || !normalizedMessage) {
+            setError('موضوع و متن پیام را کامل وارد کنید.');
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const res = await fetch('/api/v1/support-requests', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    subject: normalizedSubject,
+                    message: normalizedMessage,
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data?.result?.detail || data?.message || 'ارسال پیام ناموفق بود.');
+            }
+            setRequests((prev) => [data.result, ...prev]);
+            setSubject('');
+            setMessage('');
+            setSuccess('پیام شما برای تیم پشتیبانی ثبت شد.');
+        } catch (error) {
+            setError(error instanceof Error ? error.message : 'ارسال پیام ناموفق بود.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <section dir="rtl" className={`${cardClass} overflow-hidden`}>
+            <div className="border-b border-border/60 bg-surface-2/60 px-4 py-4 sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <div
+                            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
+                            <MessageSquare className="h-3.5 w-3.5"/>
+                            پشتیبانی بورس آزما
+                        </div>
+                        <h2 className="mt-3 text-lg font-black text-text">درخواست‌ها</h2>
+                        <p className="mt-1 max-w-2xl text-xs leading-6 text-muted">
+                            سوال، مشکل یا درخواست خود را مستقیم برای تیم پشتیبانی ارسال کنید. پیام‌های شما در همین بخش ثبت می‌شوند.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => void fetchRequests()}
+                        disabled={loading}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-surface px-3 text-xs font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
+                    >
+                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
+                            <RefreshCw className="h-3.5 w-3.5"/>}
+                        بروزرسانی
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <form onSubmit={submitRequest}
+                      className="space-y-3 rounded-2xl border border-border/70 bg-surface-2/70 p-4">
+                    <div>
+                        <label htmlFor="support-subject" className="mb-1.5 block text-xs font-semibold text-text">
+                            موضوع
+                        </label>
+                        <input
+                            id="support-subject"
+                            value={subject}
+                            onChange={(event) => {
+                                setSubject(event.target.value);
+                                setError(null);
+                                setSuccess(null);
+                            }}
+                            maxLength={120}
+                            placeholder="مثلا مشکل در ثبت سفارش"
+                            className="h-11 w-full rounded-xl border border-border/80 bg-surface px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
+                        />
+                    </div>
+
+                    <div>
+                        <label htmlFor="support-message" className="mb-1.5 block text-xs font-semibold text-text">
+                            متن پیام
+                        </label>
+                        <textarea
+                            id="support-message"
+                            value={message}
+                            onChange={(event) => {
+                                setMessage(event.target.value);
+                                setError(null);
+                                setSuccess(null);
+                            }}
+                            maxLength={2000}
+                            rows={7}
+                            placeholder={`${profileDisplayName} عزیز، پیام خود را بنویسید...`}
+                            className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-3 text-sm leading-7 text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
+                        />
+                    </div>
+
+                    {error ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                            <AlertCircle className="h-4 w-4"/>
+                            {error}
+                        </div>
+                    ) : null}
+                    {success ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
+                            <Check className="h-4 w-4"/>
+                            {success}
+                        </div>
+                    ) : null}
+
+                    <button
+                        type="submit"
+                        disabled={submitting}
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        {submitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                        ارسال به پشتیبانی
+                    </button>
+                </form>
+
+                <div className="rounded-2xl border border-border/70 bg-surface p-3">
+                    <div className="mb-3 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-text">پیام‌های ثبت‌شده</h3>
+                        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
+                            {formatNumberFa(requests.length)} پیام
+                        </span>
+                    </div>
+
+                    {loading && requests.length === 0 ? (
+                        <div className="space-y-2">
+                            {Array.from({length: 3}, (_, index) => (
+                                <div key={index} className="h-20 animate-pulse rounded-xl bg-surface-2"/>
+                            ))}
+                        </div>
+                    ) : requests.length === 0 ? (
+                        <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
+                            <MessageSquare className="mb-3 h-8 w-8 text-muted"/>
+                            <h4 className="text-sm font-bold text-text">هنوز درخواستی ثبت نکرده‌اید</h4>
+                            <p className="mt-1 text-xs leading-6 text-muted">
+                                اولین پیام را از فرم کنار همین بخش برای تیم پشتیبانی بفرستید.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="thin-scrollbar max-h-[430px] space-y-2 overflow-y-auto pl-1">
+                            {requests.map((item) => (
+                                <article
+                                    key={item.id}
+                                    className="rounded-xl border border-border/70 bg-surface-2 px-3 py-3"
+                                >
+                                    <div className="mb-2 flex items-start justify-between gap-3">
+                                        <h4 className="min-w-0 font-bold leading-6 text-text">{item.subject}</h4>
+                                        <span className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-[10px] font-semibold text-positive">
+                                            باز
+                                        </span>
+                                    </div>
+                                    <p className="text-xs leading-6 text-muted">{item.message}</p>
+                                    <div className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">
+                                        {formatInstantFa(item.createdAt)}
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </section>
     );
@@ -1085,7 +1306,7 @@ function WalletTabContent({
             return;
         }
         if (isPercentAction && parsedValue > 100) {
-            setError('درصد نمی‌تواند بیشتر از ۱۰۰ باشد.');
+            setError('درصد نمی‌تواند بیشتر از 100 باشد.');
             return;
         }
         if (projectedBalance !== null && projectedBalance < 0) {
@@ -1160,28 +1381,24 @@ function WalletTabContent({
                         <div className="flex items-center justify-between gap-3 text-xs">
                             <span className="text-muted">مانده مشتری</span>
                             <span className="font-semibold tabular-nums text-text">
-                                {currentBalance.toLocaleString('fa-IR')} ریال
+                                {currentBalance.toLocaleString('en-US')} ریال
                             </span>
                         </div>
                         {blockedAmount > 0 ? (
                             <div className="flex items-center justify-between gap-3 text-xs">
                                 <span className="text-muted">بلوکه شده</span>
                                 <span className="font-semibold tabular-nums text-text">
-                                    {blockedAmount.toLocaleString('fa-IR')} ریال
+                                    {blockedAmount.toLocaleString('en-US')} ریال
                                 </span>
                             </div>
                         ) : null}
                         <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2">
-                            <div>
-                                <div className="text-[10px] text-muted">موجودی قابل استفاده</div>
-                                <div className="mt-1 text-[11px] text-muted">قدرت خرید</div>
-                            </div>
-                            <div className="min-w-0 text-left">
+                            <span className="text-[11px] text-muted">قدرت خرید</span>
+                            <div className="min-w-0 text-left tabular-nums">
                                 <div
-                                    className="break-all text-xl font-black leading-tight tabular-nums tracking-tight text-text sm:text-2xl">
-                                    {buyingPower.toLocaleString('fa-IR')}
+                                    className="break-all text-xl font-black leading-tight tracking-tight text-text sm:text-2xl">
+                                    {buyingPower.toLocaleString('en-US')} <span className="text-xs font-semibold text-muted">ریال</span>
                                 </div>
-                                <div className="mt-1 text-[10px] text-muted">ریال</div>
                             </div>
                         </div>
                     </div>
@@ -1241,13 +1458,13 @@ function WalletTabContent({
                             setError(null);
                             setSuccess(null);
                         }}
-                        placeholder={isPercentAction ? 'مثلا ۱۰' : 'مثلا ۲۰۰۰۰۰۰۰'}
+                        placeholder={isPercentAction ? 'مثلا 10' : 'مثلا 20000000'}
                         required
                         className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-text tabular-nums focus:border-primary/45"
                     />
                     {!isPercentAction && parsedValue !== null && Number.isFinite(parsedValue) ? (
                         <div className="mt-1.5 text-[10px] text-muted">
-                            معادل تومان: {(parsedValue / 10).toLocaleString('fa-IR')}
+                            معادل تومان: {(parsedValue / 10).toLocaleString('en-US')}
                         </div>
                     ) : null}
                 </div>
@@ -1290,7 +1507,7 @@ function WalletTabContent({
                     >
                         <span className="text-muted">موجودی پس از عملیات: </span>
                         <span className="font-bold text-text tabular-nums">
-                            {projectedBalance.toLocaleString('fa-IR')} ریال
+                            {projectedBalance.toLocaleString('en-US')} ریال
                         </span>
                     </div>
                 ) : null}
@@ -1348,8 +1565,10 @@ function WatchlistPanel({
                             onRequestDeleteWatchlist,
                             onSelectSymbol,
                             onRemoveSymbol,
+                            onToggleCurrentSymbol,
                             watchlistBusy,
                             currentSymbolKey,
+                            currentSymbolLabel,
                             currentSymbolPrice,
                             userProfile,
                             accountSummary,
@@ -1369,8 +1588,10 @@ function WatchlistPanel({
     onRequestDeleteWatchlist: (watchlistId: number) => void;
     onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
     onRemoveSymbol: (symbolId: number) => void;
+    onToggleCurrentSymbol: () => void;
     watchlistBusy: boolean;
     currentSymbolKey: string;
+    currentSymbolLabel: string;
     currentSymbolPrice: number | null;
     userProfile?: UserProfile;
     accountSummary: AccountSummary;
@@ -1524,90 +1745,101 @@ function WatchlistPanel({
 
             {activeTab === 'watchlist' && !loading && !error && watchlists.length > 0 && selectedWatchlist ? (
                 <>
-                    <div ref={dropdownRef} className="relative mb-3">
+                    <div className="mb-3 flex items-center gap-2">
+                        <div ref={dropdownRef} className="relative min-w-0 flex-1">
+                            <button
+                                type="button"
+                                onClick={() => setDropdownOpen((prev) => !prev)}
+                                className="flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-surface px-3 text-xs text-text transition hover:border-primary/30"
+                            >
+                                <span className="truncate">{selectedWatchlist.name}</span>
+                                <ChevronDown
+                                    className={`h-4 w-4 text-muted transition ${dropdownOpen ? 'rotate-180' : ''}`}/>
+                            </button>
+
+                            {dropdownOpen ? (
+                                <div
+                                    className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl border border-border/80 bg-surface shadow-card">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setDropdownOpen(false);
+                                            onRequestCreateWatchlist();
+                                        }}
+                                        className="flex h-10 w-full items-center justify-center gap-1 border-b border-border/70 px-3 text-xs font-semibold text-positive transition hover:bg-surface-2"
+                                    >
+                                        <Plus className="h-3.5 w-3.5"/>
+                                        ساخت دیدبان جدید
+                                    </button>
+
+                                    <div className="max-h-48 overflow-y-auto py-1">
+                                        {watchlists.map((watchlist) => {
+                                            const isActive = watchlist.id === selectedWatchlist.id;
+                                            return (
+                                                <div
+                                                    key={watchlist.id}
+                                                    className={`group flex items-center justify-between px-2 py-1.5 text-xs transition ${
+                                                        isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2 hover:text-text'
+                                                    }`}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setDropdownOpen(false);
+                                                            onSelectWatchlist(watchlist.id);
+                                                        }}
+                                                        className="flex min-w-0 flex-1 items-center justify-between px-1 text-right"
+                                                    >
+                                                        <span className="truncate">{watchlist.name}</span>
+                                                        {isActive ?
+                                                            <Check className="h-3.5 w-3.5 shrink-0 text-positive"/> : null}
+                                                    </button>
+
+                                                    <div className="mr-1 flex items-center gap-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setDropdownOpen(false);
+                                                                onRequestEditWatchlist(watchlist.id);
+                                                            }}
+                                                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted opacity-70 transition hover:bg-surface hover:text-text group-hover:opacity-100"
+                                                            aria-label={`edit watchlist ${watchlist.name}`}
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5"/>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setDropdownOpen(false);
+                                                                onRequestDeleteWatchlist(watchlist.id);
+                                                            }}
+                                                            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-negative/90 opacity-70 transition hover:bg-negative/10 hover:text-negative group-hover:opacity-100"
+                                                            aria-label={`delete watchlist ${watchlist.name}`}
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5"/>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+
                         <button
                             type="button"
-                            onClick={() => setDropdownOpen((prev) => !prev)}
-                            className="flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-surface px-3 text-xs text-text transition hover:border-primary/30"
+                            onClick={onRequestCreateWatchlist}
+                            className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl border border-positive/30 bg-positive/10 px-3 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
                         >
-                            <span className="truncate">{selectedWatchlist.name}</span>
-                            <ChevronDown
-                                className={`h-4 w-4 text-muted transition ${dropdownOpen ? 'rotate-180' : ''}`}/>
+                            <Plus className="h-3.5 w-3.5"/>
+                            ساخت
                         </button>
-
-                        {dropdownOpen ? (
-                            <div
-                                className="absolute inset-x-0 top-[calc(100%+6px)] z-30 rounded-xl border border-border/80 bg-surface shadow-card">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setDropdownOpen(false);
-                                        onRequestCreateWatchlist();
-                                    }}
-                                    className="flex h-10 w-full items-center justify-center gap-1 border-b border-border/70 px-3 text-xs font-semibold text-positive transition hover:bg-surface-2"
-                                >
-                                    <Plus className="h-3.5 w-3.5"/>
-                                    ساخت دیدبان جدید
-                                </button>
-
-                                <div className="max-h-48 overflow-y-auto py-1">
-                                    {watchlists.map((watchlist) => {
-                                        const isActive = watchlist.id === selectedWatchlist.id;
-                                        return (
-                                            <div
-                                                key={watchlist.id}
-                                                className={`group flex items-center justify-between px-2 py-1.5 text-xs transition ${
-                                                    isActive ? 'bg-surface-2 text-text' : 'text-muted hover:bg-surface-2 hover:text-text'
-                                                }`}
-                                            >
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setDropdownOpen(false);
-                                                        onSelectWatchlist(watchlist.id);
-                                                    }}
-                                                    className="flex min-w-0 flex-1 items-center justify-between px-1 text-right"
-                                                >
-                                                    <span className="truncate">{watchlist.name}</span>
-                                                    {isActive ?
-                                                        <Check className="h-3.5 w-3.5 shrink-0 text-positive"/> : null}
-                                                </button>
-
-                                                <div className="mr-1 flex items-center gap-1">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setDropdownOpen(false);
-                                                            onRequestEditWatchlist(watchlist.id);
-                                                        }}
-                                                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted opacity-70 transition hover:bg-surface hover:text-text group-hover:opacity-100"
-                                                        aria-label={`edit watchlist ${watchlist.name}`}
-                                                    >
-                                                        <Pencil className="h-3.5 w-3.5"/>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setDropdownOpen(false);
-                                                            onRequestDeleteWatchlist(watchlist.id);
-                                                        }}
-                                                        className="inline-flex h-6 w-6 items-center justify-center rounded-md text-negative/90 opacity-70 transition hover:bg-negative/10 hover:text-negative group-hover:opacity-100"
-                                                        aria-label={`delete watchlist ${watchlist.name}`}
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5"/>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ) : null}
                     </div>
 
-                    <section className="rounded-xl border border-border/70 bg-surface">
+                    <section className="overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-sm">
                         <header
-                            className={`${WATCHLIST_TABLE_GRID} border-b border-border/70 bg-surface-2 px-2 py-2 text-[11px] font-semibold text-muted`}>
+                            className={`${WATCHLIST_TABLE_GRID} border-b border-border/70 bg-surface-2 px-3 py-2.5 text-[11px] font-semibold text-muted`}>
                             <span>نام نماد</span>
                             <span className="text-center">قیمت لحظه‌ای</span>
                             <span className="text-center">عملیات</span>
@@ -1615,17 +1847,25 @@ function WatchlistPanel({
 
                         {selectedWatchlist.symbols.length === 0 ? (
                             <div
-                                className="flex min-h-[200px] flex-col items-center justify-center px-4 py-6 text-center">
-                                <div className="mb-3 grid grid-cols-2 gap-2 opacity-60">
-                                    <div className="h-9 w-11 rounded-lg bg-border/65"/>
-                                    <div className="h-9 w-11 rounded-lg bg-border/80"/>
-                                    <div className="h-9 w-11 rounded-lg bg-border/80"/>
-                                    <div className="h-9 w-11 rounded-lg bg-border/65"/>
+                                className="flex min-h-[230px] flex-col items-center justify-center px-4 py-7 text-center">
+                                <div
+                                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-surface-2 text-warning shadow-sm">
+                                    <Star className="h-6 w-6"/>
                                 </div>
-                                <h4 className="text-sm font-semibold text-text">دیده‌بان شما خالیست!</h4>
-                                <p className="mt-1 text-xs text-muted">
-                                    برای شروع، نماد جاری را با دکمه ستاره به دیده‌بان اضافه کنید.
+                                <h4 className="text-sm font-bold text-text">این دیدبان هنوز نمادی ندارد</h4>
+                                <p className="mt-1 max-w-[260px] text-xs leading-6 text-muted">
+                                    نمادهای مهم را اینجا نگه دارید تا قیمت و دسترسی سریع داشته باشید.
                                 </p>
+                                <button
+                                    type="button"
+                                    onClick={onToggleCurrentSymbol}
+                                    disabled={watchlistBusy}
+                                    className="mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-warning px-4 text-xs font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                                >
+                                    {watchlistBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
+                                        <Star className="h-3.5 w-3.5"/>}
+                                    افزودن {currentSymbolLabel}
+                                </button>
                             </div>
                         ) : (
                             <div className="thin-scrollbar max-h-[245px] overflow-y-auto">
@@ -2802,7 +3042,7 @@ export default function TradingDashboard({
 
                             <button
                                 type="button"
-                                onClick={() => setSidebarTab('wallet')}
+                                onClick={openWalletPanel}
                                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary transition hover:bg-primary/15"
                                 title="مشاهده کیف پول"
                                 aria-label="مشاهده کیف پول"
@@ -2974,9 +3214,13 @@ export default function TradingDashboard({
 
                         <div dir="rtl" className="flex min-w-0 items-center justify-end gap-2 lg:col-span-4">
                             <div
-                                className="inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 py-1.5">
-                                <div className="h-6 w-6 rounded-lg border border-border/80 bg-surface"/>
-                                <span className="text-sm font-semibold text-text">اوراق بهادار</span>
+                                className="inline-flex h-12 items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 py-1">
+                                <span className="whitespace-nowrap text-sm font-extrabold text-text">بورس آزما</span>
+                                <img
+                                    src={bourseAzmaLogo}
+                                    alt="بورس آزما"
+                                    className="h-10 w-auto max-w-[142px] object-contain"
+                                />
                             </div>
 
                             <div className="flex min-w-0 items-center gap-2">
@@ -3039,10 +3283,6 @@ export default function TradingDashboard({
                     <div
                         className="mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-3 lg:grid-cols-12 lg:items-center [direction:ltr]">
                         <div dir="rtl" className="flex items-center gap-2 lg:col-span-3 lg:justify-start">
-                            <button type="button" className={`${actionBtnClass} w-10`} aria-label="menu">
-                                <Menu className="h-4 w-4"/>
-                            </button>
-
                             <button
                                 type="button"
                                 onClick={() => setOrderModalSide('BUY')}
@@ -3114,10 +3354,7 @@ export default function TradingDashboard({
                 {mainNavTab === 'گزارشات' ? (
                     <WalletReportsPanel accessToken={accessToken}/>
                 ) : mainNavTab === 'درخواست‌ها' ? (
-                    <section dir="rtl" className={`${cardClass} p-6 text-center`}>
-                        <h2 className="text-sm font-semibold text-text">درخواست‌ها</h2>
-                        <p className="mt-2 text-xs text-muted">این بخش به‌زودی در دسترس خواهد بود.</p>
-                    </section>
+                    <SupportRequestsPanel accessToken={accessToken} profileDisplayName={profileDisplayName}/>
                 ) : (
                     <>
                         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
@@ -3542,10 +3779,10 @@ export default function TradingDashboard({
                                     </div>
                                 ) : (
                                     <div
-                                        className="thin-scrollbar mt-3 max-h-[336px] space-y-1 overflow-y-auto rounded-2xl border border-border/70 p-2">
+                                        className="thin-scrollbar mt-3 max-h-[336px] overflow-y-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
                                         {symbolError && !activeSymbolData ? (
                                             <div
-                                                className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                                className="m-2 rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
                                                 <div className="mb-2 flex items-center gap-2">
                                                     <AlertCircle className="h-4 w-4"/>
                                                     {symbolError}
@@ -3563,46 +3800,61 @@ export default function TradingDashboard({
                                         {symbolLoading && !activeSymbolData
                                             ? Array.from({length: 6}, (_, index) => (
                                                 <div key={`symbol-detail-skeleton-${index + 1}`}
-                                                     className="rounded-lg px-2 py-2">
+                                                     className="mx-2 mt-2 rounded-xl border border-border/60 bg-surface-2 px-3 py-3">
                                                     <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60"/>
-                                                    <div className="h-3 w-1/2 animate-pulse rounded bg-border/45"/>
+                                                    <div className="h-4 w-1/2 animate-pulse rounded bg-border/45"/>
                                                 </div>
                                             ))
                                             : null}
 
                                         {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
                                             <div
-                                                className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
+                                                className="m-2 rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
                                                 اطلاعات نماد موجود نیست.
                                             </div>
                                         ) : null}
 
-                                        {symbolDetails.map((item) => (
-                                            <div
-                                                key={item.label}
-                                                className="flex items-center justify-between rounded-lg px-2 py-2 text-xs transition hover:bg-surface-2"
-                                            >
-                                                <span className="text-muted">{item.label}</span>
-                                                <span
-                                                    className="font-medium tabular-nums text-text"
-                                                    dir={item.valueType === 'datetime' ? 'ltr' : undefined}
-                                                >
-                      {item.valueType === 'number'
-                          ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
-                          : item.valueType === 'percent'
-                              ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
-                              : item.valueType === 'currency'
-                                  ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
-                                  : item.valueType === 'datetime'
-                                      ? typeof item.value === 'string' && item.value
-                                          ? item.value
-                                          : 'ناموجود'
-                                      : typeof item.value === 'string'
-                                          ? item.value || 'ناموجود'
-                                          : 'ناموجود'}
-                    </span>
+                                        {symbolDetails.length > 0 ? (
+                                            <div className="sticky top-0 z-[1] border-b border-border/70 bg-surface-2 px-3 py-2 text-[11px] font-semibold text-muted">
+                                                اطلاعات معاملاتی
                                             </div>
-                                        ))}
+                                        ) : null}
+
+                                        <div className="divide-y divide-border/60">
+                                            {symbolDetails.map((item) => {
+                                                const displayValue =
+                                                    item.valueType === 'number'
+                                                        ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
+                                                        : item.valueType === 'percent'
+                                                            ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
+                                                            : item.valueType === 'currency'
+                                                                ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
+                                                                : item.valueType === 'datetime'
+                                                                    ? typeof item.value === 'string' && item.value
+                                                                        ? item.value
+                                                                        : 'ناموجود'
+                                                                    : typeof item.value === 'string'
+                                                                        ? item.value || 'ناموجود'
+                                                                        : 'ناموجود';
+
+                                                return (
+                                                    <div
+                                                        key={item.label}
+                                                        className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-3 px-3 py-3 text-xs transition hover:bg-surface-2/70"
+                                                    >
+                                                        <div className="min-w-0 text-muted">
+                                                            {item.label}
+                                                        </div>
+                                                        <div
+                                                            className="min-w-0 break-words text-left text-sm font-bold leading-6 tabular-nums text-text"
+                                                            dir={item.valueType === 'datetime' ? 'ltr' : undefined}
+                                                        >
+                                                            {displayValue}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 )}
                             </section>
@@ -3622,8 +3874,10 @@ export default function TradingDashboard({
                                     onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
                                     onSelectSymbol={setSelectedSymbol}
                                     onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
+                                    onToggleCurrentSymbol={() => void handleToggleFavorite()}
                                     watchlistBusy={watchlistBusy}
                                     currentSymbolKey={selectedSymbol.key}
+                                    currentSymbolLabel={selectedSymbol.symbol}
                                     currentSymbolPrice={selectedSymbolLivePrice}
                                     userProfile={userProfile}
                                     accountSummary={accountSummary}
@@ -4192,8 +4446,10 @@ export default function TradingDashboard({
                             onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
                             onSelectSymbol={setSelectedSymbol}
                             onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
+                            onToggleCurrentSymbol={() => void handleToggleFavorite()}
                             watchlistBusy={watchlistBusy}
                             currentSymbolKey={selectedSymbol.key}
+                            currentSymbolLabel={selectedSymbol.symbol}
                             currentSymbolPrice={selectedSymbolLivePrice}
                             userProfile={userProfile}
                             accountSummary={accountSummary}

@@ -23,7 +23,7 @@ const VALIDITY_DAYS: Record<OrderValidity, number> = {
 const formatValidityDate = (validity: OrderValidity): string => {
     const date = new Date();
     date.setDate(date.getDate() + VALIDITY_DAYS[validity]);
-    return new Intl.DateTimeFormat('fa-IR', {day: 'numeric', month: 'long', year: 'numeric'}).format(date);
+    return new Intl.DateTimeFormat('fa-IR-u-nu-latn', {day: 'numeric', month: 'long', year: 'numeric'}).format(date);
 };
 
 export default function OrderForm({controller, context, formatNumber}: OrderFormProps) {
@@ -160,7 +160,7 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                         <dt className="text-muted">ارزش</dt>
                         <dd className="tabular-nums font-semibold text-text">
                             {validation.orderValue === null
-                                ? '۰ ریال'
+                                ? '0 ریال'
                                 : `${formatNumber(validation.orderValue)} ریال`}
                         </dd>
                     </div>

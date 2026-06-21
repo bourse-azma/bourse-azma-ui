@@ -339,7 +339,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                     name="national-code"
                                     value={nationalCode}
                                     onChange={(event) => setNationalCode(event.target.value)}
-                                    placeholder="کد ملی (۱۰ رقم)"
+                                    placeholder="کد ملی (10 رقم)"
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                 />
                             </div>

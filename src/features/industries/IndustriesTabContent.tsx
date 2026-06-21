@@ -4,7 +4,7 @@ import {getIndustries, getIndustrySymbols} from './api';
 import type {IndustrySummary, IndustrySymbol} from './types';
 import type {SymbolSearchSuggestion} from '../symbol-search/types';
 
-const formatFaInteger = (value: number) => new Intl.NumberFormat('fa-IR').format(value);
+const formatFaInteger = (value: number) => new Intl.NumberFormat('en-US').format(value);
 
 const toSymbolSuggestion = (item: IndustrySymbol): SymbolSearchSuggestion => ({
     key: `TSE:${item.symbol}:${item.instrumentCode || 'none'}`,
