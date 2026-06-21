@@ -3,6 +3,7 @@ import AuthPage, {type AuthSession} from './AuthPage';
 import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
+import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from './features/symbol-search/selectedSymbolState';
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
 const SESSION_STORAGE_KEY_TEMP = 'bourse-azma-session-temp';
@@ -168,6 +169,7 @@ export default function App() {
     const {theme, toggleTheme} = useTheme();
     const [session, setSession] = useState<SessionState | null>(getInitialSession);
     const [authState, setAuthState] = useState<AuthState>(() => (getInitialSession() ? 'checking' : 'unauthenticated'));
+    const [loginEpoch, setLoginEpoch] = useState(() => readLoginEpoch() ?? '');
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
     const [profileError, setProfileError] = useState<string | null>(null);
@@ -189,6 +191,8 @@ export default function App() {
         window.localStorage.removeItem(SESSION_STORAGE_KEY);
         window.sessionStorage.removeItem(SESSION_STORAGE_KEY_TEMP);
         window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
+        clearLoginSymbolState();
+        setLoginEpoch('');
         setSession(null);
         setAuthState('unauthenticated');
         setProfile(null);
@@ -247,7 +251,15 @@ export default function App() {
         void fetchProfile(session);
     }, [fetchProfile, session]);
 
+    useEffect(() => {
+        if (authState !== 'authenticated' || loginEpoch) return;
+        setLoginEpoch(startNewLoginEpoch());
+    }, [authState, loginEpoch]);
+
     const handleAuthenticated = useCallback((authSession: AuthSession) => {
+        clearLoginSymbolState();
+        const epoch = startNewLoginEpoch();
+        setLoginEpoch(epoch);
         setSession({
             accessToken: authSession.accessToken,
             userId: authSession.userId,
@@ -355,8 +367,10 @@ export default function App() {
                 <div className="flex min-h-screen items-center justify-center">
                     <p className="text-sm text-muted">در حال بررسی ورود...</p>
                 </div>
-            ) : authState === 'authenticated' && session ? (
+            ) : authState === 'authenticated' && session && loginEpoch ? (
                 <TradingDashboard
+                    key={loginEpoch}
+                    loginEpoch={loginEpoch}
                     theme={theme}
                     accessToken={session.accessToken}
                     onToggleTheme={toggleTheme}

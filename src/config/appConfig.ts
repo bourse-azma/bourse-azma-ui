@@ -9,6 +9,7 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_CODAL_NOTICES_API_PATH'
     | 'VITE_TSETMC_ETF_INFO_API_PATH'
     | 'VITE_TSETMC_RELATED_COMPANIES_API_PATH'
+    | 'VITE_TSETMC_MOST_VISITED_API_PATH'
     | 'VITE_FIPIRAN_API_BASE_URL'
     | 'VITE_FIPIRAN_SNAPSHOT_API_PATH'
     | 'VITE_FIPIRAN_FUNDS_API_PATH'
@@ -60,6 +61,7 @@ export const appConfig = Object.freeze({
     tsetmcCodalNoticesApiPath: getRequiredEnv('VITE_TSETMC_CODAL_NOTICES_API_PATH'),
     tsetmcEtfInfoApiPath: getRequiredEnv('VITE_TSETMC_ETF_INFO_API_PATH'),
     tsetmcRelatedCompaniesApiPath: getRequiredEnv('VITE_TSETMC_RELATED_COMPANIES_API_PATH'),
+    tsetmcMostVisitedApiPath: getRequiredEnv('VITE_TSETMC_MOST_VISITED_API_PATH'),
     fipiranApiBaseUrl: getRequiredEnv('VITE_FIPIRAN_API_BASE_URL'),
     fipiranSnapshotApiPath: getRequiredEnv('VITE_FIPIRAN_SNAPSHOT_API_PATH'),
     fipiranFundsApiPath: getRequiredEnv('VITE_FIPIRAN_FUNDS_API_PATH'),

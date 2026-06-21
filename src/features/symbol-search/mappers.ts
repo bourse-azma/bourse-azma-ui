@@ -14,6 +14,7 @@ import type {
     TsetmcClosingPriceInfo,
     TsetmcEtfInfo,
     TsetmcInstrumentInfo,
+    TsetmcMostVisitedInstrument,
 } from './types';
 import {buildDepthRowsFromClientType, calculateDepthPercent} from './depthMapper';
 
@@ -96,6 +97,26 @@ export const toMarketLabel = (type: SymbolSourceType) => {
     if (type === 'FUND') return 'صندوق';
     if (type === 'UNKNOWN') return '';
     return type;
+};
+
+export const toSymbolSuggestionFromMostVisited = (
+    instrument: TsetmcMostVisitedInstrument,
+    type: SymbolSourceType
+): SymbolSearchSuggestion | null => {
+    const symbol = instrument.symbol?.trim();
+    const name = instrument.fullName?.trim();
+    const instrumentCode = instrument.instrumentCode?.trim();
+    if (!symbol || !name || !instrumentCode) return null;
+
+    return {
+        key: `${type}:${symbol}:${instrumentCode}`,
+        type,
+        symbol,
+        name,
+        instrumentCode,
+        isin: null,
+        oldInstrumentCodes: [],
+    };
 };
 
 export const toSymbolSuggestion = (row: SymbolSearchRow): SymbolSearchSuggestion | null => {

@@ -10,6 +10,7 @@ import type {
     TsetmcClosingPriceInfo,
     TsetmcEtfInfo,
     TsetmcInstrumentInfo,
+    TsetmcMostVisitedResult,
     TsetmcRelatedCompaniesResult,
 } from './types';
 
@@ -47,22 +48,30 @@ type FipiranFundsResult = {
 };
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
+const SESSION_STORAGE_KEY_TEMP = 'bourse-azma-session-temp';
 const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
+
+const readAccessTokenFromSessionPayload = (raw: string | null) => {
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as { accessToken?: unknown };
+        if (typeof parsed.accessToken === 'string' && parsed.accessToken.trim() !== '') {
+            return parsed.accessToken.trim();
+        }
+    } catch {
+        // Ignore invalid session payload.
+    }
+    return null;
+};
 
 const getAccessToken = () => {
     if (typeof window === 'undefined') return null;
 
-    const rawSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (rawSession) {
-        try {
-            const parsed = JSON.parse(rawSession) as { accessToken?: unknown };
-            if (typeof parsed.accessToken === 'string' && parsed.accessToken.trim() !== '') {
-                return parsed.accessToken.trim();
-            }
-        } catch {
-            // Ignore invalid localStorage payload.
-        }
-    }
+    const localSessionToken = readAccessTokenFromSessionPayload(window.localStorage.getItem(SESSION_STORAGE_KEY));
+    if (localSessionToken) return localSessionToken;
+
+    const tempSessionToken = readAccessTokenFromSessionPayload(window.sessionStorage.getItem(SESSION_STORAGE_KEY_TEMP));
+    if (tempSessionToken) return tempSessionToken;
 
     const legacyToken = window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
     if (typeof legacyToken === 'string' && legacyToken.trim() !== '') {
@@ -198,6 +207,15 @@ export const getTsetmcRelatedCompanies = async (sectorCode: string, signal?: Abo
         appConfig.tsetmcApiBaseUrl,
         applyTemplate(appConfig.tsetmcRelatedCompaniesApiPath, {
             sectorCode: encodeURIComponent(sectorCode),
+        })
+    ), signal);
+
+export const getTsetmcMostVisited = async (marketId: number, limit: number, signal?: AbortSignal) =>
+    fetchApi<TsetmcMostVisitedResult>(joinUrl(
+        appConfig.tsetmcApiBaseUrl,
+        applyTemplate(appConfig.tsetmcMostVisitedApiPath, {
+            marketId: encodeURIComponent(String(marketId)),
+            limit: encodeURIComponent(String(limit)),
         })
     ), signal);
 

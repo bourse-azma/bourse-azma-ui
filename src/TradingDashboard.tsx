@@ -32,7 +32,11 @@ import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox'
 import {getCodalNotices} from './features/symbol-search/api';
 import {toExchangeBadge, toMarketLabel} from './features/symbol-search/mappers';
 import type {SymbolSearchSuggestion} from './features/symbol-search/types';
-import {loadStoredSelectedSymbol, persistSelectedSymbol} from './features/symbol-search/selectedSymbolState';
+import {
+    loadStoredSelectedSymbol,
+    persistSelectedSymbol,
+    pickRandomFeaturedSymbol
+} from './features/symbol-search/selectedSymbolState';
 import {useSymbolDetails} from './features/symbol-search/useSymbolDetails';
 import {usePeerGroup} from './features/symbol-search/usePeerGroup';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
@@ -119,6 +123,7 @@ type UserProfile = {
 };
 
 type TradingDashboardProps = {
+    loginEpoch: string;
     theme: Theme;
     accessToken: string;
     onToggleTheme: (origin?: { x: number; y: number }) => void;
@@ -1695,6 +1700,7 @@ function WatchlistPanel({
 }
 
 export default function TradingDashboard({
+                                             loginEpoch,
                                              theme,
                                              accessToken,
                                              onToggleTheme,
@@ -1718,12 +1724,23 @@ export default function TradingDashboard({
     const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
     const isMarketOpen = marketStateText === 'باز';
     const [selectedSymbol, setSelectedSymbolState] = useState<SymbolSearchSuggestion>(
-        () => loadStoredSelectedSymbol() ?? DEFAULT_SELECTED_SYMBOL
+        () => loadStoredSelectedSymbol(loginEpoch) ?? DEFAULT_SELECTED_SYMBOL
     );
     const setSelectedSymbol = useCallback((symbol: SymbolSearchSuggestion) => {
         setSelectedSymbolState(symbol);
-        persistSelectedSymbol(symbol);
-    }, []);
+        persistSelectedSymbol(symbol, loginEpoch);
+    }, [loginEpoch]);
+    useEffect(() => {
+        const stored = loadStoredSelectedSymbol(loginEpoch);
+        if (stored) {
+            setSelectedSymbolState(stored);
+            return;
+        }
+
+        const randomSymbol = pickRandomFeaturedSymbol();
+        persistSelectedSymbol(randomSymbol, loginEpoch);
+        setSelectedSymbolState(randomSymbol);
+    }, [loginEpoch]);
     const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
     const activeSymbol = previewSymbol ?? selectedSymbol;
     const {

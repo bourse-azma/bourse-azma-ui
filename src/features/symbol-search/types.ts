@@ -191,6 +191,19 @@ export type TsetmcRelatedCompaniesResult = {
     relatedCompanyThirtyDayHistory: TsetmcRelatedCompanyHistoryItem[];
 };
 
+export type TsetmcMostVisitedInstrument = {
+    instrumentCode: string | null;
+    symbol: string | null;
+    fullName: string | null;
+    tradeCount: number | null;
+    tradeVolume: number | null;
+    tradeValue: number | null;
+};
+
+export type TsetmcMostVisitedResult = {
+    mostVisitedInstruments: TsetmcMostVisitedInstrument[];
+};
+
 export type PeerGroupRow = {
     instrumentCode: string;
     symbol: string;
