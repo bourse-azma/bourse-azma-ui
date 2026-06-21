@@ -121,7 +121,6 @@ export default function OrderPlacementModal({
                     ) : null}
 
                     <div className="thin-scrollbar grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">
-                        {/* Left (RTL: appears second): symbol information + order book */}
                         <section className="order-2 space-y-3">
                             <div className="rounded-2xl border border-border/70 bg-surface-2 p-4">
                                 <div className="flex items-start justify-between gap-2">
@@ -187,7 +186,6 @@ export default function OrderPlacementModal({
                             )}
                         </section>
 
-                        {/* Right (RTL: appears first): order form */}
                         <section className="order-1">
                             <OrderForm controller={controller} context={context} formatNumber={formatNumber}/>
                         </section>
