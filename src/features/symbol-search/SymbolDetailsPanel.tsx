@@ -35,15 +35,15 @@ const formatDetailValue = (
 };
 
 export default function SymbolDetailsPanel({
-                                             rows,
-                                             loading,
-                                             error,
-                                             hasSymbolData,
-                                             onRetry,
-                                             formatNumber,
-                                             formatPercent,
-                                             formatCurrency,
-                                         }: SymbolDetailsPanelProps) {
+                                               rows,
+                                               loading,
+                                               error,
+                                               hasSymbolData,
+                                               onRetry,
+                                               formatNumber,
+                                               formatPercent,
+                                               formatCurrency,
+                                           }: SymbolDetailsPanelProps) {
     return (
         <div className="flex flex-1 flex-col">
             {error && !hasSymbolData ? (
@@ -64,11 +64,12 @@ export default function SymbolDetailsPanel({
 
             {loading && !hasSymbolData
                 ? (
-                    <div className="flex flex-1 flex-col justify-evenly text-sm">
+                    <div className="flex flex-1 flex-col justify-evenly text-xs">
                         {Array.from({length: 6}, (_, index) => (
-                            <div key={`symbol-detail-skeleton-${index + 1}`} className="flex items-center justify-between py-1.5">
-                                <div className="h-4 w-1/3 animate-pulse rounded bg-border/60"/>
-                                <div className="h-4 w-1/4 animate-pulse rounded bg-border/45"/>
+                            <div key={`symbol-detail-skeleton-${index + 1}`}
+                                 className="flex items-center justify-between py-1.5">
+                                <div className="h-3 w-1/3 animate-pulse rounded bg-border/60"/>
+                                <div className="h-3 w-1/4 animate-pulse rounded bg-border/45"/>
                             </div>
                         ))}
                     </div>
@@ -76,13 +77,13 @@ export default function SymbolDetailsPanel({
                 : null}
 
             {!loading && rows.length === 0 && !error ? (
-                <div className="flex flex-1 items-center justify-center text-center text-sm text-muted">
+                <div className="flex flex-1 items-center justify-center text-center text-xs text-muted">
                     اطلاعات نماد موجود نیست.
                 </div>
             ) : null}
 
             {rows.length > 0 ? (
-                <div className="flex flex-1 flex-col justify-evenly text-sm">
+                <div className="flex flex-1 flex-col justify-evenly text-xs">
                     {rows.map((item) => {
                         const displayValue = formatDetailValue(
                             item,
@@ -98,7 +99,7 @@ export default function SymbolDetailsPanel({
                             >
                                 <span className="shrink-0 text-muted">{item.label}</span>
                                 <span
-                                    className="min-w-0 text-left font-semibold tabular-nums text-text"
+                                    className="min-w-0 text-left font-medium tabular-nums text-text"
                                     dir={item.valueType === 'datetime' ? 'ltr' : undefined}
                                 >
                                     {displayValue}

@@ -1097,7 +1097,8 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
                         </div>
                         <h2 className="mt-3 text-lg font-black text-text">درخواست‌ها</h2>
                         <p className="mt-1 max-w-2xl text-xs leading-6 text-muted">
-                            سوال، مشکل یا درخواست خود را مستقیم برای تیم پشتیبانی ارسال کنید. پیام‌های شما در همین بخش ثبت می‌شوند.
+                            سوال، مشکل یا درخواست خود را مستقیم برای تیم پشتیبانی ارسال کنید. پیام‌های شما در همین بخش
+                            ثبت می‌شوند.
                         </p>
                     </div>
                     <button
@@ -1154,13 +1155,15 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
                     </div>
 
                     {error ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                        <div
+                            className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
                             <AlertCircle className="h-4 w-4"/>
                             {error}
                         </div>
                     ) : null}
                     {success ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
+                        <div
+                            className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
                             <Check className="h-4 w-4"/>
                             {success}
                         </div>
@@ -1191,7 +1194,8 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
                             ))}
                         </div>
                     ) : requests.length === 0 ? (
-                        <div className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
+                        <div
+                            className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
                             <MessageSquare className="mb-3 h-8 w-8 text-muted"/>
                             <h4 className="text-sm font-bold text-text">هنوز درخواستی ثبت نکرده‌اید</h4>
                             <p className="mt-1 text-xs leading-6 text-muted">
@@ -1207,7 +1211,8 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
                                 >
                                     <div className="mb-2 flex items-start justify-between gap-3">
                                         <h4 className="min-w-0 font-bold leading-6 text-text">{item.subject}</h4>
-                                        <span className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-[10px] font-semibold text-positive">
+                                        <span
+                                            className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-[10px] font-semibold text-positive">
                                             باز
                                         </span>
                                     </div>
@@ -1380,7 +1385,8 @@ function WalletTabContent({
                             <div className="min-w-0 text-left tabular-nums">
                                 <div
                                     className="break-all text-xl font-black leading-tight tracking-tight text-text sm:text-2xl">
-                                    {buyingPower.toLocaleString('en-US')} <span className="text-xs font-semibold text-muted">ریال</span>
+                                    {buyingPower.toLocaleString('en-US')} <span
+                                    className="text-xs font-semibold text-muted">ریال</span>
                                 </div>
                             </div>
                         </div>
@@ -1550,9 +1556,8 @@ function WatchlistPanel({
                             onRemoveSymbol,
                             onToggleCurrentSymbol,
                             watchlistBusy,
-                            currentSymbolKey,
                             currentSymbolLabel,
-                            currentSymbolPrice,
+                            resolveLivePrice,
                             userProfile,
                             accountSummary,
                             accessToken,
@@ -1573,9 +1578,8 @@ function WatchlistPanel({
     onRemoveSymbol: (symbolId: number) => void;
     onToggleCurrentSymbol: () => void;
     watchlistBusy: boolean;
-    currentSymbolKey: string;
     currentSymbolLabel: string;
-    currentSymbolPrice: number | null;
+    resolveLivePrice: (instrumentCode: string | null | undefined) => number | null;
     userProfile?: UserProfile;
     accountSummary: AccountSummary;
     accessToken: string;
@@ -1617,7 +1621,7 @@ function WatchlistPanel({
                         }`}
                     >
                         <Bell className="h-3.5 w-3.5"/>
-                        دیدبان
+                        دیده‌بان
                         {activeTab === 'watchlist' ? (
                             <span className="absolute inset-x-0 -bottom-[8px] h-0.5 rounded-full bg-primary"/>
                         ) : null}
@@ -1720,7 +1724,7 @@ function WatchlistPanel({
                             onClick={onRequestCreateWatchlist}
                             className="mt-4 rounded-full border border-positive/30 bg-positive/10 px-4 py-1.5 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
                         >
-                            ساخت دیدبان
+                            ساخت دیده‌بان
                         </button>
                     </div>
                 </>
@@ -1752,7 +1756,7 @@ function WatchlistPanel({
                                         className="flex h-10 w-full items-center justify-center gap-1 border-b border-border/70 px-3 text-xs font-semibold text-positive transition hover:bg-surface-2"
                                     >
                                         <Plus className="h-3.5 w-3.5"/>
-                                        ساخت دیدبان جدید
+                                        ساخت دیده‌بان جدید
                                     </button>
 
                                     <div className="max-h-48 overflow-y-auto py-1">
@@ -1775,7 +1779,8 @@ function WatchlistPanel({
                                                     >
                                                         <span className="truncate">{watchlist.name}</span>
                                                         {isActive ?
-                                                            <Check className="h-3.5 w-3.5 shrink-0 text-positive"/> : null}
+                                                            <Check
+                                                                className="h-3.5 w-3.5 shrink-0 text-positive"/> : null}
                                                     </button>
 
                                                     <div className="mr-1 flex items-center gap-1">
@@ -1835,7 +1840,7 @@ function WatchlistPanel({
                                     className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-surface-2 text-warning shadow-sm">
                                     <Star className="h-6 w-6"/>
                                 </div>
-                                <h4 className="text-sm font-bold text-text">این دیدبان هنوز نمادی ندارد</h4>
+                                <h4 className="text-sm font-bold text-text">این دیده‌بان هنوز نمادی ندارد</h4>
                                 <p className="mt-1 max-w-[260px] text-xs leading-6 text-muted">
                                     نمادهای مهم را اینجا نگه دارید تا قیمت و دسترسی سریع داشته باشید.
                                 </p>
@@ -1853,7 +1858,7 @@ function WatchlistPanel({
                         ) : (
                             <div className="thin-scrollbar max-h-[245px] overflow-y-auto">
                                 {selectedWatchlist.symbols.map((symbol) => {
-                                    const livePrice = symbol.symbolKey === currentSymbolKey ? currentSymbolPrice : null;
+                                    const livePrice = resolveLivePrice(symbol.instrumentCode);
                                     return (
                                         <div
                                             key={symbol.id}
@@ -2037,49 +2042,9 @@ export default function TradingDashboard({
         }
     }, [accessToken]);
 
-    const refreshTradingAccountSilent = useCallback(async () => {
-        try {
-            const [orders, holdings] = await Promise.all([
-                getTradingOrders(accessToken),
-                getPortfolioHoldings(accessToken),
-            ]);
-            setTradingOrders(orders);
-            setPortfolioHoldings(holdings);
-        } catch {
-            // Keep the last known state during background polling.
-        }
-    }, [accessToken]);
-
     useEffect(() => {
         void loadTradingAccount();
     }, [loadTradingAccount]);
-
-    useEffect(() => {
-        let timer: number | undefined;
-
-        const tick = async () => {
-            await refreshTradingAccountSilent();
-            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
-        };
-
-        const hasActiveOrders = tradingOrders.some(
-            (order) =>
-                order.status === 'REQUESTED' ||
-                order.status === 'PARTIALLY_FILLED' ||
-                order.status === 'TRIGGER_PENDING'
-        );
-
-        if (!hasActiveOrders) {
-            return undefined;
-        }
-
-        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
-        return () => {
-            if (timer !== undefined) {
-                window.clearTimeout(timer);
-            }
-        };
-    }, [refreshTradingAccountSilent, tradingOrders]);
 
     const replaceWatchlistInState = useCallback((updatedWatchlist: Watchlist) => {
         setWatchlists((prev) => {
@@ -2188,17 +2153,17 @@ export default function TradingDashboard({
                 setWatchlistModal(null);
                 if (watchlistModal.pendingSymbol) {
                     showWatchlistToast(
-                        `دیدبان ${savedWatchlist.name} ساخته شد و نماد ${watchlistModal.pendingSymbol.symbol} اضافه شد.`
+                        `دیده‌بان ${savedWatchlist.name} ساخته شد و نماد ${watchlistModal.pendingSymbol.symbol} اضافه شد.`
                     );
                 } else {
-                    showWatchlistToast(`دیدبان ${savedWatchlist.name} ساخته شد.`);
+                    showWatchlistToast(`دیده‌بان ${savedWatchlist.name} ساخته شد.`);
                 }
             } else {
                 const updated = await updateWatchlist(accessToken, watchlistModal.watchlistId, normalizedName);
                 replaceWatchlistInState(updated);
                 setSelectedWatchlistId(updated.id);
                 setWatchlistModal(null);
-                showWatchlistToast(`ویرایش نام دیدبان ${watchlistModal.originalName} انجام شد.`);
+                showWatchlistToast(`ویرایش نام دیده‌بان ${watchlistModal.originalName} انجام شد.`);
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : 'ذخیره دیده‌بان ناموفق بود.';
@@ -2222,7 +2187,7 @@ export default function TradingDashboard({
                 if (selectedWatchlistId === watchlistId) {
                     setSelectedWatchlistId(nextWatchlists[0]?.id ?? null);
                 }
-                showWatchlistToast(`دیدبان ${target.name} حذف شد.`);
+                showWatchlistToast(`دیده‌بان ${target.name} حذف شد.`);
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'حذف دیده‌بان ناموفق بود.';
                 showWatchlistToast(message, 'error');
@@ -2243,7 +2208,7 @@ export default function TradingDashboard({
             try {
                 const updated = await removeSymbolFromWatchlist(accessToken, selectedWatchlist.id, symbolId);
                 replaceWatchlistInState(updated);
-                showWatchlistToast(`نماد ${targetSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+                showWatchlistToast(`نماد ${targetSymbol.symbol} از دیده‌بان ${selectedWatchlist.name} حذف شد.`);
             } catch (error) {
                 const message = error instanceof Error ? error.message : 'حذف نماد از دیده‌بان ناموفق بود.';
                 showWatchlistToast(message, 'error');
@@ -2271,11 +2236,11 @@ export default function TradingDashboard({
                     selectedWatchlistSymbol.id
                 );
                 replaceWatchlistInState(updated);
-                showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیدبان ${selectedWatchlist.name} حذف شد.`);
+                showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیده‌بان ${selectedWatchlist.name} حذف شد.`);
             } else {
                 const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
                 replaceWatchlistInState(updated);
-                showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیدبان ${selectedWatchlist.name} اضافه شد.`);
+                showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیده‌بان ${selectedWatchlist.name} اضافه شد.`);
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
@@ -2357,21 +2322,20 @@ export default function TradingDashboard({
     const symbolPercent = activeSymbolData?.lastPricePercent ?? null;
     const symbolPositive = symbolPercent !== null ? symbolPercent >= 0 : false;
     const isSymbolInSelectedWatchlist = selectedWatchlistSymbol !== null;
-    const selectedSymbolLivePrice =
-        activeSymbol.key === selectedSymbol.key ? activeSymbolData?.closePrice ?? activeSymbolData?.lastPrice ?? null : null;
 
     const tradingInstrumentCodes = useMemo(
         () => [
             ...tradingOrders.map((order) => order.instrumentCode),
             ...portfolioHoldings.map((holding) => holding.instrumentCode),
+            ...(selectedWatchlist?.symbols.map((symbol) => symbol.instrumentCode ?? '') ?? []),
         ],
-        [portfolioHoldings, tradingOrders]
+        [portfolioHoldings, selectedWatchlist, tradingOrders]
     );
     const instrumentLivePrices = useInstrumentLivePrices(tradingInstrumentCodes);
 
     const resolveDisplayLivePrice = useCallback(
-        (instrumentCode: string) => {
-            const normalized = instrumentCode.trim();
+        (instrumentCode: string | null | undefined) => {
+            const normalized = (instrumentCode ?? '').trim();
             if (normalized === '') return null;
 
             const cachedPrice = instrumentLivePrices[normalized];
@@ -2605,6 +2569,22 @@ export default function TradingDashboard({
 
         await Promise.all(tasks);
     }, [accessToken, loadTradingAccount, onProfileUpdated, userProfile?.id]);
+
+    useEffect(() => {
+        let timer: number | undefined;
+
+        const tick = async () => {
+            await refreshAccountStatus();
+            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        };
+
+        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        return () => {
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
+        };
+    }, [refreshAccountStatus]);
 
     const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
 
@@ -3641,156 +3621,158 @@ export default function TradingDashboard({
                                     </div>
                                 </div>
 
-                                <div className="mt-3 flex min-h-[280px] flex-1 flex-col rounded-2xl border border-border/70 bg-surface-2 p-3">
-                                {symbolTab === 'notices' ? (
-                                    <div className="flex flex-1 flex-col">
-                                        <div
-                                            ref={symbolNoticeListRef}
-                                            className="thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
-                                        >
-                                            {(isWaitingForSymbolNoticeResults ||
-                                                (symbolCodalNotices.length === 0 && shouldLoadMoreSymbolNotices)) &&
-                                            symbolCodalNotices.length === 0 ? (
-                                                Array.from({length: 4}, (_, index) => (
+                                <div
+                                    className="mt-3 flex min-h-[280px] flex-1 flex-col rounded-2xl border border-border/70 bg-surface-2 p-3">
+                                    {symbolTab === 'notices' ? (
+                                        <div className="flex flex-1 flex-col">
+                                            <div
+                                                ref={symbolNoticeListRef}
+                                                className="thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
+                                            >
+                                                {(isWaitingForSymbolNoticeResults ||
+                                                    (symbolCodalNotices.length === 0 && shouldLoadMoreSymbolNotices)) &&
+                                                symbolCodalNotices.length === 0 ? (
+                                                    Array.from({length: 4}, (_, index) => (
+                                                        <div
+                                                            key={`symbol-codal-skeleton-${index + 1}`}
+                                                            className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
+                                                        >
+                                                            <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
+                                                            <div className="mb-3 h-4 w-3/5 rounded bg-border/60"/>
+                                                            <div className="h-3 w-2/5 rounded bg-border/45"/>
+                                                        </div>
+                                                    ))
+                                                ) : null}
+
+                                                {symbolCodalNoticesError ? (
                                                     <div
-                                                        key={`symbol-codal-skeleton-${index + 1}`}
-                                                        className="animate-pulse rounded-xl border border-border/70 bg-surface px-3 py-3"
-                                                    >
-                                                        <div className="mb-2 h-4 w-4/5 rounded bg-border/60"/>
-                                                        <div className="mb-3 h-4 w-3/5 rounded bg-border/60"/>
-                                                        <div className="h-3 w-2/5 rounded bg-border/45"/>
+                                                        className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                                        <div className="mb-2 flex items-center gap-2">
+                                                            <AlertCircle className="h-4 w-4"/>
+                                                            {symbolCodalNoticesError}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={refreshSymbolCodalNotices}
+                                                            className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
+                                                        >
+                                                            تلاش مجدد
+                                                        </button>
                                                     </div>
-                                                ))
-                                            ) : null}
+                                                ) : null}
 
-                                            {symbolCodalNoticesError ? (
-                                                <div
-                                                    className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
-                                                    <div className="mb-2 flex items-center gap-2">
-                                                        <AlertCircle className="h-4 w-4"/>
-                                                        {symbolCodalNoticesError}
+                                                {!isWaitingForSymbolNoticeResults &&
+                                                !shouldLoadMoreSymbolNotices &&
+                                                symbolCodalNotices.length === 0 &&
+                                                !symbolCodalNoticesError ? (
+                                                    <div
+                                                        className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-6 text-center text-xs text-muted">
+                                                        اطلاعیه‌ای برای این نماد پیدا نشد.
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={refreshSymbolCodalNotices}
-                                                        className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
-                                                    >
-                                                        تلاش مجدد
-                                                    </button>
-                                                </div>
-                                            ) : null}
+                                                ) : null}
 
-                                            {!isWaitingForSymbolNoticeResults &&
-                                            !shouldLoadMoreSymbolNotices &&
-                                            symbolCodalNotices.length === 0 &&
-                                            !symbolCodalNoticesError ? (
-                                                <div
-                                                    className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-6 text-center text-xs text-muted">
-                                                    اطلاعیه‌ای برای این نماد پیدا نشد.
-                                                </div>
-                                            ) : null}
+                                                {symbolCodalNotices.map((notice) => {
+                                                    const noticeGroup = toSingleNoticeGroup(notice);
+                                                    const visibleSymbols = noticeGroup.symbols.slice(0, 3);
+                                                    const extraSymbolsCount = noticeGroup.symbols.length - visibleSymbols.length;
 
-                                            {symbolCodalNotices.map((notice) => {
-                                                const noticeGroup = toSingleNoticeGroup(notice);
-                                                const visibleSymbols = noticeGroup.symbols.slice(0, 3);
-                                                const extraSymbolsCount = noticeGroup.symbols.length - visibleSymbols.length;
+                                                    return (
+                                                        <article
+                                                            key={noticeGroup.id}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            onClick={() => setActiveNoticeGroup(noticeGroup)}
+                                                            onKeyDown={(event) => {
+                                                                if (event.key === 'Enter' || event.key === ' ') {
+                                                                    event.preventDefault();
+                                                                    setActiveNoticeGroup(noticeGroup);
+                                                                }
+                                                            }}
+                                                            className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
+                                                        >
+                                                            <h4 className="text-sm leading-7 font-semibold text-text">
+                                                                {noticeGroup.title}
+                                                            </h4>
 
-                                                return (
-                                                    <article
-                                                        key={noticeGroup.id}
-                                                        role="button"
-                                                        tabIndex={0}
-                                                        onClick={() => setActiveNoticeGroup(noticeGroup)}
-                                                        onKeyDown={(event) => {
-                                                            if (event.key === 'Enter' || event.key === ' ') {
-                                                                event.preventDefault();
-                                                                setActiveNoticeGroup(noticeGroup);
-                                                            }
-                                                        }}
-                                                        className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
-                                                    >
-                                                        <h4 className="text-sm leading-7 font-semibold text-text">
-                                                            {noticeGroup.title}
-                                                        </h4>
-
-                                                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                            {visibleSymbols.map((symbol) => (
-                                                                <span
-                                                                    key={`${noticeGroup.id}-${symbol}`}
-                                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
-                                                                >
+                                                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                                {visibleSymbols.map((symbol) => (
+                                                                    <span
+                                                                        key={`${noticeGroup.id}-${symbol}`}
+                                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
+                                                                    >
                                                             {symbol}
                                                         </span>
-                                                            ))}
+                                                                ))}
 
-                                                            {extraSymbolsCount > 0 ? (
-                                                                <span
-                                                                    className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+                                                                {extraSymbolsCount > 0 ? (
+                                                                    <span
+                                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
                                                             + {formatFaInteger(extraSymbolsCount)}
                                                         </span>
-                                                            ) : null}
+                                                                ) : null}
 
-                                                            {noticeGroup.hasUnderSupervision ? (
-                                                                <span
-                                                                    className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
+                                                                {noticeGroup.hasUnderSupervision ? (
+                                                                    <span
+                                                                        className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
                                                             تحت نظارت
                                                         </span>
-                                                            ) : null}
-                                                        </div>
+                                                                ) : null}
+                                                            </div>
 
-                                                        <p className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">
-                                                            {formatDateTimeFa(noticeGroup.publishDateTime)}
-                                                        </p>
-                                                    </article>
-                                                );
-                                            })}
+                                                            <p className="mt-2 text-[11px] tabular-nums text-muted"
+                                                               dir="ltr">
+                                                                {formatDateTimeFa(noticeGroup.publishDateTime)}
+                                                            </p>
+                                                        </article>
+                                                    );
+                                                })}
 
-                                            <div ref={symbolNoticeLoadMoreRef} className="h-6 w-full"/>
+                                                <div ref={symbolNoticeLoadMoreRef} className="h-6 w-full"/>
 
-                                            {symbolCodalNoticesLoadingMore && shouldLoadMoreSymbolNotices ? (
-                                                <div
-                                                    className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
-                                                    <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                                    در حال بارگذاری اطلاعیه‌های بیشتر...
-                                                </div>
-                                            ) : null}
+                                                {symbolCodalNoticesLoadingMore && shouldLoadMoreSymbolNotices ? (
+                                                    <div
+                                                        className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                                                        در حال بارگذاری اطلاعیه‌های بیشتر...
+                                                    </div>
+                                                ) : null}
 
-                                            {!symbolCodalNoticesLoading &&
-                                            !shouldLoadMoreSymbolNotices &&
-                                            symbolCodalNotices.length > 0 ? (
-                                                <div className="py-1 text-center text-[11px] text-muted">
-                                                    همه اطلاعیه‌ها نمایش داده شد.
-                                                </div>
-                                            ) : null}
-                                        </div>
+                                                {!symbolCodalNoticesLoading &&
+                                                !shouldLoadMoreSymbolNotices &&
+                                                symbolCodalNotices.length > 0 ? (
+                                                    <div className="py-1 text-center text-[11px] text-muted">
+                                                        همه اطلاعیه‌ها نمایش داده شد.
+                                                    </div>
+                                                ) : null}
+                                            </div>
 
-                                        <div
-                                            className="mt-2 flex h-5 items-center justify-between px-1 text-[11px] text-muted">
+                                            <div
+                                                className="mt-2 flex h-5 items-center justify-between px-1 text-[11px] text-muted">
                                     <span className="flex items-center gap-1.5">
                                         {symbolCodalNoticesRefreshing ? (
                                             <Loader2 className="h-3.5 w-3.5 animate-spin"/>
                                         ) : null}
                                         <span>تعداد کل: {formatNumberFa(symbolCodalNoticesTotalCount)}</span>
                                     </span>
-                                            <span>نمایش داده شده: {formatNumberFa(symbolCodalNotices.length)}</span>
+                                                <span>نمایش داده شده: {formatNumberFa(symbolCodalNotices.length)}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ) : (
-                                    <SymbolDetailsPanel
-                                        rows={symbolDetails}
-                                        loading={symbolLoading}
-                                        error={symbolError}
-                                        hasSymbolData={activeSymbolData !== null}
-                                        onRetry={refreshSymbolDetails}
-                                        formatNumber={(value, digits) =>
-                                            formatNumberOrDash(value, digits)
-                                        }
-                                        formatPercent={(value, digits) =>
-                                            formatPercentOrDash(value, digits)
-                                        }
-                                        formatCurrency={(value) => formatNumberWithUnit(value, 'ریال')}
-                                    />
-                                )}
+                                    ) : (
+                                        <SymbolDetailsPanel
+                                            rows={symbolDetails}
+                                            loading={symbolLoading}
+                                            error={symbolError}
+                                            hasSymbolData={activeSymbolData !== null}
+                                            onRetry={refreshSymbolDetails}
+                                            formatNumber={(value, digits) =>
+                                                formatNumberOrDash(value, digits)
+                                            }
+                                            formatPercent={(value, digits) =>
+                                                formatPercentOrDash(value, digits)
+                                            }
+                                            formatCurrency={(value) => formatNumberWithUnit(value, 'ریال')}
+                                        />
+                                    )}
                                 </div>
                             </section>
 
@@ -3811,9 +3793,8 @@ export default function TradingDashboard({
                                     onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
                                     onToggleCurrentSymbol={() => void handleToggleFavorite()}
                                     watchlistBusy={watchlistBusy}
-                                    currentSymbolKey={selectedSymbol.key}
                                     currentSymbolLabel={selectedSymbol.symbol}
-                                    currentSymbolPrice={selectedSymbolLivePrice}
+                                    resolveLivePrice={resolveDisplayLivePrice}
                                     userProfile={userProfile}
                                     accountSummary={accountSummary}
                                     accessToken={accessToken}
@@ -3958,7 +3939,8 @@ export default function TradingDashboard({
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{order.averageExecutedPrice ? formatNumberFa(order.averageExecutedPrice) : '—'}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-muted" dir="ltr">{order.time}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-muted"
+                                                            dir="ltr">{order.time}</td>
                                                         <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
@@ -4017,7 +3999,8 @@ export default function TradingDashboard({
                                                         className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
                                                     >
                                                         <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-muted" dir="ltr">{row.time}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-muted"
+                                                            dir="ltr">{row.time}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
@@ -4161,7 +4144,8 @@ export default function TradingDashboard({
                                                     ) : null}
                                                 </div>
 
-                                                <p className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">{formatDateTimeFa(group.publishDateTime)}</p>
+                                                <p className="mt-2 text-[11px] tabular-nums text-muted"
+                                                   dir="ltr">{formatDateTimeFa(group.publishDateTime)}</p>
                                             </article>
                                         );
                                     })}
@@ -4193,8 +4177,6 @@ export default function TradingDashboard({
 
             <AccountStatusBar
                 summary={accountSummary}
-                loading={tradingAccountLoading}
-                onRefresh={refreshAccountStatus}
                 onDepositClick={openWalletPanel}
             />
 
@@ -4279,8 +4261,8 @@ export default function TradingDashboard({
                         <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                             <h3 className="text-base font-bold text-text">
                                 {watchlistModal.mode === 'create'
-                                    ? 'ساخت دیدبان جدید'
-                                    : `ویرایش دیدبان ${watchlistModal.originalName}`}
+                                    ? 'ساخت دیده‌بان جدید'
+                                    : `ویرایش دیده‌بان ${watchlistModal.originalName}`}
                             </h3>
                             <button
                                 type="button"
@@ -4294,7 +4276,7 @@ export default function TradingDashboard({
 
                         <div className="space-y-3 px-4 py-4">
                             <label htmlFor="watchlist-name" className="block text-sm font-medium text-text">
-                                نام دیدبان
+                                نام دیده‌بان
                             </label>
                             <input
                                 id="watchlist-name"
@@ -4333,7 +4315,7 @@ export default function TradingDashboard({
                     در حال ذخیره...
                   </span>
                                 ) : watchlistModal.mode === 'create' ? (
-                                    'ساخت دیدبان'
+                                    'ساخت دیده‌بان'
                                 ) : (
                                     'ذخیره تغییرات'
                                 )}
@@ -4355,7 +4337,7 @@ export default function TradingDashboard({
                     <div
                         className="thin-scrollbar absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto border-l border-border/70 bg-surface p-3 shadow-card">
                         <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-text">دیدبان</h3>
+                            <h3 className="text-sm font-semibold text-text">دیده‌بان</h3>
 
                             <button
                                 type="button"
@@ -4383,9 +4365,8 @@ export default function TradingDashboard({
                             onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
                             onToggleCurrentSymbol={() => void handleToggleFavorite()}
                             watchlistBusy={watchlistBusy}
-                            currentSymbolKey={selectedSymbol.key}
                             currentSymbolLabel={selectedSymbol.symbol}
-                            currentSymbolPrice={selectedSymbolLivePrice}
+                            resolveLivePrice={resolveDisplayLivePrice}
                             userProfile={userProfile}
                             accountSummary={accountSummary}
                             accessToken={accessToken}
@@ -4680,7 +4661,8 @@ export default function TradingDashboard({
 
                         <div className="thin-scrollbar max-h-[70vh] overflow-y-auto px-4 py-4">
                             <h4 className="text-2xl leading-10 font-extrabold text-text">{activeNoticeGroup.title}</h4>
-                            <p className="mt-1 text-[13px] tabular-nums text-muted" dir="ltr">{formatDateTimeFa(activeNoticeGroup.publishDateTime)}</p>
+                            <p className="mt-1 text-[13px] tabular-nums text-muted"
+                               dir="ltr">{formatDateTimeFa(activeNoticeGroup.publishDateTime)}</p>
 
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                 {activeNoticeGroup.symbols.map((symbol) => (
