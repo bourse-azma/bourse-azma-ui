@@ -4,6 +4,7 @@ import OrderTypeToggle from './OrderTypeToggle';
 import PriceTypeSelect from './PriceTypeSelect';
 import ValiditySelector from './ValiditySelector';
 import ConditionalTriggerFields from './ConditionalTriggerFields';
+import {MARKET_CLOSED_ERROR} from './orderValidation';
 import type {useOrderPlacement} from './useOrderPlacement';
 import type {OrderValidationContext, OrderValidity} from './types';
 
@@ -63,6 +64,19 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
 
     return (
         <div dir="rtl" className="flex h-full flex-col gap-4">
+            {!context.marketOpen ? (
+                <div
+                    role="alert"
+                    className="flex items-start gap-2.5 rounded-2xl border border-warning/45 bg-warning/10 px-4 py-3 text-sm leading-7 text-warning"
+                >
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0"/>
+                    <div>
+                        <p className="font-semibold text-text">بازار بسته است</p>
+                        <p className="mt-0.5 text-xs leading-6 text-muted">{MARKET_CLOSED_ERROR}</p>
+                    </div>
+                </div>
+            ) : null}
+
             <BuySellToggle value={values.side} onChange={setSide}/>
             <OrderTypeToggle value={values.orderType} side={values.side} onChange={setOrderType}/>
 

@@ -5,10 +5,16 @@ import type {
     OrderValidationContext,
     OrderValidationResult,
 } from './types';
-import type {OrderBookPriceRange} from '../../symbol-search/orderBookUtils';
+import {isOrderBookReady, type OrderBookPriceRange} from '../../symbol-search/orderBookUtils.ts';
 
 export const ORDER_BOOK_PRICE_ERROR =
     'این سایت در حالت دمو است؛ قیمت سفارش باید در محدوده صف خرید یا فروش باشد و ثبت قیمت خارج از این بازه امکان‌پذیر نیست.';
+
+export const ORDER_BOOK_UNAVAILABLE_ERROR =
+    'اطلاعات صف خرید و فروش در دسترس نیست؛ امکان ثبت سفارش وجود ندارد.';
+
+export const MARKET_CLOSED_ERROR =
+    'بازار در حال حاضر بسته است؛ تا زمان بازگشایی امکان ثبت سفارش وجود ندارد.';
 
 const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
@@ -60,10 +66,13 @@ const validateQueuePrice = (
     field: 'price' | 'triggerPrice'
 ) => {
     const range = queuePriceRangeForSide(side, context);
-    if (range === null || isPriceWithinQueueRange(price, range)) {
+    if (range === null) {
+        errors[field] = ORDER_BOOK_UNAVAILABLE_ERROR;
         return;
     }
-    errors[field] = ORDER_BOOK_PRICE_ERROR;
+    if (!isPriceWithinQueueRange(price, range)) {
+        errors[field] = ORDER_BOOK_PRICE_ERROR;
+    }
 };
 
 export const validateOrder = (
@@ -71,6 +80,28 @@ export const validateOrder = (
     context: OrderValidationContext
 ): OrderValidationResult => {
     const errors: OrderFieldErrors = {};
+
+    if (!context.marketOpen) {
+        errors.general = MARKET_CLOSED_ERROR;
+        return {
+            errors,
+            isValid: false,
+            quantity: null,
+            effectivePrice: null,
+            orderValue: null,
+        };
+    }
+
+    if (!isOrderBookReady(context.bidPriceRange, context.askPriceRange)) {
+        errors.general = ORDER_BOOK_UNAVAILABLE_ERROR;
+        return {
+            errors,
+            isValid: false,
+            quantity: null,
+            effectivePrice: null,
+            orderValue: null,
+        };
+    }
 
     const quantity = parseNumericInput(values.quantity);
     if (values.quantity.trim() === '') {

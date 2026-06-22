@@ -50,7 +50,7 @@ export default function OrderBookPanel({
             </div>
 
             <div
-                className={`thin-scrollbar overflow-y-auto ${fillHeight ? 'min-h-0 flex-1' : 'max-h-[280px]'}`}
+                className={`thin-scrollbar ${fillHeight ? 'min-h-0 flex-1 overflow-y-auto' : embedded ? 'overflow-visible' : 'max-h-[280px] overflow-y-auto'}`}
             >
                 {rows.map((row) => {
                     const askPower = volumeToBarPercent(row.askVolume ?? 0, maxVolumes.ask);

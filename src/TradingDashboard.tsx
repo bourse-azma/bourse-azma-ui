@@ -45,6 +45,8 @@ import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
 import PeerGroupPanel, {ORDERBOOK_SLOT_HEIGHT_CLASS} from './features/symbol-search/PeerGroupPanel';
+import SymbolDetailsPanel from './features/symbol-search/SymbolDetailsPanel';
+import {formatDateTimeFa, toEnglishDigits} from './utils/formatDateTime';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import IndustriesTabContent from './features/industries/IndustriesTabContent';
@@ -373,24 +375,6 @@ const extractApiErrorMessage = (data: unknown, fallback: string) => {
 const formatFaInteger = (value: number) => new Intl.NumberFormat('en-US').format(value);
 const formatFaPlainInteger = (value: number) =>
     new Intl.NumberFormat('en-US', {useGrouping: false}).format(value);
-
-const formatInstantFa = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'ناموجود';
-    return new Intl.DateTimeFormat('fa-IR-u-nu-latn', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Tehran',
-    }).format(date);
-};
-
-const toEnglishDigits = (value: string) =>
-    value
-        .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
-        .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
 
 const parseJalaliDateTime = (value: string) => {
     const normalized = toEnglishDigits(value).trim();
@@ -998,14 +982,8 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
                                         <div className="min-w-0">
                                             <div
                                                 className="font-semibold leading-relaxed text-text">{tx.description}</div>
-                                            <div className="mt-1 text-[10px] text-muted">
-                                                {new Date(tx.createdAt).toLocaleDateString('fa-IR-u-nu-latn', {
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                })}
+                                            <div className="mt-1 text-[10px] tabular-nums text-muted" dir="ltr">
+                                                {formatDateTimeFa(tx.createdAt)}
                                             </div>
                                         </div>
                                     </div>
@@ -1235,7 +1213,7 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
                                     </div>
                                     <p className="text-xs leading-6 text-muted">{item.message}</p>
                                     <div className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">
-                                        {formatInstantFa(item.createdAt)}
+                                        {formatDateTimeFa(item.createdAt)}
                                     </div>
                                 </article>
                             ))}
@@ -1962,7 +1940,8 @@ export default function TradingDashboard({
     const farabourseDelta = farabourseOverview?.indexChange ?? null;
 
     const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
-    const isMarketOpen = marketStateText === 'باز';
+    const isMarketOpen =
+        bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز';
     const [selectedSymbol, setSelectedSymbolState] = useState<SymbolSearchSuggestion>(
         () => loadStoredSelectedSymbol(loginEpoch) ?? DEFAULT_SELECTED_SYMBOL
     );
@@ -2458,7 +2437,7 @@ export default function TradingDashboard({
                 orderPrice: Number(order.orderPrice),
                 averageExecutedPrice: order.averageExecutedPrice,
                 livePrice: resolveDisplayLivePrice(order.instrumentCode),
-                time: formatInstantFa(order.orderTime),
+                time: formatDateTimeFa(order.orderTime),
                 status: order.status,
                 statusLabel: order.statusLabel,
                 cancellable: order.cancellable,
@@ -2485,7 +2464,7 @@ export default function TradingDashboard({
 
                 return {
                     id: String(holding.id),
-                    time: formatInstantFa(holding.acquiredAt),
+                    time: formatDateTimeFa(holding.acquiredAt),
                     symbol: holding.symbol,
                     quantity: holding.quantity,
                     buyPrice: Number(holding.buyPrice),
@@ -2671,8 +2650,9 @@ export default function TradingDashboard({
             buyingPower: accountSummary.buyingPower,
             bidPriceRange: orderBookBidPriceRange,
             askPriceRange: orderBookAskPriceRange,
+            marketOpen: isMarketOpen,
         }),
-        [accountSummary.buyingPower, availableToSell, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
+        [accountSummary.buyingPower, availableToSell, isMarketOpen, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
     );
 
     const handleOrderPlaced = useCallback(
@@ -3410,13 +3390,13 @@ export default function TradingDashboard({
                                         ) : null}
 
                                         <div className="mb-3 rounded-xl border border-border/70 bg-surface-2 p-1">
-                                            <div className="flex flex-wrap items-center gap-1 text-xs">
+                                            <div className="grid grid-cols-3 gap-1 text-xs">
                                                 {orderbookTabs.map((tab) => (
                                                     <button
                                                         key={tab.key}
                                                         type="button"
                                                         onClick={() => setOrderbookTab(tab.key)}
-                                                        className={`rounded-lg px-3 py-1.5 transition ${
+                                                        className={`rounded-lg px-2 py-1.5 text-center transition ${
                                                             orderbookTab === tab.key
                                                                 ? 'bg-surface text-text shadow-sm'
                                                                 : 'text-muted hover:text-text'
@@ -3513,7 +3493,7 @@ export default function TradingDashboard({
                                 )}
                             </section>
 
-                            <section dir="rtl" className={`${cardClass} p-3 md:col-span-1 xl:col-span-3`}>
+                            <section dir="rtl" className={`${cardClass} flex flex-col p-3 md:col-span-1 xl:col-span-3`}>
                                 {symbolLoading && !activeSymbolData ? (
                                     <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 animate-pulse">
                                         <div className="mb-2 flex items-center justify-between">
@@ -3661,8 +3641,9 @@ export default function TradingDashboard({
                                     </div>
                                 </div>
 
+                                <div className="mt-3 flex min-h-[280px] flex-1 flex-col rounded-2xl border border-border/70 bg-surface-2 p-3">
                                 {symbolTab === 'notices' ? (
-                                    <div className="mt-3">
+                                    <div className="flex flex-1 flex-col">
                                         <div
                                             ref={symbolNoticeListRef}
                                             className="thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
@@ -3757,8 +3738,8 @@ export default function TradingDashboard({
                                                             ) : null}
                                                         </div>
 
-                                                        <p className="mt-2 text-[11px] text-muted">
-                                                            {noticeGroup.publishDateTime}
+                                                        <p className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">
+                                                            {formatDateTimeFa(noticeGroup.publishDateTime)}
                                                         </p>
                                                     </article>
                                                 );
@@ -3795,85 +3776,22 @@ export default function TradingDashboard({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div
-                                        className="thin-scrollbar mt-3 max-h-[336px] overflow-y-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
-                                        {symbolError && !activeSymbolData ? (
-                                            <div
-                                                className="m-2 rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
-                                                <div className="mb-2 flex items-center gap-2">
-                                                    <AlertCircle className="h-4 w-4"/>
-                                                    {symbolError}
-                                                </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={refreshSymbolDetails}
-                                                    className="rounded-full border border-negative/35 bg-negative/10 px-3 py-1 text-[11px] font-semibold transition hover:bg-negative/15"
-                                                >
-                                                    تلاش مجدد
-                                                </button>
-                                            </div>
-                                        ) : null}
-
-                                        {symbolLoading && !activeSymbolData
-                                            ? Array.from({length: 6}, (_, index) => (
-                                                <div key={`symbol-detail-skeleton-${index + 1}`}
-                                                     className="mx-2 mt-2 rounded-xl border border-border/60 bg-surface-2 px-3 py-3">
-                                                    <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60"/>
-                                                    <div className="h-4 w-1/2 animate-pulse rounded bg-border/45"/>
-                                                </div>
-                                            ))
-                                            : null}
-
-                                        {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
-                                            <div
-                                                className="m-2 rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
-                                                اطلاعات نماد موجود نیست.
-                                            </div>
-                                        ) : null}
-
-                                        {symbolDetails.length > 0 ? (
-                                            <div className="sticky top-0 z-[1] border-b border-border/70 bg-surface-2 px-3 py-2 text-[11px] font-semibold text-muted">
-                                                اطلاعات معاملاتی
-                                            </div>
-                                        ) : null}
-
-                                        <div className="divide-y divide-border/60">
-                                            {symbolDetails.map((item) => {
-                                                const displayValue =
-                                                    item.valueType === 'number'
-                                                        ? formatNumberOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 0)
-                                                        : item.valueType === 'percent'
-                                                            ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
-                                                            : item.valueType === 'currency'
-                                                                ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
-                                                                : item.valueType === 'datetime'
-                                                                    ? typeof item.value === 'string' && item.value
-                                                                        ? item.value
-                                                                        : 'ناموجود'
-                                                                    : typeof item.value === 'string'
-                                                                        ? item.value || 'ناموجود'
-                                                                        : 'ناموجود';
-
-                                                return (
-                                                    <div
-                                                        key={item.label}
-                                                        className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-3 px-3 py-3 text-xs transition hover:bg-surface-2/70"
-                                                    >
-                                                        <div className="min-w-0 text-muted">
-                                                            {item.label}
-                                                        </div>
-                                                        <div
-                                                            className="min-w-0 break-words text-left text-sm font-bold leading-6 tabular-nums text-text"
-                                                            dir={item.valueType === 'datetime' ? 'ltr' : undefined}
-                                                        >
-                                                            {displayValue}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+                                    <SymbolDetailsPanel
+                                        rows={symbolDetails}
+                                        loading={symbolLoading}
+                                        error={symbolError}
+                                        hasSymbolData={activeSymbolData !== null}
+                                        onRetry={refreshSymbolDetails}
+                                        formatNumber={(value, digits) =>
+                                            formatNumberOrDash(value, digits)
+                                        }
+                                        formatPercent={(value, digits) =>
+                                            formatPercentOrDash(value, digits)
+                                        }
+                                        formatCurrency={(value) => formatNumberWithUnit(value, 'ریال')}
+                                    />
                                 )}
+                                </div>
                             </section>
 
                             <div className="hidden md:block md:col-span-1 xl:col-span-3">
@@ -4040,7 +3958,7 @@ export default function TradingDashboard({
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{order.averageExecutedPrice ? formatNumberFa(order.averageExecutedPrice) : '—'}</td>
-                                                        <td className="px-3 py-3 text-muted">{order.time}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-muted" dir="ltr">{order.time}</td>
                                                         <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
@@ -4099,7 +4017,7 @@ export default function TradingDashboard({
                                                         className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
                                                     >
                                                         <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
-                                                        <td className="px-3 py-3 text-muted">{row.time}</td>
+                                                        <td className="px-3 py-3 tabular-nums text-muted" dir="ltr">{row.time}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
@@ -4243,7 +4161,7 @@ export default function TradingDashboard({
                                                     ) : null}
                                                 </div>
 
-                                                <p className="mt-2 text-[11px] text-muted">{group.publishDateTime}</p>
+                                                <p className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">{formatDateTimeFa(group.publishDateTime)}</p>
                                             </article>
                                         );
                                     })}
@@ -4762,7 +4680,7 @@ export default function TradingDashboard({
 
                         <div className="thin-scrollbar max-h-[70vh] overflow-y-auto px-4 py-4">
                             <h4 className="text-2xl leading-10 font-extrabold text-text">{activeNoticeGroup.title}</h4>
-                            <p className="mt-1 text-[13px] text-muted">{activeNoticeGroup.publishDateTime}</p>
+                            <p className="mt-1 text-[13px] tabular-nums text-muted" dir="ltr">{formatDateTimeFa(activeNoticeGroup.publishDateTime)}</p>
 
                             <div className="mt-3 flex flex-wrap items-center gap-2">
                                 {activeNoticeGroup.symbols.map((symbol) => (

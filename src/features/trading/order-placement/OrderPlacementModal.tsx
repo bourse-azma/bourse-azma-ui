@@ -104,7 +104,14 @@ export default function OrderPlacementModal({
                 className="relative flex max-h-[92vh] w-full max-w-[920px] flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-card"
             >
                 <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-                    <h3 className="text-base font-bold text-text">{headerTitle}</h3>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <h3 className="text-base font-bold text-text">{headerTitle}</h3>
+                        {!context.marketOpen ? (
+                            <span className="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
+                                بازار بسته
+                            </span>
+                        ) : null}
+                    </div>
                     <button
                         type="button"
                         onClick={onClose}

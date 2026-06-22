@@ -35,20 +35,38 @@ export type OrderBookPriceRange = {
     max: number;
 };
 
-const collectPositivePrices = (values: Array<number | null | undefined>): number[] =>
-    values.filter((price): price is number => price !== null && price !== undefined && price > 0);
+const collectQueuePrices = (
+    rows: SymbolOrderBookRow[],
+    side: 'bid' | 'ask'
+): number[] => {
+    const prices: number[] = [];
+    for (const row of rows) {
+        const price = side === 'bid' ? row.bidPrice : row.askPrice;
+        const volume = side === 'bid' ? row.bidVolume : row.askVolume;
+        if (price !== null && price !== undefined && price > 0 && (volume ?? 0) > 0) {
+            prices.push(price);
+        }
+    }
+    return prices;
+};
 
 export const getBidPriceRange = (rows: SymbolOrderBookRow[]): OrderBookPriceRange | null => {
-    const prices = collectPositivePrices(rows.map((row) => row.bidPrice));
+    const prices = collectQueuePrices(rows, 'bid');
     if (prices.length === 0) return null;
     return {min: Math.min(...prices), max: Math.max(...prices)};
 };
 
 export const getAskPriceRange = (rows: SymbolOrderBookRow[]): OrderBookPriceRange | null => {
-    const prices = collectPositivePrices(rows.map((row) => row.askPrice));
+    const prices = collectQueuePrices(rows, 'ask');
     if (prices.length === 0) return null;
     return {min: Math.min(...prices), max: Math.max(...prices)};
 };
+
+/** Both buy and sell queues must have at least one level with price and volume. */
+export const isOrderBookReady = (
+    bidPriceRange: OrderBookPriceRange | null,
+    askPriceRange: OrderBookPriceRange | null
+): boolean => bidPriceRange !== null && askPriceRange !== null;
 
 export const getOrderBookMaxVolumes = (rows: SymbolOrderBookRow[]) => {
     const maxAskVolume = rows.reduce((max, row) => Math.max(max, row.askVolume ?? 0), 0);
