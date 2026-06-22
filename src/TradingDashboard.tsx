@@ -40,7 +40,7 @@ import {usePeerGroup} from './features/symbol-search/usePeerGroup';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
-import PeerGroupPanel, {ORDERBOOK_SLOT_HEIGHT_CLASS} from './features/symbol-search/PeerGroupPanel';
+import PeerGroupPanel from './features/symbol-search/PeerGroupPanel';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import IndustriesTabContent from './features/industries/IndustriesTabContent';
@@ -80,7 +80,7 @@ type SidebarTab = 'watchlist' | 'industries' | 'wallet';
 type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
-type OrderFilter = 'open' | 'partial' | 'done' | 'cancelled' | 'failed' | 'all';
+type OrderFilter = 'open' | 'done' | 'cancelled' | 'failed' | 'all';
 type BottomPanelTab = 'orders' | 'portfolio';
 
 type DemoOrderRow = {
@@ -350,9 +350,17 @@ const formatCompactAmountFa = (value: number | null | undefined) => {
     return formatNumberFa(value);
 };
 
-const formatNumberWithUnit = (value: number | null | undefined, unit: string, digits = 0) => {
-    const formatted = formatNumberOrDash(value, digits);
-    return formatted === 'ناموجود' ? formatted : `${formatted} ${unit}`;
+const renderCurrencyValue = (value: number | null | undefined, unit = 'ریال', digits = 0) => {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return <span>ناموجود</span>;
+    }
+
+    return (
+        <span className="inline-flex max-w-full items-baseline gap-1 whitespace-nowrap [direction:ltr]">
+            <span className="min-w-0 overflow-hidden text-ellipsis">{formatNumberFa(value, digits)}</span>
+            <span className="shrink-0 text-[11px] font-semibold text-muted [direction:rtl]">{unit}</span>
+        </span>
+    );
 };
 
 const extractApiErrorMessage = (data: unknown, fallback: string) => {
@@ -2451,8 +2459,7 @@ export default function TradingDashboard({
     const filteredOrders = useMemo(() => {
         if (orderFilter === 'all') return demoOrders;
         const statusMap: Record<Exclude<OrderFilter, 'all'>, OrderStatusType[]> = {
-            open: ['REQUESTED', 'TRIGGER_PENDING'],
-            partial: ['PARTIALLY_FILLED'],
+            open: ['REQUESTED', 'TRIGGER_PENDING', 'PARTIALLY_FILLED'],
             done: ['COMPLETED'],
             cancelled: ['CANCELLED'],
             failed: ['FAILED'],
@@ -2968,11 +2975,7 @@ export default function TradingDashboard({
     const orderFilters: Array<{ key: OrderFilter; label: string }> = [
         {
             key: 'open',
-            label: `فعال ${formatNumberFa(demoOrders.filter((o) => o.status === 'REQUESTED' || o.status === 'TRIGGER_PENDING').length)}`
-        },
-        {
-            key: 'partial',
-            label: `اجرای جزئی ${formatNumberFa(demoOrders.filter((o) => o.status === 'PARTIALLY_FILLED').length)}`
+            label: `فعال ${formatNumberFa(demoOrders.filter((o) => o.status === 'REQUESTED' || o.status === 'TRIGGER_PENDING' || o.status === 'PARTIALLY_FILLED').length)}`
         },
         {
             key: 'done',
@@ -2999,12 +3002,6 @@ export default function TradingDashboard({
         {key: 'info', label: 'اطلاعات نماد'},
         {key: 'technical', label: 'تکنیکال'},
     ];
-
-    const orderbookTabCaption = {
-        peers: 'عملکرد نمادهای هم‌گروه در این بخش مقایسه می‌شود.',
-        info: 'جزییات سفارشات لحظه‌ای و عمق بازار نماد در این نما قرار دارد.',
-        technical: 'نمای تکنیکال در این تب به‌صورت خلاصه قابل نمایش است.',
-    };
 
     useEffect(() => {
         if (!profileMenuOpen) return;
@@ -3426,9 +3423,56 @@ export default function TradingDashboard({
                                             />
                                         ) : orderbookTab === 'technical' ? (
                                             <div
-                                                className={`flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} items-center justify-center rounded-2xl border border-dashed border-border/70 bg-surface-2 px-4 text-center text-xs text-muted`}
+                                                className="rounded-2xl border border-border/70 bg-surface-2 p-3"
                                             >
-                                                {orderbookTabCaption.technical}
+                                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                                    <div className="rounded-xl border border-border/60 bg-surface px-3 py-3">
+                                                        <div className="text-[11px] font-medium text-muted">آخرین قیمت</div>
+                                                        <div className="mt-1 text-lg font-extrabold tabular-nums text-text">
+                                                            {formatNumberOrDash(symbolPrice)}
+                                                        </div>
+                                                        <div
+                                                            className={`mt-0.5 text-xs font-semibold tabular-nums ${
+                                                                symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
+                                                            }`}
+                                                        >
+                                                            {formatPercentOrDash(symbolPercent)}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-xl border border-border/60 bg-surface px-3 py-3">
+                                                        <div className="text-[11px] font-medium text-muted">قیمت پایانی</div>
+                                                        <div className="mt-1 text-lg font-extrabold tabular-nums text-text">
+                                                            {formatNumberOrDash(activeSymbolData?.closePrice)}
+                                                        </div>
+                                                        <div
+                                                            className={`mt-0.5 text-xs font-semibold tabular-nums ${
+                                                                activeSymbolData?.closePricePercent === null || activeSymbolData?.closePricePercent === undefined
+                                                                    ? 'text-muted'
+                                                                    : activeSymbolData.closePricePercent >= 0
+                                                                        ? 'text-positive'
+                                                                        : 'text-negative'
+                                                            }`}
+                                                        >
+                                                            {formatPercentOrDash(activeSymbolData?.closePricePercent)}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-xl border border-border/60 bg-surface px-3 py-3">
+                                                        <div className="text-[11px] font-medium text-muted">بازه روز</div>
+                                                        <div className="mt-1 flex items-center justify-between gap-2 text-sm font-bold tabular-nums text-text">
+                                                            <span>{formatNumberOrDash(dailyMin)}</span>
+                                                            <span className="text-muted">تا</span>
+                                                            <span>{formatNumberOrDash(dailyMax)}</span>
+                                                        </div>
+                                                        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-border/45">
+                                                            <div
+                                                                className={`${symbolPositive ? 'bg-positive' : 'bg-negative'} h-full rounded-full`}
+                                                                style={{width: `${markerPercent}%`}}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ) : (
                                             <>
@@ -3779,10 +3823,10 @@ export default function TradingDashboard({
                                     </div>
                                 ) : (
                                     <div
-                                        className="thin-scrollbar mt-3 max-h-[336px] overflow-y-auto rounded-2xl border border-border/70 bg-surface shadow-sm">
+                                        className="mt-3 rounded-2xl border border-border/70 bg-surface p-2 shadow-sm">
                                         {symbolError && !activeSymbolData ? (
                                             <div
-                                                className="m-2 rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
+                                                className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
                                                 <div className="mb-2 flex items-center gap-2">
                                                     <AlertCircle className="h-4 w-4"/>
                                                     {symbolError}
@@ -3800,7 +3844,7 @@ export default function TradingDashboard({
                                         {symbolLoading && !activeSymbolData
                                             ? Array.from({length: 6}, (_, index) => (
                                                 <div key={`symbol-detail-skeleton-${index + 1}`}
-                                                     className="mx-2 mt-2 rounded-xl border border-border/60 bg-surface-2 px-3 py-3">
+                                                     className="mt-2 rounded-xl border border-border/60 bg-surface-2 px-3 py-3 first:mt-0">
                                                     <div className="mb-2 h-3 w-1/3 animate-pulse rounded bg-border/60"/>
                                                     <div className="h-4 w-1/2 animate-pulse rounded bg-border/45"/>
                                                 </div>
@@ -3809,18 +3853,19 @@ export default function TradingDashboard({
 
                                         {!symbolLoading && symbolDetails.length === 0 && !symbolError ? (
                                             <div
-                                                className="m-2 rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
+                                                className="rounded-xl border border-dashed border-border/70 bg-surface-2 px-3 py-4 text-center text-xs text-muted">
                                                 اطلاعات نماد موجود نیست.
                                             </div>
                                         ) : null}
 
                                         {symbolDetails.length > 0 ? (
-                                            <div className="sticky top-0 z-[1] border-b border-border/70 bg-surface-2 px-3 py-2 text-[11px] font-semibold text-muted">
-                                                اطلاعات معاملاتی
+                                            <div className="mb-2 flex items-center justify-between gap-2 px-1 text-[11px] font-semibold text-muted">
+                                                <span>اطلاعات معاملاتی</span>
+                                                <span>{formatNumberFa(symbolDetails.length)} مورد</span>
                                             </div>
                                         ) : null}
 
-                                        <div className="divide-y divide-border/60">
+                                        <div className="thin-scrollbar grid max-h-[336px] grid-cols-1 gap-2 overflow-y-auto pl-1">
                                             {symbolDetails.map((item) => {
                                                 const displayValue =
                                                     item.valueType === 'number'
@@ -3828,7 +3873,7 @@ export default function TradingDashboard({
                                                         : item.valueType === 'percent'
                                                             ? formatPercentOrDash(typeof item.value === 'number' ? item.value : null, item.digits ?? 2)
                                                             : item.valueType === 'currency'
-                                                                ? formatNumberWithUnit(typeof item.value === 'number' ? item.value : null, 'ریال')
+                                                                ? renderCurrencyValue(typeof item.value === 'number' ? item.value : null)
                                                                 : item.valueType === 'datetime'
                                                                     ? typeof item.value === 'string' && item.value
                                                                         ? item.value
@@ -3840,13 +3885,13 @@ export default function TradingDashboard({
                                                 return (
                                                     <div
                                                         key={item.label}
-                                                        className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] items-center gap-3 px-3 py-3 text-xs transition hover:bg-surface-2/70"
+                                                        className="rounded-xl border border-border/60 bg-surface-2 px-3 py-2.5 transition hover:border-primary/25 hover:bg-surface"
                                                     >
-                                                        <div className="min-w-0 text-muted">
+                                                        <div className="text-[11px] font-medium text-muted">
                                                             {item.label}
                                                         </div>
                                                         <div
-                                                            className="min-w-0 break-words text-left text-sm font-bold leading-6 tabular-nums text-text"
+                                                            className="mt-1 flex min-w-0 justify-end overflow-hidden text-left text-[13px] font-bold leading-6 tabular-nums text-text sm:text-sm"
                                                             dir={item.valueType === 'datetime' ? 'ltr' : undefined}
                                                         >
                                                             {displayValue}
@@ -4088,8 +4133,9 @@ export default function TradingDashboard({
                                                         <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
                                                         <td className="px-3 py-3">
                                                             <div className="flex flex-col gap-1">
-                                                                <span
-                                                                    className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
+                                                                <span className="font-bold tabular-nums text-text">
+                                                                    {renderCurrencyValue(netValue)}
+                                                                </span>
                                                                 <span
                                                                     className={`text-[11px] font-semibold tabular-nums ${
                                                                         gainPercent === null

@@ -40,6 +40,7 @@ const percentClassName = (value: number | null | undefined) => {
 };
 
 const panelShellClass = `flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface-2`;
+const compactPanelShellClass = 'flex min-h-[168px] flex-col overflow-hidden rounded-2xl border border-border/70 bg-surface-2';
 
 const headerCellClass = 'px-1.5 py-2 text-center text-[11px] font-medium text-muted';
 const bodyCellClass = 'flex items-center justify-center px-1.5 py-2 tabular-nums';
@@ -76,10 +77,10 @@ export default function PeerGroupPanel({
                                        }: PeerGroupPanelProps) {
     if (loading && rows.length === 0) {
         return (
-            <div className={`${panelShellClass} animate-pulse p-4`}>
+            <div className={`${compactPanelShellClass} animate-pulse p-4`}>
                 <div className="mb-3 h-4 w-40 rounded bg-border/60"/>
                 <div className="flex-1 space-y-2">
-                    {Array.from({length: 8}).map((_, index) => (
+                    {Array.from({length: 3}).map((_, index) => (
                         <div key={index} className="h-8 rounded bg-border/45"/>
                     ))}
                 </div>
@@ -89,7 +90,7 @@ export default function PeerGroupPanel({
 
     if (error && rows.length === 0) {
         return (
-            <div className={`${panelShellClass} items-center justify-center px-4 text-center text-xs text-negative`}>
+            <div className={`${compactPanelShellClass} items-center justify-center px-4 text-center text-xs text-negative`}>
                 <p className="font-medium">{error}</p>
                 <button
                     type="button"
@@ -104,7 +105,7 @@ export default function PeerGroupPanel({
 
     if (rows.length === 0) {
         return (
-            <div className={`${panelShellClass} items-center justify-center px-4 text-center text-xs text-muted`}>
+            <div className={`${compactPanelShellClass} items-center justify-center px-4 text-center text-xs text-muted`}>
                 نماد هم‌گروهی برای نمایش موجود نیست.
             </div>
         );
