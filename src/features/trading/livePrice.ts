@@ -15,3 +15,17 @@ export const resolveLivePriceFromClosing = (closing: TsetmcClosingPriceInfo | nu
 
     return null;
 };
+
+export const resolveLivePricePercentFromClosing = (
+    closing: TsetmcClosingPriceInfo | null | undefined
+): number | null => {
+    if (!closing) return null;
+
+    const previousClose = closing.previousClosingPrice;
+    if (previousClose === null || previousClose === 0) return null;
+
+    const livePrice = resolveLivePriceFromClosing(closing);
+    if (livePrice === null) return null;
+
+    return ((livePrice - previousClose) / previousClose) * 100;
+};

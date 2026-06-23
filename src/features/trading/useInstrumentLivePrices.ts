@@ -1,7 +1,7 @@
 import {useEffect, useMemo, useState} from 'react';
 import {appConfig} from '../../config/appConfig';
 import {getTsetmcClosingPriceInfo} from '../symbol-search/api';
-import {resolveLivePriceFromClosing} from './livePrice';
+import {resolveLivePriceFromClosing, resolveLivePricePercentFromClosing} from './livePrice';
 
 const normalizeInstrumentCode = (value: string) => value.trim();
 
@@ -18,10 +18,12 @@ export const useInstrumentLivePrices = (instrumentCodes: string[]) => {
     }, [instrumentCodes]);
 
     const [prices, setPrices] = useState<Record<string, number | null>>({});
+    const [changePercents, setChangePercents] = useState<Record<string, number | null>>({});
 
     useEffect(() => {
         if (uniqueCodes.length === 0) {
             setPrices({});
+            setChangePercents({});
             return;
         }
 
@@ -37,7 +39,11 @@ export const useInstrumentLivePrices = (instrumentCodes: string[]) => {
                 const entries = await Promise.all(
                     uniqueCodes.map(async (instrumentCode) => {
                         const closing = await getTsetmcClosingPriceInfo(instrumentCode, controller.signal).catch(() => null);
-                        return [instrumentCode, resolveLivePriceFromClosing(closing)] as const;
+                        return [
+                            instrumentCode,
+                            resolveLivePriceFromClosing(closing),
+                            resolveLivePricePercentFromClosing(closing),
+                        ] as const;
                     })
                 );
 
@@ -47,6 +53,13 @@ export const useInstrumentLivePrices = (instrumentCodes: string[]) => {
                     const next = {...prev};
                     for (const [instrumentCode, livePrice] of entries) {
                         next[instrumentCode] = livePrice;
+                    }
+                    return next;
+                });
+                setChangePercents((prev) => {
+                    const next = {...prev};
+                    for (const [instrumentCode, , changePercent] of entries) {
+                        next[instrumentCode] = changePercent;
                     }
                     return next;
                 });
@@ -79,5 +92,5 @@ export const useInstrumentLivePrices = (instrumentCodes: string[]) => {
         };
     }, [uniqueCodes]);
 
-    return prices;
+    return {prices, changePercents};
 };

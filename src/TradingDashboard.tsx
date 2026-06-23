@@ -232,7 +232,7 @@ type WatchlistModalState =
     originalName: string;
 };
 
-const WATCHLIST_TABLE_GRID = 'grid grid-cols-[minmax(0,1fr)_5.25rem_4.5rem] items-center gap-x-2';
+const WATCHLIST_TABLE_GRID = 'grid grid-cols-[minmax(0,1fr)_4.75rem_4rem_4.5rem] items-center gap-x-2';
 
 type WatchlistToast = {
     id: number;
@@ -1558,6 +1558,7 @@ function WatchlistPanel({
                             watchlistBusy,
                             currentSymbolLabel,
                             resolveLivePrice,
+                            resolveLivePriceChange,
                             userProfile,
                             accountSummary,
                             accessToken,
@@ -1580,6 +1581,7 @@ function WatchlistPanel({
     watchlistBusy: boolean;
     currentSymbolLabel: string;
     resolveLivePrice: (instrumentCode: string | null | undefined) => number | null;
+    resolveLivePriceChange: (instrumentCode: string | null | undefined) => number | null;
     userProfile?: UserProfile;
     accountSummary: AccountSummary;
     accessToken: string;
@@ -1830,6 +1832,7 @@ function WatchlistPanel({
                             className={`${WATCHLIST_TABLE_GRID} border-b border-border/70 bg-surface-2 px-3 py-2.5 text-[11px] font-semibold text-muted`}>
                             <span>نام نماد</span>
                             <span className="text-center">قیمت لحظه‌ای</span>
+                            <span className="text-center">تغییر</span>
                             <span className="text-center">عملیات</span>
                         </header>
 
@@ -1859,6 +1862,8 @@ function WatchlistPanel({
                             <div className="thin-scrollbar max-h-[245px] overflow-y-auto">
                                 {selectedWatchlist.symbols.map((symbol) => {
                                     const livePrice = resolveLivePrice(symbol.instrumentCode);
+                                    const changePercent = resolveLivePriceChange(symbol.instrumentCode);
+                                    const isPositive = changePercent !== null && changePercent >= 0;
                                     return (
                                         <div
                                             key={symbol.id}
@@ -1882,6 +1887,17 @@ function WatchlistPanel({
                                             </button>
                                             <span className="text-center tabular-nums text-text">
                                                 {formatNumberOrDash(livePrice)}
+                                            </span>
+                                            <span
+                                                className={`text-center text-[11px] font-semibold tabular-nums ${
+                                                    changePercent === null
+                                                        ? 'text-muted'
+                                                        : isPositive
+                                                            ? 'text-positive'
+                                                            : 'text-negative'
+                                                }`}
+                                            >
+                                                {formatPercentOrDash(changePercent)}
                                             </span>
                                             <div className="flex items-center justify-center gap-1">
                                                 <button
@@ -2338,7 +2354,8 @@ export default function TradingDashboard({
         ],
         [portfolioHoldings, selectedWatchlist, tradingOrders]
     );
-    const instrumentLivePrices = useInstrumentLivePrices(tradingInstrumentCodes);
+    const {prices: instrumentLivePrices, changePercents: instrumentLiveChangePercents} =
+        useInstrumentLivePrices(tradingInstrumentCodes);
 
     const resolveDisplayLivePrice = useCallback(
         (instrumentCode: string | null | undefined) => {
@@ -2358,6 +2375,26 @@ export default function TradingDashboard({
             return null;
         },
         [activeSymbol.instrumentCode, instrumentLivePrices, symbolPrice]
+    );
+
+    const resolveDisplayLivePriceChange = useCallback(
+        (instrumentCode: string | null | undefined) => {
+            const normalized = (instrumentCode ?? '').trim();
+            if (normalized === '') return null;
+
+            const cachedChange = instrumentLiveChangePercents[normalized];
+            if (cachedChange !== null && cachedChange !== undefined) {
+                return cachedChange;
+            }
+
+            const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+            if (normalized === activeInstrumentCode) {
+                return symbolPercent;
+            }
+
+            return null;
+        },
+        [activeSymbol.instrumentCode, instrumentLiveChangePercents, symbolPercent]
     );
 
     const favoriteButtonTitle = selectedWatchlist
@@ -3802,6 +3839,7 @@ export default function TradingDashboard({
                                     watchlistBusy={watchlistBusy}
                                     currentSymbolLabel={selectedSymbol.symbol}
                                     resolveLivePrice={resolveDisplayLivePrice}
+                                    resolveLivePriceChange={resolveDisplayLivePriceChange}
                                     userProfile={userProfile}
                                     accountSummary={accountSummary}
                                     accessToken={accessToken}
@@ -4374,6 +4412,7 @@ export default function TradingDashboard({
                             watchlistBusy={watchlistBusy}
                             currentSymbolLabel={selectedSymbol.symbol}
                             resolveLivePrice={resolveDisplayLivePrice}
+                            resolveLivePriceChange={resolveDisplayLivePriceChange}
                             userProfile={userProfile}
                             accountSummary={accountSummary}
                             accessToken={accessToken}
