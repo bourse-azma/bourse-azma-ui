@@ -322,7 +322,6 @@ const firstNonMissingString = (...values: Array<string | null | undefined>) => {
 const toDetailRows = (input: {
     source: 'market' | 'fund';
     tradeVolume: number | null;
-    baseVolume: number | null;
     tradeValue: number | null;
     marketValue: number | null;
     lastTradeAt: string | null;
@@ -334,7 +333,6 @@ const toDetailRows = (input: {
 }): SymbolDetailRow[] => {
     const commonRows: SymbolDetailRow[] = [
         {label: 'حجم معاملات', value: input.tradeVolume, valueType: 'number'},
-        {label: 'حجم مبنا', value: input.baseVolume, valueType: 'number'},
         {label: 'ارزش معاملات', value: input.tradeValue, valueType: 'currency'},
         {label: 'زمان آخرین معامله', value: input.lastTradeAt, valueType: 'datetime'},
     ];
@@ -348,9 +346,9 @@ const toDetailRows = (input: {
     }
 
     return [
-        ...commonRows.slice(0, 3),
+        ...commonRows.slice(0, 2),
         {label: 'ارزش بازار', value: input.marketValue, valueType: 'currency'},
-        commonRows[3],
+        commonRows[2],
         {label: 'EPS', value: input.eps, valueType: 'number'},
         {label: 'P/E', value: input.pe, valueType: 'number', digits: 2},
         {label: 'گروه P/E', value: input.groupPe, valueType: 'number', digits: 2},
@@ -429,11 +427,6 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         tsetmcClosing?.tradeValue,
         pickSnapshotNumber(snapshot, 'transaction', 'transactionValue')
     );
-    const baseVolume = firstNonNullNumber(
-        tsetmcInfo?.baseVolume,
-        pickSnapshotNumber(snapshot, 'instrument', 'baseVol', 'baseVolume')
-    );
-
     const totalShares = firstNonNullNumber(
         tsetmcInfo?.totalShares,
         pickSnapshotNumber(snapshot, 'instrument', 'totalShares', 'shareCount', 'zTitad')
@@ -548,7 +541,6 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         tradeCount,
         tradeVolume,
         tradeValue,
-        baseVolume,
         marketValue,
         navCancel,
         navAnnouncementAt,
@@ -558,7 +550,6 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         detailRows: toDetailRows({
             source,
             tradeVolume,
-            baseVolume,
             tradeValue,
             marketValue,
             lastTradeAt,

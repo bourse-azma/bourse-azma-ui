@@ -242,7 +242,6 @@ export type SymbolDetailsViewModel = {
     tradeCount: number | null;
     tradeVolume: number | null;
     tradeValue: number | null;
-    baseVolume: number | null;
     marketValue: number | null;
     navCancel: number | null;
     navAnnouncementAt: string | null;
