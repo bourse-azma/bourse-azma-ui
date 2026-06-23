@@ -195,6 +195,10 @@ export type TsetmcMostVisitedInstrument = {
     instrumentCode: string | null;
     symbol: string | null;
     fullName: string | null;
+    closingPrice: number | null;
+    previousClosingPrice: number | null;
+    priceChange: number | null;
+    lastTradePrice: number | null;
     tradeCount: number | null;
     tradeVolume: number | null;
     tradeValue: number | null;

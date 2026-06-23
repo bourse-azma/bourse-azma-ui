@@ -31,6 +31,7 @@ type RequiredEnvKey =
     | 'VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'
     | 'VITE_TSETMC_ETF_INFO_REFRESH_MS'
     | 'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
+    | 'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
     | 'VITE_TRADING_ORDERS_REFRESH_MS'
     | 'VITE_API_ERROR_RETRY_MS';
 
@@ -107,6 +108,10 @@ export const appConfig = Object.freeze({
     tsetmcRelatedCompaniesRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'),
         'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
+    ),
+    tsetmcMostVisitedRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_TSETMC_MOST_VISITED_REFRESH_MS'),
+        'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
     ),
     tradingOrdersRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TRADING_ORDERS_REFRESH_MS'),

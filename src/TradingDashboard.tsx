@@ -13,6 +13,7 @@ import {
     Eye,
     FileText,
     Filter,
+    Flame,
     Loader2,
     MessageSquare,
     Moon,
@@ -50,6 +51,7 @@ import {formatDateTimeFa, toEnglishDigits} from './utils/formatDateTime';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import IndustriesTabContent from './features/industries/IndustriesTabContent';
+import PopularSymbolsTabContent from './features/popular-symbols/PopularSymbolsTabContent';
 import {type AccountSummary, computeAccountSummary} from './features/trading/accountSummary';
 import {
     cancelTradingOrder,
@@ -82,7 +84,7 @@ import {
     type Watchlist,
 } from './features/watchlist/api';
 
-type SidebarTab = 'watchlist' | 'industries' | 'wallet';
+type SidebarTab = 'watchlist' | 'popular' | 'industries' | 'wallet';
 type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
@@ -1557,6 +1559,7 @@ function WatchlistPanel({
                             onToggleCurrentSymbol,
                             watchlistBusy,
                             currentSymbolLabel,
+                            currentSymbolKey,
                             resolveLivePrice,
                             resolveLivePriceChange,
                             userProfile,
@@ -1580,6 +1583,7 @@ function WatchlistPanel({
     onToggleCurrentSymbol: () => void;
     watchlistBusy: boolean;
     currentSymbolLabel: string;
+    currentSymbolKey: string | null;
     resolveLivePrice: (instrumentCode: string | null | undefined) => number | null;
     resolveLivePriceChange: (instrumentCode: string | null | undefined) => number | null;
     userProfile?: UserProfile;
@@ -1610,11 +1614,12 @@ function WatchlistPanel({
         activeTab === 'watchlist'
             ? 'جهت ساخت دیده‌بان، دکمه زیر را انتخاب کنید.'
             : 'برای شروع، یک صنعت از لیست بالا انتخاب کنید.';
+    const showWatchlistContent = activeTab === 'watchlist';
 
     return (
         <aside className={`${cardClass} w-full min-w-0 p-3`}>
             <div className="mb-3 border-b border-border/70 pb-2">
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                     <button
                         type="button"
                         onClick={() => onTabChange('watchlist')}
@@ -1625,6 +1630,20 @@ function WatchlistPanel({
                         <Bell className="h-3.5 w-3.5"/>
                         دیده‌بان
                         {activeTab === 'watchlist' ? (
+                            <span className="absolute inset-x-0 -bottom-[8px] h-0.5 rounded-full bg-primary"/>
+                        ) : null}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onTabChange('popular')}
+                        className={`relative inline-flex items-center gap-1.5 rounded-lg px-1 py-1 transition ${
+                            activeTab === 'popular' ? 'text-text' : 'text-muted hover:text-text'
+                        }`}
+                    >
+                        <Flame className="h-3.5 w-3.5"/>
+                        پرطرفدار
+                        {activeTab === 'popular' ? (
                             <span className="absolute inset-x-0 -bottom-[8px] h-0.5 rounded-full bg-primary"/>
                         ) : null}
                     </button>
@@ -1659,6 +1678,13 @@ function WatchlistPanel({
                 </div>
             </div>
 
+            {activeTab === 'popular' ? (
+                <PopularSymbolsTabContent
+                    activeSymbolKey={currentSymbolKey}
+                    onSelectSymbol={onSelectSymbol}
+                />
+            ) : null}
+
             {activeTab === 'industries' ? (
                 <IndustriesTabContent
                     accessToken={accessToken}
@@ -1675,14 +1701,14 @@ function WatchlistPanel({
                 />
             ) : null}
 
-            {activeTab === 'watchlist' && loading ? (
+            {showWatchlistContent && loading ? (
                 <div className="space-y-2">
                     <div className="h-10 animate-pulse rounded-xl border border-border/70 bg-surface-2"/>
                     <div className="h-[250px] animate-pulse rounded-xl border border-border/70 bg-surface-2"/>
                 </div>
             ) : null}
 
-            {activeTab === 'watchlist' && !loading && error ? (
+            {showWatchlistContent && !loading && error ? (
                 <div className="rounded-xl border border-negative/35 bg-negative/10 p-3 text-xs text-negative">
                     <div className="mb-2 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4"/>
@@ -1698,7 +1724,7 @@ function WatchlistPanel({
                 </div>
             ) : null}
 
-            {activeTab === 'watchlist' && !loading && !error && watchlists.length === 0 ? (
+            {showWatchlistContent && !loading && !error && watchlists.length === 0 ? (
                 <>
                     <button
                         type="button"
@@ -1732,7 +1758,7 @@ function WatchlistPanel({
                 </>
             ) : null}
 
-            {activeTab === 'watchlist' && !loading && !error && watchlists.length > 0 && selectedWatchlist ? (
+            {showWatchlistContent && !loading && !error && watchlists.length > 0 && selectedWatchlist ? (
                 <>
                     <div className="mb-3 flex items-center gap-2">
                         <div ref={dropdownRef} className="relative min-w-0 flex-1">
@@ -1970,6 +1996,11 @@ export default function TradingDashboard({
         setSelectedSymbolState(symbol);
         persistSelectedSymbol(symbol, loginEpoch);
     }, [loginEpoch]);
+    const handleSelectSymbol = useCallback((symbol: SymbolSearchSuggestion) => {
+        setPreviewSymbol(null);
+        setSelectedSymbol(symbol);
+        setDrawerOpen(false);
+    }, [setSelectedSymbol]);
     useEffect(() => {
         const stored = loadStoredSelectedSymbol(loginEpoch);
         if (stored) {
@@ -3440,7 +3471,7 @@ export default function TradingDashboard({
                                                 loading={peerGroupLoading}
                                                 error={peerGroupError}
                                                 onRetry={refreshPeerGroup}
-                                                onSelectSymbol={setSelectedSymbol}
+                                                onSelectSymbol={handleSelectSymbol}
                                                 formatNumber={formatOrderBookValue}
                                                 formatCompactAmount={formatCompactAmountFa}
                                                 formatPercent={formatPercentOrDash}
@@ -3833,11 +3864,12 @@ export default function TradingDashboard({
                                     onRequestCreateWatchlist={openCreateWatchlistModal}
                                     onRequestEditWatchlist={openEditWatchlistModal}
                                     onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
-                                    onSelectSymbol={setSelectedSymbol}
+                                    onSelectSymbol={handleSelectSymbol}
                                     onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
                                     onToggleCurrentSymbol={() => void handleToggleFavorite()}
                                     watchlistBusy={watchlistBusy}
                                     currentSymbolLabel={selectedSymbol.symbol}
+                                    currentSymbolKey={selectedSymbol.key}
                                     resolveLivePrice={resolveDisplayLivePrice}
                                     resolveLivePriceChange={resolveDisplayLivePriceChange}
                                     userProfile={userProfile}
@@ -4382,7 +4414,7 @@ export default function TradingDashboard({
                     <div
                         className="thin-scrollbar absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto border-l border-border/70 bg-surface p-3 shadow-card">
                         <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-text">دیده‌بان</h3>
+                            <h3 className="text-sm font-semibold text-text">پنل کناری</h3>
 
                             <button
                                 type="button"
@@ -4406,11 +4438,12 @@ export default function TradingDashboard({
                             onRequestCreateWatchlist={openCreateWatchlistModal}
                             onRequestEditWatchlist={openEditWatchlistModal}
                             onRequestDeleteWatchlist={(watchlistId) => void handleDeleteWatchlist(watchlistId)}
-                            onSelectSymbol={setSelectedSymbol}
+                            onSelectSymbol={handleSelectSymbol}
                             onRemoveSymbol={(symbolId) => void handleRemoveSymbolFromWatchlist(symbolId)}
                             onToggleCurrentSymbol={() => void handleToggleFavorite()}
                             watchlistBusy={watchlistBusy}
                             currentSymbolLabel={selectedSymbol.symbol}
+                            currentSymbolKey={selectedSymbol.key}
                             resolveLivePrice={resolveDisplayLivePrice}
                             resolveLivePriceChange={resolveDisplayLivePriceChange}
                             userProfile={userProfile}
