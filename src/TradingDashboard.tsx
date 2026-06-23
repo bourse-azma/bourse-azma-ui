@@ -91,6 +91,48 @@ type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'partial' | 'done' | 'cancelled' | 'failed' | 'all';
 type BottomPanelTab = 'orders' | 'portfolio';
 
+const collectLivePriceInstrumentCodes = ({
+                                             portfolioHoldings,
+                                             tradingOrders,
+                                             selectedWatchlist,
+                                             bottomPanelTab,
+                                             sidebarTab,
+                                             skipInstrumentCode,
+                                         }: {
+    portfolioHoldings: PortfolioHolding[];
+    tradingOrders: TradingOrder[];
+    selectedWatchlist: Watchlist | null;
+    bottomPanelTab: BottomPanelTab;
+    sidebarTab: SidebarTab;
+    skipInstrumentCode?: string | null;
+}) => {
+    const seen = new Set<string>();
+    const codes: string[] = [];
+    const skip = (skipInstrumentCode ?? '').trim();
+
+    const addCode = (code: string | null | undefined) => {
+        const normalized = (code ?? '').trim();
+        if (normalized === '' || normalized === skip || seen.has(normalized)) {
+            return;
+        }
+        seen.add(normalized);
+        codes.push(normalized);
+    };
+
+    // Footer account summary always needs portfolio live prices on the market view.
+    portfolioHoldings.forEach((holding) => addCode(holding.instrumentCode));
+
+    if (bottomPanelTab === 'orders') {
+        tradingOrders.forEach((order) => addCode(order.instrumentCode));
+    }
+
+    if (sidebarTab === 'watchlist') {
+        selectedWatchlist?.symbols.forEach((item) => addCode(item.instrumentCode));
+    }
+
+    return codes;
+};
+
 type DemoOrderRow = {
     id: number;
     type: 'buy' | 'sell';
@@ -577,10 +619,14 @@ export function useClock() {
     return now;
 }
 
-function useMarketOverview(marketId: '1' | '2') {
+function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
     const [data, setData] = useState<MarketOverviewResult | null>(null);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         let timer = 0;
         let active = true;
 
@@ -623,7 +669,7 @@ function useMarketOverview(marketId: '1' | '2') {
             active = false;
             window.clearTimeout(timer);
         };
-    }, [marketId]);
+    }, [enabled, marketId]);
 
     return data;
 }
@@ -1978,17 +2024,6 @@ export default function TradingDashboard({
     const clock = useClock();
     const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
-    const bourseOverview = useMarketOverview('1');
-    const farabourseOverview = useMarketOverview('2');
-
-    const marketIndex = bourseOverview?.indexValue ?? null;
-    const marketDelta = bourseOverview?.indexChange ?? null;
-    const farabourseIndex = farabourseOverview?.indexValue ?? null;
-    const farabourseDelta = farabourseOverview?.indexChange ?? null;
-
-    const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
-    const isMarketOpen =
-        bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز';
     const [selectedSymbol, setSelectedSymbolState] = useState<SymbolSearchSuggestion>(
         () => loadStoredSelectedSymbol(loginEpoch) ?? DEFAULT_SELECTED_SYMBOL
     );
@@ -2012,27 +2047,46 @@ export default function TradingDashboard({
         persistSelectedSymbol(randomSymbol, loginEpoch);
         setSelectedSymbolState(randomSymbol);
     }, [loginEpoch]);
-    const [previewSymbol, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
-    const activeSymbol = previewSymbol ?? selectedSymbol;
+    const [, setPreviewSymbol] = useState<SymbolSearchSuggestion | null>(null);
+    const [orderbookTab, setOrderbookTab] = useState<OrderbookTab>('info');
+    const [symbolTab, setSymbolTab] = useState<SymbolTab>('details');
+    const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
+    const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
+    const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('orders');
+    const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
+
+    const isMarketViewActive = mainNavTab === 'بازار';
+
     const {
         data: activeSymbolData,
         loading: symbolLoading,
         error: symbolError,
         refresh: refreshSymbolDetails,
-    } = useSymbolDetails(activeSymbol);
+    } = useSymbolDetails(selectedSymbol, {
+        enabled: isMarketViewActive,
+        includeDetailSources: isMarketViewActive && symbolTab === 'details',
+        includeClientType: isMarketViewActive && orderbookTab === 'info',
+    });
 
-    const [orderbookTab, setOrderbookTab] = useState<OrderbookTab>('info');
     const {
         rows: peerGroupRows,
         sectorName: peerGroupSectorName,
         loading: peerGroupLoading,
         error: peerGroupError,
         refresh: refreshPeerGroup,
-    } = usePeerGroup(activeSymbol.instrumentCode, orderbookTab === 'peers');
-    const [symbolTab, setSymbolTab] = useState<SymbolTab>('details');
-    const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
-    const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
-    const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('orders');
+    } = usePeerGroup(selectedSymbol.instrumentCode, isMarketViewActive && orderbookTab === 'peers');
+
+    const bourseOverview = useMarketOverview('1', isMarketViewActive);
+    const farabourseOverview = useMarketOverview('2', isMarketViewActive);
+
+    const marketIndex = bourseOverview?.indexValue ?? null;
+    const marketDelta = bourseOverview?.indexChange ?? null;
+    const farabourseIndex = farabourseOverview?.indexValue ?? null;
+    const farabourseDelta = farabourseOverview?.indexChange ?? null;
+
+    const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
+    const isMarketOpen =
+        bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز';
     const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
     const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
     const [tradingAccountLoading, setTradingAccountLoading] = useState(true);
@@ -2059,7 +2113,6 @@ export default function TradingDashboard({
     const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
     const [watchlistBusy, setWatchlistBusy] = useState(false);
     const [watchlistToast, setWatchlistToast] = useState<WatchlistToast | null>(null);
-    const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
     const [orderModalSide, setOrderModalSide] = useState<OrderSide | null>(null);
 
     const showWatchlistToast = useCallback((
@@ -2323,7 +2376,10 @@ export default function TradingDashboard({
         error: codalNoticesError,
         loadMore: loadMoreCodalNotices,
         refresh: refreshCodalNotices,
-    } = useCodalNotices(codalQuery);
+    } = useCodalNotices(codalQuery, {
+        enabled: isMarketViewActive,
+        autoRefresh: isMarketViewActive,
+    });
 
     const noticeSymbolQuery = noticeFilterDraft.symbol.trim();
     const {
@@ -2352,7 +2408,7 @@ export default function TradingDashboard({
 
     useEffect(() => {
         setSymbolTab('details');
-    }, [activeSymbol.symbol]);
+    }, [selectedSymbol.symbol]);
 
     const marketPercent = useMemo(
         () =>
@@ -2378,15 +2434,30 @@ export default function TradingDashboard({
     const isSymbolInSelectedWatchlist = selectedWatchlistSymbol !== null;
 
     const tradingInstrumentCodes = useMemo(
-        () => [
-            ...tradingOrders.map((order) => order.instrumentCode),
-            ...portfolioHoldings.map((holding) => holding.instrumentCode),
-            ...(selectedWatchlist?.symbols.map((symbol) => symbol.instrumentCode ?? '') ?? []),
-        ],
-        [portfolioHoldings, selectedWatchlist, tradingOrders]
+        () =>
+            isMarketViewActive
+                ? collectLivePriceInstrumentCodes({
+                    portfolioHoldings,
+                    tradingOrders,
+                    selectedWatchlist: selectedWatchlist ?? null,
+                    bottomPanelTab,
+                    sidebarTab,
+                    skipInstrumentCode: selectedSymbol.instrumentCode,
+                })
+                : [],
+        [
+            bottomPanelTab,
+            isMarketViewActive,
+            portfolioHoldings,
+            selectedSymbol.instrumentCode,
+            selectedWatchlist,
+            sidebarTab,
+            tradingOrders,
+        ]
     );
+
     const {prices: instrumentLivePrices, changePercents: instrumentLiveChangePercents} =
-        useInstrumentLivePrices(tradingInstrumentCodes);
+        useInstrumentLivePrices(tradingInstrumentCodes, isMarketViewActive);
 
     const resolveDisplayLivePrice = useCallback(
         (instrumentCode: string | null | undefined) => {
@@ -2398,14 +2469,14 @@ export default function TradingDashboard({
                 return cachedPrice;
             }
 
-            const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+            const activeInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
             if (normalized === activeInstrumentCode) {
                 return symbolPrice;
             }
 
             return null;
         },
-        [activeSymbol.instrumentCode, instrumentLivePrices, symbolPrice]
+        [selectedSymbol.instrumentCode, instrumentLivePrices, symbolPrice]
     );
 
     const resolveDisplayLivePriceChange = useCallback(
@@ -2418,14 +2489,14 @@ export default function TradingDashboard({
                 return cachedChange;
             }
 
-            const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+            const activeInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
             if (normalized === activeInstrumentCode) {
                 return symbolPercent;
             }
 
             return null;
         },
-        [activeSymbol.instrumentCode, instrumentLiveChangePercents, symbolPercent]
+        [selectedSymbol.instrumentCode, instrumentLiveChangePercents, symbolPercent]
     );
 
     const favoriteButtonTitle = selectedWatchlist
@@ -2462,8 +2533,8 @@ export default function TradingDashboard({
 
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
-    const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(activeSymbol.type);
-    const activeSymbolSummary = [activeSymbol.symbol, activeSymbol.name, marketLabel].filter(Boolean).join(' - ');
+    const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(selectedSymbol.type);
+    const activeSymbolSummary = [selectedSymbol.symbol, selectedSymbol.name, marketLabel].filter(Boolean).join(' - ');
     const demoOrders = useMemo<DemoOrderRow[]>(
         () =>
             tradingOrders.map((order) => ({
@@ -2514,9 +2585,9 @@ export default function TradingDashboard({
             }),
         [portfolioHoldings, resolveDisplayLivePrice]
     );
-    const tsetmcInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+    const tsetmcInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
     const tsetmcSymbolUrl = tsetmcInstrumentCode ? `https://www.tsetmc.com/instInfo/${encodeURIComponent(tsetmcInstrumentCode)}` : null;
-    const codalSymbol = activeSymbol.symbol.trim();
+    const codalSymbol = selectedSymbol.symbol.trim();
     const symbolCodalQuery = useMemo<CodalNoticesQuery>(
         () => ({
             ...DEFAULT_CODAL_NOTICE_QUERY,
@@ -2525,7 +2596,7 @@ export default function TradingDashboard({
         }),
         [codalSymbol]
     );
-    const symbolNoticesEnabled = codalSymbol !== '' && symbolTab === 'notices';
+    const symbolNoticesEnabled = codalSymbol !== '' && isMarketViewActive && symbolTab === 'notices';
     const {
         notices: symbolCodalNotices,
         totalCount: symbolCodalNoticesTotalCount,
@@ -2646,6 +2717,10 @@ export default function TradingDashboard({
     }, [accessToken, loadTradingAccount, onProfileUpdated, userProfile?.id]);
 
     useEffect(() => {
+        if (!isMarketViewActive) {
+            return;
+        }
+
         let timer: number | undefined;
 
         const tick = async () => {
@@ -2659,9 +2734,9 @@ export default function TradingDashboard({
                 window.clearTimeout(timer);
             }
         };
-    }, [refreshAccountStatus]);
+    }, [isMarketViewActive, refreshAccountStatus]);
 
-    const activeInstrumentCode = activeSymbol.instrumentCode?.trim() ?? '';
+    const activeInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
 
     const orderLivePrice = symbolPrice ?? activeSymbolData?.closePrice ?? null;
 
@@ -2686,16 +2761,16 @@ export default function TradingDashboard({
 
     const orderSymbolContext = useMemo<OrderSymbolContext>(
         () => ({
-            symbol: activeSymbol.symbol,
-            instrumentCode: activeSymbol.instrumentCode,
-            name: activeSymbolData?.subtitle || activeSymbol.name,
+            symbol: selectedSymbol.symbol,
+            instrumentCode: selectedSymbol.instrumentCode,
+            name: activeSymbolData?.subtitle || selectedSymbol.name,
             lastPrice: symbolPrice,
             closePrice: activeSymbolData?.closePrice ?? null,
             changePercent: activeSymbolData?.lastPricePercent ?? null,
             tradeVolume: activeSymbolData?.tradeVolume ?? null,
             tradeCount: activeSymbolData?.tradeCount ?? null,
         }),
-        [activeSymbol.instrumentCode, activeSymbol.name, activeSymbol.symbol, activeSymbolData, symbolPrice]
+        [selectedSymbol.instrumentCode, selectedSymbol.name, selectedSymbol.symbol, activeSymbolData, symbolPrice]
     );
 
     const orderValidationContext = useMemo(
@@ -3467,7 +3542,7 @@ export default function TradingDashboard({
                                             <PeerGroupPanel
                                                 rows={peerGroupRows}
                                                 sectorName={peerGroupSectorName}
-                                                activeSymbol={activeSymbol.symbol}
+                                                activeSymbol={selectedSymbol.symbol}
                                                 loading={peerGroupLoading}
                                                 error={peerGroupError}
                                                 onRetry={refreshPeerGroup}
@@ -3596,10 +3671,10 @@ export default function TradingDashboard({
                                             <div className="flex items-center gap-2">
                                         <span
                                             className={`h-2.5 w-2.5 rounded-full ${symbolPositive ? 'bg-positive' : 'bg-negative'}`}/>
-                                                <h2 className="text-base font-semibold text-text">{activeSymbolData?.title ?? activeSymbol.symbol}</h2>
+                                                <h2 className="text-base font-semibold text-text">{activeSymbolData?.title ?? selectedSymbol.symbol}</h2>
                                             </div>
                                             <span
-                                                className="text-xs text-muted">{activeSymbolData?.subtitle ?? activeSymbol.name}</span>
+                                                className="text-xs text-muted">{activeSymbolData?.subtitle ?? selectedSymbol.name}</span>
                                         </div>
 
                                         <div className="mb-3 flex items-center gap-2">
@@ -3619,7 +3694,7 @@ export default function TradingDashboard({
                     </span>
                                             )}
 
-                                            {(activeSymbolData?.exchangeBadge || activeSymbol.type !== 'UNKNOWN') && (
+                                            {(activeSymbolData?.exchangeBadge || selectedSymbol.type !== 'UNKNOWN') && (
                                                 tsetmcSymbolUrl ? (
                                                     <a
                                                         href={tsetmcSymbolUrl}
@@ -3627,12 +3702,12 @@ export default function TradingDashboard({
                                                         rel="noopener noreferrer"
                                                         className="rounded-full border border-border/60 bg-surface px-2.5 py-1 text-[11px] font-medium text-muted transition hover:border-primary/40 hover:text-text"
                                                     >
-                                                        {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
+                                                        {activeSymbolData?.exchangeBadge || toExchangeBadge(selectedSymbol.type)}
                                                     </a>
                                                 ) : (
                                                     <span
                                                         className="rounded-full bg-surface px-2.5 py-1 text-[11px] font-medium text-muted border border-border/60">
-                          {activeSymbolData?.exchangeBadge || toExchangeBadge(activeSymbol.type)}
+                          {activeSymbolData?.exchangeBadge || toExchangeBadge(selectedSymbol.type)}
                         </span>
                                                 )
                                             )}

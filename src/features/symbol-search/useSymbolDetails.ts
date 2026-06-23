@@ -1,4 +1,4 @@
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {appConfig} from '../../config/appConfig';
 import {
     getFipiranInstrumentSnapshot,
@@ -45,6 +45,12 @@ type RawDetailsSources = {
 type DetailCacheEntry = {
     raw: RawDetailsSources;
     data: SymbolDetailsViewModel;
+};
+
+export type UseSymbolDetailsOptions = {
+    enabled?: boolean;
+    includeClientType?: boolean;
+    includeDetailSources?: boolean;
 };
 
 const detailCache = new Map<string, DetailCacheEntry>();
@@ -121,40 +127,56 @@ const fetchFundSummary = async (
     return chooseFundSummary(symbol, results);
 };
 
-const fetchInitialRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSignal): Promise<RawDetailsSources> => {
+const fetchCoreRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSignal): Promise<Partial<RawDetailsSources>> => {
     if (!symbol.instrumentCode || !isMarketSymbol(symbol.type)) {
-        return emptyRaw();
+        return {};
     }
 
-    const needFund = isLikelyFundSymbol(symbol);
-
-    const [snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, tsetmcEtf, fundSummary] = await Promise.all([
-        getFipiranInstrumentSnapshot(symbol.instrumentCode, signal).catch(() => null),
-        getTsetmcClosingPriceInfo(symbol.instrumentCode, signal).catch(() => null),
-        getTsetmcInstrumentInfo(symbol.instrumentCode, signal).catch(() => null),
-        getTsetmcBestLimits(symbol.instrumentCode, signal)
+    const instrumentCode = symbol.instrumentCode;
+    const [snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits] = await Promise.all([
+        getFipiranInstrumentSnapshot(instrumentCode, signal).catch(() => null),
+        getTsetmcClosingPriceInfo(instrumentCode, signal).catch(() => null),
+        getTsetmcInstrumentInfo(instrumentCode, signal).catch(() => null),
+        getTsetmcBestLimits(instrumentCode, signal)
             .then((result) => result.orderBookLevels)
             .catch(() => null),
-        getTsetmcClientType(symbol.instrumentCode, signal).catch(() => null),
-        needFund ? getTsetmcEtfInfo(symbol.instrumentCode, signal).catch(() => null) : Promise.resolve(null),
-        needFund ? fetchFundSummary(symbol, signal).catch(() => null) : Promise.resolve(null),
+    ]);
+
+    return {snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits};
+};
+
+const fetchClientTypeRaw = async (
+    symbol: SymbolSearchSuggestion,
+    signal: AbortSignal
+): Promise<Partial<RawDetailsSources>> => {
+    if (!symbol.instrumentCode || !isMarketSymbol(symbol.type)) {
+        return {};
+    }
+
+    const tsetmcClientType = await getTsetmcClientType(symbol.instrumentCode, signal).catch(() => null);
+    return {tsetmcClientType};
+};
+
+const fetchDetailSourcesRaw = async (
+    symbol: SymbolSearchSuggestion,
+    signal: AbortSignal
+): Promise<Partial<RawDetailsSources>> => {
+    if (!symbol.instrumentCode || !isMarketSymbol(symbol.type) || !isLikelyFundSymbol(symbol)) {
+        return {};
+    }
+
+    const instrumentCode = symbol.instrumentCode;
+    const [tsetmcEtf, fundSummary] = await Promise.all([
+        getTsetmcEtfInfo(instrumentCode, signal).catch(() => null),
+        fetchFundSummary(symbol, signal).catch(() => null),
     ]);
 
     let fundDetails: FipiranFundDetails | null = null;
-    if (needFund && fundSummary?.registrationNumber) {
+    if (fundSummary?.registrationNumber) {
         fundDetails = await getFundDetails(fundSummary.registrationNumber, signal).catch(() => null);
     }
 
-    return {
-        snapshot,
-        tsetmcClosing,
-        tsetmcInfo,
-        tsetmcBestLimits,
-        tsetmcClientType,
-        tsetmcEtf,
-        fundSummary,
-        fundDetails,
-    };
+    return {tsetmcEtf, fundSummary, fundDetails};
 };
 
 const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
@@ -170,7 +192,64 @@ const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
         fundDetails: raw.fundDetails,
     });
 
-export const useSymbolDetails = (symbol: SymbolSearchSuggestion | null) => {
+type PollController = {
+    abort: () => void;
+};
+
+const startPoll = (
+    intervalMs: number,
+    task: (signal: AbortSignal) => Promise<void>,
+    isActive: () => boolean
+): PollController => {
+    const controllers = new Set<AbortController>();
+    const clearTimeouts: (() => void)[] = [];
+    let timeoutId: number;
+
+    const runWithController = async () => {
+        const controller = new AbortController();
+        controllers.add(controller);
+        let hasError = false;
+
+        try {
+            await task(controller.signal);
+        } catch (error) {
+            if (!controller.signal.aborted && !isAbortError(error)) {
+                hasError = true;
+            }
+        } finally {
+            controllers.delete(controller);
+        }
+
+        return hasError;
+    };
+
+    const tick = async () => {
+        if (!isActive()) return;
+        const hasError = await runWithController();
+        if (!isActive()) return;
+        timeoutId = window.setTimeout(tick, hasError ? appConfig.apiErrorRetryMs : intervalMs);
+    };
+
+    timeoutId = window.setTimeout(tick, intervalMs);
+    clearTimeouts.push(() => window.clearTimeout(timeoutId));
+
+    return {
+        abort: () => {
+            clearTimeouts.forEach((clear) => clear());
+            controllers.forEach((controller) => controller.abort());
+            controllers.clear();
+        },
+    };
+};
+
+export const useSymbolDetails = (
+    symbol: SymbolSearchSuggestion | null,
+    options?: UseSymbolDetailsOptions
+) => {
+    const enabled = options?.enabled ?? true;
+    const includeClientType = options?.includeClientType ?? true;
+    const includeDetailSources = options?.includeDetailSources ?? true;
+
     const [reloadToken, setReloadToken] = useState(0);
     const requestVersionRef = useRef(0);
     const rawRef = useRef<RawDetailsSources>(emptyRaw());
@@ -183,7 +262,41 @@ export const useSymbolDetails = (symbol: SymbolSearchSuggestion | null) => {
 
     const cacheKey = symbol?.key ?? null;
 
+    const applyRaw = useCallback(
+        (patch: Partial<RawDetailsSources>, symbolForView: SymbolSearchSuggestion, requestVersion: number) => {
+            if (requestVersionRef.current !== requestVersion) return;
+
+            const nextRaw: RawDetailsSources = {...rawRef.current, ...patch};
+            rawRef.current = nextRaw;
+            const nextData = toViewModel(symbolForView, nextRaw);
+            detailCache.set(symbolForView.key, {raw: nextRaw, data: nextData});
+
+            setState((prev) => ({
+                ...prev,
+                data: nextData,
+                loading: false,
+                refreshing: false,
+                error: null,
+            }));
+        },
+        []
+    );
+
+    const markError = useCallback((requestVersion: number) => {
+        if (requestVersionRef.current !== requestVersion) return;
+        setState((prev) => ({
+            ...prev,
+            loading: false,
+            refreshing: false,
+            error: prev.data ? prev.error : 'دریافت اطلاعات نماد با خطا مواجه شد.',
+        }));
+    }, []);
+
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         if (!symbol || !cacheKey) {
             rawRef.current = emptyRaw();
             setState({
@@ -198,13 +311,10 @@ export const useSymbolDetails = (symbol: SymbolSearchSuggestion | null) => {
         const requestVersion = requestVersionRef.current + 1;
         requestVersionRef.current = requestVersion;
         let active = true;
-        const clearTimeouts: (() => void)[] = [];
-        const controllers = new Set<AbortController>();
+        const isActive = () => active && requestVersionRef.current === requestVersion;
 
         const cached = detailCache.get(cacheKey) ?? null;
-        if (cached) {
-            rawRef.current = cached.raw;
-        }
+        rawRef.current = cached?.raw ?? emptyRaw();
 
         setState({
             data: cached?.data ?? null,
@@ -213,129 +323,201 @@ export const useSymbolDetails = (symbol: SymbolSearchSuggestion | null) => {
             error: null,
         });
 
-        const applyRaw = (patch: Partial<RawDetailsSources>) => {
-            if (!active || requestVersionRef.current !== requestVersion) return;
-            const currentRaw = rawRef.current;
-            const nextRaw: RawDetailsSources = {...currentRaw, ...patch};
-            rawRef.current = nextRaw;
-            const nextData = toViewModel(symbol, nextRaw);
-            detailCache.set(cacheKey, {raw: nextRaw, data: nextData});
-            setState((prev) => ({
-                ...prev,
-                data: nextData,
-                loading: false,
-                refreshing: false,
-                error: null,
-            }));
-        };
-
-        const runWithController = async (task: (signal: AbortSignal) => Promise<void>) => {
+        const runFetch = async (
+            fetcher: (signal: AbortSignal) => Promise<Partial<RawDetailsSources>>
+        ) => {
             const controller = new AbortController();
-            controllers.add(controller);
             try {
-                await task(controller.signal);
+                const patch = await fetcher(controller.signal);
+                if (!isActive() || controller.signal.aborted) return;
+                applyRaw(patch, symbol, requestVersion);
             } catch (error) {
-                if (!controller.signal.aborted && !isAbortError(error) && active && requestVersionRef.current === requestVersion) {
-                    setState((prev) => ({
-                        ...prev,
-                        loading: false,
-                        refreshing: false,
-                        error: prev.data ? prev.error : 'دریافت اطلاعات نماد با خطا مواجه شد.',
-                    }));
+                if (!controller.signal.aborted && !isAbortError(error) && isActive()) {
+                    markError(requestVersion);
                 }
-            } finally {
-                controllers.delete(controller);
             }
         };
 
-        const schedule = (ms: number, task: (signal: AbortSignal) => Promise<void>) => {
-            let timeoutId: number;
-            const tick = async () => {
-                if (!active) return;
-                let hasError = false;
-                await runWithController(async (signal) => {
-                    try {
-                        await task(signal);
-                    } catch (e) {
-                        hasError = true;
-                        throw e;
-                    }
-                });
-                if (active) {
-                    timeoutId = window.setTimeout(tick, hasError ? appConfig.apiErrorRetryMs : ms);
-                }
-            };
-            timeoutId = window.setTimeout(tick, ms);
-            clearTimeouts.push(() => window.clearTimeout(timeoutId));
-        };
+        void runFetch((signal) => fetchCoreRaw(symbol, signal));
 
-        void runWithController(async (signal) => {
-            const initialRaw = await fetchInitialRaw(symbol, signal);
-            applyRaw(initialRaw);
-        });
-
+        const polls: PollController[] = [];
         if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
-            schedule(appConfig.tsetmcClosingPriceRefreshMs, async (signal) => {
-                const tsetmcClosing = await getTsetmcClosingPriceInfo(symbol.instrumentCode!, signal).catch(() => null);
-                applyRaw({tsetmcClosing});
-            });
+            const instrumentCode = symbol.instrumentCode;
 
-            schedule(appConfig.tsetmcInstrumentInfoRefreshMs, async (signal) => {
-                const tsetmcInfo = await getTsetmcInstrumentInfo(symbol.instrumentCode!, signal).catch(() => null);
-                applyRaw({tsetmcInfo});
-            });
+            polls.push(
+                startPoll(
+                    appConfig.tsetmcClosingPriceRefreshMs,
+                    async (signal) => {
+                        const tsetmcClosing = await getTsetmcClosingPriceInfo(instrumentCode, signal).catch(() => null);
+                        applyRaw({tsetmcClosing}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
 
-            schedule(appConfig.tsetmcBestLimitsRefreshMs, async (signal) => {
-                const tsetmcBestLimits = await getTsetmcBestLimits(symbol.instrumentCode!, signal)
-                    .then((result) => result.orderBookLevels)
-                    .catch(() => null);
-                applyRaw({tsetmcBestLimits});
-            });
+            polls.push(
+                startPoll(
+                    appConfig.tsetmcInstrumentInfoRefreshMs,
+                    async (signal) => {
+                        const tsetmcInfo = await getTsetmcInstrumentInfo(instrumentCode, signal).catch(() => null);
+                        applyRaw({tsetmcInfo}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
 
-            schedule(appConfig.tsetmcClientTypeRefreshMs, async (signal) => {
-                const tsetmcClientType = await getTsetmcClientType(symbol.instrumentCode!, signal).catch(() => null);
-                applyRaw({tsetmcClientType});
-            });
+            polls.push(
+                startPoll(
+                    appConfig.tsetmcBestLimitsRefreshMs,
+                    async (signal) => {
+                        const tsetmcBestLimits = await getTsetmcBestLimits(instrumentCode, signal)
+                            .then((result) => result.orderBookLevels)
+                            .catch(() => null);
+                        applyRaw({tsetmcBestLimits}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
 
-            schedule(appConfig.fipiranSnapshotRefreshMs, async (signal) => {
-                const snapshot = await getFipiranInstrumentSnapshot(symbol.instrumentCode!, signal).catch(() => null);
-                applyRaw({snapshot});
-            });
-
-            if (isLikelyFundSymbol(symbol)) {
-                schedule(appConfig.tsetmcEtfInfoRefreshMs, async (signal) => {
-                    const tsetmcEtf = await getTsetmcEtfInfo(symbol.instrumentCode!, signal).catch(() => null);
-                    applyRaw({tsetmcEtf});
-                });
-
-                schedule(appConfig.fipiranFundSummaryRefreshMs, async (signal) => {
-                    const fundSummary = await fetchFundSummary(symbol, signal).catch(() => null);
-                    applyRaw({fundSummary});
-                });
-
-                schedule(appConfig.fipiranFundDetailsRefreshMs, async (signal) => {
-                    const registrationNumber = rawRef.current.fundSummary?.registrationNumber;
-                    if (!registrationNumber) return;
-                    const fundDetails = await getFundDetails(registrationNumber, signal).catch(() => null);
-                    applyRaw({fundDetails});
-                });
-            }
+            polls.push(
+                startPoll(
+                    appConfig.fipiranSnapshotRefreshMs,
+                    async (signal) => {
+                        const snapshot = await getFipiranInstrumentSnapshot(instrumentCode, signal).catch(() => null);
+                        applyRaw({snapshot}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
         }
 
         return () => {
             active = false;
-            clearTimeouts.forEach((clear) => clear());
-            controllers.forEach((controller) => controller.abort());
-            controllers.clear();
+            polls.forEach((poll) => poll.abort());
         };
-    }, [cacheKey, reloadToken, symbol]);
+    }, [applyRaw, cacheKey, enabled, markError, reloadToken, symbol]);
 
-    const refresh = () => {
+    useEffect(() => {
+        if (!enabled || !includeClientType || !symbol || !cacheKey) {
+            return;
+        }
+
+        const requestVersion = requestVersionRef.current;
+        let active = true;
+        const isActive = () => active && requestVersionRef.current === requestVersion;
+
+        const runFetch = async () => {
+            const controller = new AbortController();
+            try {
+                const patch = await fetchClientTypeRaw(symbol, controller.signal);
+                if (!isActive() || controller.signal.aborted) return;
+                applyRaw(patch, symbol, requestVersion);
+            } catch (error) {
+                if (!controller.signal.aborted && !isAbortError(error) && isActive()) {
+                    markError(requestVersion);
+                }
+            }
+        };
+
+        void runFetch();
+
+        const polls: PollController[] = [];
+        if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
+            const instrumentCode = symbol.instrumentCode;
+            polls.push(
+                startPoll(
+                    appConfig.tsetmcClientTypeRefreshMs,
+                    async (signal) => {
+                        const tsetmcClientType = await getTsetmcClientType(instrumentCode, signal).catch(() => null);
+                        applyRaw({tsetmcClientType}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
+        }
+
+        return () => {
+            active = false;
+            polls.forEach((poll) => poll.abort());
+        };
+    }, [applyRaw, cacheKey, enabled, includeClientType, markError, reloadToken, symbol]);
+
+    useEffect(() => {
+        if (!enabled || !includeDetailSources || !symbol || !cacheKey || !isLikelyFundSymbol(symbol)) {
+            return;
+        }
+
+        const requestVersion = requestVersionRef.current;
+        let active = true;
+        const isActive = () => active && requestVersionRef.current === requestVersion;
+
+        const runFetch = async () => {
+            const controller = new AbortController();
+            try {
+                const patch = await fetchDetailSourcesRaw(symbol, controller.signal);
+                if (!isActive() || controller.signal.aborted) return;
+                applyRaw(patch, symbol, requestVersion);
+            } catch (error) {
+                if (!controller.signal.aborted && !isAbortError(error) && isActive()) {
+                    markError(requestVersion);
+                }
+            }
+        };
+
+        void runFetch();
+
+        const polls: PollController[] = [];
+        if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
+            const instrumentCode = symbol.instrumentCode;
+
+            polls.push(
+                startPoll(
+                    appConfig.tsetmcEtfInfoRefreshMs,
+                    async (signal) => {
+                        const tsetmcEtf = await getTsetmcEtfInfo(instrumentCode, signal).catch(() => null);
+                        applyRaw({tsetmcEtf}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
+
+            polls.push(
+                startPoll(
+                    appConfig.fipiranFundSummaryRefreshMs,
+                    async (signal) => {
+                        const fundSummary = await fetchFundSummary(symbol, signal).catch(() => null);
+                        applyRaw({fundSummary}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
+
+            polls.push(
+                startPoll(
+                    appConfig.fipiranFundDetailsRefreshMs,
+                    async (signal) => {
+                        const registrationNumber = rawRef.current.fundSummary?.registrationNumber;
+                        if (!registrationNumber) return;
+                        const fundDetails = await getFundDetails(registrationNumber, signal).catch(() => null);
+                        applyRaw({fundDetails}, symbol, requestVersion);
+                    },
+                    isActive
+                )
+            );
+        }
+
+        return () => {
+            active = false;
+            polls.forEach((poll) => poll.abort());
+        };
+    }, [applyRaw, cacheKey, enabled, includeDetailSources, markError, reloadToken, symbol]);
+
+    const refresh = useCallback(() => {
         if (!cacheKey) return;
         detailCache.delete(cacheKey);
         rawRef.current = emptyRaw();
         setReloadToken((prev) => prev + 1);
-    };
+    }, [cacheKey]);
 
     return {
         ...state,
