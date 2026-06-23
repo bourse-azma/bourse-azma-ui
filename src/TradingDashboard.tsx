@@ -2023,9 +2023,11 @@ export default function TradingDashboard({
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), title, message, tone});
     }, []);
 
-    const loadTradingAccount = useCallback(async () => {
-        setTradingAccountLoading(true);
-        setTradingAccountError(null);
+    const loadTradingAccount = useCallback(async (silent = false) => {
+        if (!silent) {
+            setTradingAccountLoading(true);
+            setTradingAccountError(null);
+        }
         try {
             const [orders, holdings] = await Promise.all([
                 getTradingOrders(accessToken),
@@ -2033,12 +2035,17 @@ export default function TradingDashboard({
             ]);
             setTradingOrders(orders);
             setPortfolioHoldings(holdings);
+            setTradingAccountError(null);
         } catch (error) {
-            setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
-            setTradingOrders([]);
-            setPortfolioHoldings([]);
+            if (!silent) {
+                setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
+                setTradingOrders([]);
+                setPortfolioHoldings([]);
+            }
         } finally {
-            setTradingAccountLoading(false);
+            if (!silent) {
+                setTradingAccountLoading(false);
+            }
         }
     }, [accessToken]);
 
@@ -2550,7 +2557,7 @@ export default function TradingDashboard({
     }, [portfolioHoldings, resolveDisplayLivePrice, tradingOrders, userProfile?.balance]);
 
     const refreshAccountStatus = useCallback(async () => {
-        const tasks: Promise<void>[] = [loadTradingAccount()];
+        const tasks: Promise<void>[] = [loadTradingAccount(true)];
 
         if (userProfile?.id && onProfileUpdated) {
             tasks.push(
