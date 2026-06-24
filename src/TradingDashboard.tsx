@@ -49,7 +49,8 @@ import {usePeerGroup} from './features/symbol-search/usePeerGroup';
 import {useSymbolSearch} from './features/symbol-search/useSymbolSearch';
 import OrderBookPanel from './features/symbol-search/OrderBookPanel';
 import OrderBookDepthPanel from './features/symbol-search/OrderBookDepthPanel';
-import PeerGroupPanel, {ORDERBOOK_SLOT_HEIGHT_CLASS} from './features/symbol-search/PeerGroupPanel';
+import PeerGroupPanel from './features/symbol-search/PeerGroupPanel';
+import TechnicalChartPanel from './features/technical-chart/TechnicalChartPanel';
 import SymbolDetailsPanel from './features/symbol-search/SymbolDetailsPanel';
 import {formatDateTimeFa, toEnglishDigits} from './utils/formatDateTime';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
@@ -1918,9 +1919,10 @@ function WatchlistPanel({
                                     className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-border/70 bg-surface-2 text-warning shadow-sm">
                                     <Star className="h-6 w-6"/>
                                 </div>
-                                <h4 className="text-sm font-bold text-text">این دیده‌بان هنوز نمادی ندارد</h4>
+                                <h4 className="text-sm font-bold text-text">هنوز نمادی اضافه نکرده‌اید</h4>
                                 <p className="mt-1 max-w-[260px] text-xs leading-6 text-muted">
-                                    نمادهای مهم را اینجا نگه دارید تا قیمت و دسترسی سریع داشته باشید.
+                                    نمادهای موردنظرتان را اینجا اضافه کنید تا قیمت لحظه‌ای ببینید و با یک کلیک به آن‌ها
+                                    دسترسی داشته باشید.
                                 </p>
                                 <button
                                     type="button"
@@ -3089,12 +3091,6 @@ export default function TradingDashboard({
         {key: 'technical', label: 'تکنیکال'},
     ];
 
-    const orderbookTabCaption = {
-        peers: 'عملکرد نمادهای هم‌گروه در این بخش مقایسه می‌شود.',
-        info: 'جزییات سفارشات لحظه‌ای و عمق بازار نماد در این نما قرار دارد.',
-        technical: 'نمای تکنیکال در این تب به‌صورت خلاصه قابل نمایش است.',
-    };
-
     useEffect(() => {
         if (!profileMenuOpen) return;
 
@@ -3514,11 +3510,11 @@ export default function TradingDashboard({
                                                 formatPercent={formatPercentOrDash}
                                             />
                                         ) : orderbookTab === 'technical' ? (
-                                            <div
-                                                className={`flex ${ORDERBOOK_SLOT_HEIGHT_CLASS} items-center justify-center rounded-2xl border border-dashed border-border/70 bg-surface-2 px-4 text-center text-xs text-muted`}
-                                            >
-                                                {orderbookTabCaption.technical}
-                                            </div>
+                                            <TechnicalChartPanel
+                                                instrumentCode={selectedSymbol.instrumentCode}
+                                                symbol={selectedSymbol.symbol}
+                                                symbolName={selectedSymbol.name}
+                                            />
                                         ) : (
                                             <>
                                                 <div

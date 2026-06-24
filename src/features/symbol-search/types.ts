@@ -40,6 +40,40 @@ export type TsetmcClosingPriceInfo = {
     tradeValue: number | null;
 };
 
+export type TsetmcClosingPriceChartDataItem = {
+    eventDate: string | null;
+    lastTradePrice: number | null;
+    tradeVolume: number | null;
+    firstTradePrice: number | null;
+    dayMinPrice: number | null;
+    dayMaxPrice: number | null;
+    periodStartDate?: string | null;
+    currentPeriod?: boolean | null;
+};
+
+export type TsetmcClosingPriceChartDataResult = {
+    chartData: TsetmcClosingPriceChartDataItem[];
+};
+
+export type TsetmcClosingPriceDailyItem = {
+    instrumentCode: string | null;
+    eventDate: number | null;
+    closingPrice: number | null;
+    lastTradePrice: number | null;
+    dayMinPrice: number | null;
+    dayMaxPrice: number | null;
+    firstTradePrice: number | null;
+    previousClosingPrice: number | null;
+    priceChange: number | null;
+    tradeCount: number | null;
+    tradeVolume: number | null;
+    tradeValue: number | null;
+};
+
+export type TsetmcClosingPriceDailyResult = {
+    dailyPrices: TsetmcClosingPriceDailyItem[];
+};
+
 export type TsetmcSectorInfo = {
     sectorCode: string | null;
     sectorName: string | null;

@@ -3,6 +3,8 @@ type RequiredEnvKey =
     | 'VITE_MARKET_OVERVIEW_API_PATH'
     | 'VITE_TSETMC_API_BASE_URL'
     | 'VITE_TSETMC_CLOSING_PRICE_API_PATH'
+    | 'VITE_TSETMC_CLOSING_PRICE_CHART_API_PATH'
+    | 'VITE_TSETMC_CLOSING_PRICE_DAILY_API_PATH'
     | 'VITE_TSETMC_INSTRUMENT_INFO_API_PATH'
     | 'VITE_TSETMC_BEST_LIMITS_API_PATH'
     | 'VITE_TSETMC_CLIENT_TYPE_API_PATH'
@@ -23,6 +25,7 @@ type RequiredEnvKey =
     | 'VITE_MARKET_OVERVIEW_REFRESH_MS'
     | 'VITE_CODAL_NOTICES_REFRESH_MS'
     | 'VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'
+    | 'VITE_TSETMC_CHART_REFRESH_MS'
     | 'VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'
     | 'VITE_TSETMC_BEST_LIMITS_REFRESH_MS'
     | 'VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'
@@ -56,6 +59,8 @@ export const appConfig = Object.freeze({
     marketOverviewApiPath: getRequiredEnv('VITE_MARKET_OVERVIEW_API_PATH'),
     tsetmcApiBaseUrl: getRequiredEnv('VITE_TSETMC_API_BASE_URL'),
     tsetmcClosingPriceApiPath: getRequiredEnv('VITE_TSETMC_CLOSING_PRICE_API_PATH'),
+    tsetmcClosingPriceChartApiPath: getRequiredEnv('VITE_TSETMC_CLOSING_PRICE_CHART_API_PATH'),
+    tsetmcClosingPriceDailyApiPath: getRequiredEnv('VITE_TSETMC_CLOSING_PRICE_DAILY_API_PATH'),
     tsetmcInstrumentInfoApiPath: getRequiredEnv('VITE_TSETMC_INSTRUMENT_INFO_API_PATH'),
     tsetmcBestLimitsApiPath: getRequiredEnv('VITE_TSETMC_BEST_LIMITS_API_PATH'),
     tsetmcClientTypeApiPath: getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_API_PATH'),
@@ -76,6 +81,10 @@ export const appConfig = Object.freeze({
     tsetmcClosingPriceRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'),
         'VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'
+    ),
+    tsetmcChartRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_TSETMC_CHART_REFRESH_MS'),
+        'VITE_TSETMC_CHART_REFRESH_MS'
     ),
     tsetmcInstrumentInfoRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'),

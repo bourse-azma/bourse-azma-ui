@@ -7,6 +7,8 @@ import type {
     SymbolSearchRow,
     TsetmcBestLimitLevel,
     TsetmcClientType,
+    TsetmcClosingPriceChartDataResult,
+    TsetmcClosingPriceDailyResult,
     TsetmcClosingPriceInfo,
     TsetmcEtfInfo,
     TsetmcInstrumentInfo,
@@ -158,6 +160,32 @@ export const getTsetmcClosingPriceInfo = async (instrumentCode: string, signal?:
         appConfig.tsetmcApiBaseUrl,
         applyTemplate(appConfig.tsetmcClosingPriceApiPath, {
             instrumentCode: encodeURIComponent(instrumentCode),
+        })
+    ), signal);
+
+export const getTsetmcClosingPriceChart = async (
+    instrumentCode: string,
+    period: string,
+    signal?: AbortSignal
+) =>
+    fetchApi<TsetmcClosingPriceChartDataResult>(joinUrl(
+        appConfig.tsetmcApiBaseUrl,
+        applyTemplate(appConfig.tsetmcClosingPriceChartApiPath, {
+            instrumentCode: encodeURIComponent(instrumentCode),
+            period: encodeURIComponent(period),
+        })
+    ), signal);
+
+export const getTsetmcClosingPriceDaily = async (
+    instrumentCode: string,
+    days: number,
+    signal?: AbortSignal
+) =>
+    fetchApi<TsetmcClosingPriceDailyResult>(joinUrl(
+        appConfig.tsetmcApiBaseUrl,
+        applyTemplate(appConfig.tsetmcClosingPriceDailyApiPath, {
+            instrumentCode: encodeURIComponent(instrumentCode),
+            days: encodeURIComponent(String(days)),
         })
     ), signal);
 
