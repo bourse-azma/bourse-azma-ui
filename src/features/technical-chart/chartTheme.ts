@@ -76,5 +76,18 @@ export const buildCandlestickSeriesOptions = () => {
         borderDownColor: colors.negative,
         wickUpColor: colors.positive,
         wickDownColor: colors.negative,
+        autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
+            const info = original();
+            if (!info) {
+                return info;
+            }
+            return {
+                ...info,
+                priceRange: {
+                    ...info.priceRange,
+                    minValue: Math.max(0, info.priceRange.minValue),
+                },
+            };
+        },
     };
 };

@@ -34,25 +34,116 @@ const utcDayMs = (timeMs: number) => {
 
 const addUtcDays = (dayMs: number, days: number) => dayMs + days * MS_PER_DAY;
 
-const resolveOhlc = (
+/** TSETMC uses 0 for missing min/max/first on older rows — not a valid trade price. */
+const isValidTradePrice = (value: number | null | undefined): value is number =>
+    value !== null && value !== undefined && Number.isFinite(value) && value > 0;
+
+const firstValidPrice = (...values: Array<number | null | undefined>) => {
+    for (const value of values) {
+        if (isValidTradePrice(value)) {
+            return value;
+        }
+    }
+    return null;
+};
+
+export const resolveOhlc = (
     close: number | null,
     open: number | null,
     high: number | null,
     low: number | null
 ): { open: number; high: number; low: number; close: number } | null => {
-    if (close === null || !Number.isFinite(close)) {
+    const resolvedClose = firstValidPrice(close, open, high, low);
+    if (resolvedClose === null) {
         return null;
     }
 
-    const resolvedOpen = open !== null && Number.isFinite(open) ? open : close;
-    const resolvedHigh = high !== null && Number.isFinite(high) ? high : Math.max(resolvedOpen, close);
-    const resolvedLow = low !== null && Number.isFinite(low) ? low : Math.min(resolvedOpen, close);
+    const resolvedOpen = isValidTradePrice(open) ? open : resolvedClose;
+    const resolvedHigh = isValidTradePrice(high)
+        ? high
+        : Math.max(resolvedOpen, resolvedClose);
+    const resolvedLow = isValidTradePrice(low)
+        ? low
+        : Math.min(resolvedOpen, resolvedClose);
 
     return {
         open: resolvedOpen,
-        high: Math.max(resolvedHigh, resolvedOpen, close),
-        low: Math.min(resolvedLow, resolvedOpen, close),
-        close,
+        high: Math.max(resolvedHigh, resolvedOpen, resolvedClose),
+        low: Math.min(resolvedLow, resolvedOpen, resolvedClose),
+        close: resolvedClose,
+    };
+};
+
+const barDataQuality = (bar: ChartBar) => {
+    let score = 0;
+    if (isValidTradePrice(bar.close)) score += 4;
+    if (isValidTradePrice(bar.open)) score += 1;
+    if (isValidTradePrice(bar.high)) score += 1;
+    if (isValidTradePrice(bar.low)) score += 1;
+    return score;
+};
+
+const pickBetterBar = (existing: ChartBar, candidate: ChartBar) => {
+    const existingScore = barDataQuality(existing);
+    const candidateScore = barDataQuality(candidate);
+    if (candidateScore !== existingScore) {
+        return candidateScore > existingScore ? candidate : existing;
+    }
+    return candidate;
+};
+
+const positiveMin = (values: number[]) => {
+    const valid = values.filter(isValidTradePrice);
+    return valid.length > 0 ? Math.min(...valid) : null;
+};
+
+const positiveMax = (values: number[]) => {
+    const valid = values.filter(isValidTradePrice);
+    return valid.length > 0 ? Math.max(...valid) : null;
+};
+
+const hasTradeActivity = (
+    volume: number | null | undefined,
+    tradeCount?: number | null
+) => (volume ?? 0) > 0 || (tradeCount ?? 0) > 0;
+
+const hasSessionPrices = (
+    open: number | null | undefined,
+    high: number | null | undefined,
+    low: number | null | undefined
+) => isValidTradePrice(open) || isValidTradePrice(high) || isValidTradePrice(low);
+
+/**
+ * TSETMC repeats a stale closing price on halt/non-trading days with zero volume
+ * and zero session prices — rendering them creates flat horizontal lines on the chart.
+ */
+export const isFrozenNonTradingRow = (
+    volume: number | null | undefined,
+    tradeCount: number | null | undefined,
+    open: number | null | undefined,
+    high: number | null | undefined,
+    low: number | null | undefined
+) => !hasTradeActivity(volume, tradeCount) && !hasSessionPrices(open, high, low);
+
+const finalizeAggregatedBar = (bar: Omit<ChartBar, 'open' | 'high' | 'low' | 'close'> & {
+    open: number;
+    high: number | null;
+    low: number | null;
+    close: number;
+}): ChartBar | null => {
+    const ohlc = resolveOhlc(
+        bar.close,
+        bar.open,
+        bar.high,
+        bar.low
+    );
+    if (!ohlc) {
+        return null;
+    }
+
+    return {
+        ...bar,
+        ...ohlc,
     };
 };
 
@@ -83,6 +174,20 @@ const toBar = (
     };
 };
 
+/** Union multiple bar sets by time; on duplicate days keep the row with fuller OHLC. */
+export const mergeChartBarsByTime = (...groups: ChartBar[][]): ChartBar[] => {
+    const byTime = new Map<number, ChartBar>();
+
+    for (const group of groups) {
+        for (const bar of group) {
+            const existing = byTime.get(bar.time);
+            byTime.set(bar.time, existing ? pickBetterBar(existing, bar) : bar);
+        }
+    }
+
+    return [...byTime.values()].sort((left, right) => left.time - right.time);
+};
+
 /** Lightweight Charts requires strictly ascending unique times; TSETMC may repeat a day. */
 export const deduplicateChartBarsByTime = (bars: ChartBar[]): ChartBar[] => {
     const sorted = [...bars].sort((left, right) => left.time - right.time);
@@ -91,7 +196,7 @@ export const deduplicateChartBarsByTime = (bars: ChartBar[]): ChartBar[] => {
     for (const bar of sorted) {
         const last = deduped[deduped.length - 1];
         if (last && last.time === bar.time) {
-            deduped[deduped.length - 1] = bar;
+            deduped[deduped.length - 1] = pickBetterBar(last, bar);
             continue;
         }
         deduped.push(bar);
@@ -113,12 +218,22 @@ export const mapChartDataItemsToBars = (items: TsetmcClosingPriceChartDataItem[]
             ? parseEventDateToMs(item.periodStartDate) ?? undefined
             : undefined;
 
+        if (isFrozenNonTradingRow(
+            item.tradeVolume,
+            null,
+            item.firstTradePrice,
+            item.dayMaxPrice,
+            item.dayMinPrice
+        )) {
+            continue;
+        }
+
         const bar = toBar(
             timeMs,
             item.firstTradePrice,
             item.dayMaxPrice,
             item.dayMinPrice,
-            item.lastTradePrice,
+            item.lastTradePrice ?? item.firstTradePrice,
             item.tradeVolume,
             periodStartMs,
             item.currentPeriod === true
@@ -137,6 +252,16 @@ export const mapDailyItemsToBars = (items: TsetmcClosingPriceDailyItem[]): Chart
     for (const item of items) {
         const timeMs = parseEventDateToMs(item.eventDate);
         if (timeMs === null) {
+            continue;
+        }
+
+        if (isFrozenNonTradingRow(
+            item.tradeVolume,
+            item.tradeCount,
+            item.firstTradePrice,
+            item.dayMaxPrice,
+            item.dayMinPrice
+        )) {
             continue;
         }
 
@@ -181,15 +306,20 @@ const aggregateBars = (
         const first = sorted[0];
         const last = sorted[sorted.length - 1];
 
-        aggregated.push({
+        const high = positiveMax(sorted.map((bar) => bar.high));
+        const low = positiveMin(sorted.map((bar) => bar.low));
+        const finalized = finalizeAggregatedBar({
             time: withPeriodStart ? last.time : bucketTime(key),
             periodStartMs: withPeriodStart ? first.time : undefined,
             open: first.open,
-            high: Math.max(...sorted.map((bar) => bar.high)),
-            low: Math.min(...sorted.map((bar) => bar.low)),
+            high,
+            low,
             close: last.close,
             volume: sorted.reduce((sum, bar) => sum + (bar.volume ?? 0), 0),
         });
+        if (finalized) {
+            aggregated.push(finalized);
+        }
     }
 
     return aggregated.sort((left, right) => left.time - right.time);
@@ -245,17 +375,18 @@ export const aggregateDailyBarsToWeekly = (bars: ChartBar[]): ChartBar[] => {
             const first = chunk[0];
             const last = chunk[chunk.length - 1];
 
-            return {
+            return finalizeAggregatedBar({
                 time: last.time,
                 periodStartMs: bucket.periodStartMs,
                 periodEndMs: bucket.periodEndMs,
                 open: first.open,
-                high: Math.max(...chunk.map((item) => item.high)),
-                low: Math.min(...chunk.map((item) => item.low)),
+                high: positiveMax(chunk.map((item) => item.high)),
+                low: positiveMin(chunk.map((item) => item.low)),
                 close: last.close,
                 volume: chunk.reduce((sum, item) => sum + (item.volume ?? 0), 0),
-            };
-        });
+            });
+        })
+        .filter((bar): bar is ChartBar => bar !== null);
 
     return normalizeWeeklyBars(aggregated);
 };

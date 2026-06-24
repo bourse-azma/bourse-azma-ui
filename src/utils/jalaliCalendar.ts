@@ -132,7 +132,6 @@ export const formatJalaliFromGregorian = (gy: number, gm: number, gd: number) =>
     return formatJalaliDateParts(jy, jm, jd);
 };
 
-const isLikelyGregorianDevenYear = (year: number) => year >= 1900 && year <= 2100;
 const isLikelyJalaliYear = (year: number) => year >= 1200 && year <= 1500;
 
 const compactDateMatch = (value: string) => {
@@ -149,6 +148,17 @@ const compactDateMatch = (value: string) => {
     };
 };
 
+const normalizeCompactDeven = (compact: number) => {
+    const year = Math.floor(compact / 10_000);
+    if (isLikelyJalaliYear(year)) {
+        const month = Math.floor((compact % 10_000) / 100);
+        const day = compact % 100;
+        const {gy, gm, gd} = jalaliToGregorian(year, month, day);
+        return gy * 10_000 + gm * 100 + gd;
+    }
+    return compact;
+};
+
 export const parseTsetmcEventDateToMs = (eventDate: string | number | null | undefined): number | null => {
     if (eventDate === null || eventDate === undefined) {
         return null;
@@ -156,16 +166,10 @@ export const parseTsetmcEventDateToMs = (eventDate: string | number | null | und
 
     if (typeof eventDate === 'number') {
         if (eventDate >= 10_000_000 && eventDate <= 99_999_999) {
-            const year = Math.floor(eventDate / 10_000);
-            const month = Math.floor((eventDate % 10_000) / 100);
-            const day = eventDate % 100;
-            if (isLikelyGregorianDevenYear(year)) {
-                return Date.UTC(year, month - 1, day);
-            }
-            if (isLikelyJalaliYear(year)) {
-                const gregorian = jalaliToGregorian(year, month, day);
-                return Date.UTC(gregorian.gy, gregorian.gm - 1, gregorian.gd);
-            }
+            const gregorianDeven = normalizeCompactDeven(eventDate);
+            const year = Math.floor(gregorianDeven / 10_000);
+            const month = Math.floor((gregorianDeven % 10_000) / 100);
+            const day = gregorianDeven % 100;
             return Date.UTC(year, month - 1, day);
         }
         if (eventDate > 1_000_000_000_000) {
@@ -184,14 +188,13 @@ export const parseTsetmcEventDateToMs = (eventDate: string | number | null | und
 
     const compact = compactDateMatch(trimmed);
     if (compact) {
-        if (isLikelyGregorianDevenYear(compact.year)) {
-            return Date.UTC(compact.year, compact.month - 1, compact.day);
-        }
-        if (isLikelyJalaliYear(compact.year)) {
-            const gregorian = jalaliToGregorian(compact.year, compact.month, compact.day);
-            return Date.UTC(gregorian.gy, gregorian.gm - 1, gregorian.gd);
-        }
-        return Date.UTC(compact.year, compact.month - 1, compact.day);
+        const gregorianDeven = normalizeCompactDeven(
+            compact.year * 10_000 + compact.month * 100 + compact.day
+        );
+        const year = Math.floor(gregorianDeven / 10_000);
+        const month = Math.floor((gregorianDeven % 10_000) / 100);
+        const day = gregorianDeven % 100;
+        return Date.UTC(year, month - 1, day);
     }
 
     const parsed = Date.parse(trimmed);

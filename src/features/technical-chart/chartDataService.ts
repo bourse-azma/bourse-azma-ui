@@ -1,14 +1,8 @@
-import {getTsetmcClosingPriceChart, getTsetmcClosingPriceDaily,} from '../symbol-search/api';
-import type {TsetmcClosingPriceChartDataItem} from '../symbol-search/types';
-import {applyChartTimeframe, type ChartBar, mapChartDataItemsToBars, mapDailyItemsToBars,} from './mapChartBars';
+import {getTsetmcClosingPriceChart} from '../symbol-search/api';
+import {applyChartTimeframe, type ChartBar, mapChartDataItemsToBars} from './mapChartBars';
 import type {ChartTimeframe} from './chartConfig';
 
-const RESOLUTION_TO_PERIOD: Record<string, string> = {
-    '1D': 'D',
-    '1W': 'W',
-    '1M': 'M',
-    '12M': '12M',
-};
+const CHART_DAILY_PERIOD = 'D';
 
 const barCache = new Map<string, ChartBar[]>();
 
@@ -40,40 +34,12 @@ const fetchChartResultWithRetry = async (
     throw lastError;
 };
 
-const loadDailyBars = async (
+const loadDailyBarsFromChartApi = async (
     instrumentCode: string,
     signal?: AbortSignal
 ): Promise<ChartBar[]> => {
-    let chartFetchError: unknown = null;
-
-    try {
-        const chartResult = await fetchChartResultWithRetry(instrumentCode, 'D', signal);
-        const bars = mapChartDataItemsToBars(chartResult.chartData ?? []);
-        if (bars.length > 0) {
-            return bars;
-        }
-    } catch (error) {
-        chartFetchError = error;
-    }
-
-    try {
-        const dailyResult = await getTsetmcClosingPriceDaily(instrumentCode, 0, signal);
-        const bars = mapDailyItemsToBars(dailyResult.dailyPrices ?? []);
-        if (bars.length > 0) {
-            return bars;
-        }
-    } catch (dailyError) {
-        if (chartFetchError) {
-            throw chartFetchError;
-        }
-        throw dailyError;
-    }
-
-    if (chartFetchError) {
-        throw chartFetchError;
-    }
-
-    return [];
+    const chartResult = await fetchChartResultWithRetry(instrumentCode, CHART_DAILY_PERIOD, signal);
+    return mapChartDataItemsToBars(chartResult.chartData ?? []);
 };
 
 export const clearChartBarCache = (instrumentCode?: string) => {
@@ -94,12 +60,12 @@ export const fetchChartBars = async (
     resolution: string,
     signal?: AbortSignal
 ): Promise<ChartBar[]> => {
-    const period = RESOLUTION_TO_PERIOD[resolution];
-    if (!period) {
+    const supported: ChartTimeframe[] = ['1D', '1W', '1M', '12M'];
+    if (!supported.includes(resolution as ChartTimeframe)) {
         throw new Error(`بازه زمانی پشتیبانی نمی‌شود: ${resolution}`);
     }
 
-    const cacheKey = `${instrumentCode}:${resolution}:v3`;
+    const cacheKey = `${instrumentCode}:${resolution}:v8`;
     const cached = barCache.get(cacheKey);
     if (cached) {
         return cached;
@@ -109,31 +75,11 @@ export const fetchChartBars = async (
         throw new DOMException('Aborted', 'AbortError');
     }
 
-    let bars: ChartBar[];
-
-    if (resolution === '1D') {
-        let rawItems: TsetmcClosingPriceChartDataItem[] = [];
-        let chartFetchError: unknown = null;
-
-        try {
-            const chartResult = await fetchChartResultWithRetry(instrumentCode, 'D', signal);
-            rawItems = chartResult.chartData ?? [];
-        } catch (error) {
-            chartFetchError = error;
-        }
-
-        bars = mapChartDataItemsToBars(rawItems);
-
-        if (bars.length === 0) {
-            bars = await loadDailyBars(instrumentCode, signal);
-            if (bars.length === 0 && chartFetchError) {
-                throw chartFetchError;
-            }
-        }
-    } else {
-        const dailyBars = await loadDailyBars(instrumentCode, signal);
-        bars = applyChartTimeframe(dailyBars, resolution as ChartTimeframe);
-    }
+    const dailyBars = await loadDailyBarsFromChartApi(instrumentCode, signal);
+    const bars =
+        resolution === '1D'
+            ? dailyBars
+            : applyChartTimeframe(dailyBars, resolution as ChartTimeframe);
 
     if (bars.length > 0) {
         barCache.set(cacheKey, bars);
