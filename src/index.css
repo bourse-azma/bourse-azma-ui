@@ -87,6 +87,11 @@ html.dark {
         scrollbar-color: hsl(var(--border)) hsl(var(--surface-2));
     }
 
+    .calm-scroll {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
     .thin-scrollbar::-webkit-scrollbar {
         width: 7px;
         height: 7px;

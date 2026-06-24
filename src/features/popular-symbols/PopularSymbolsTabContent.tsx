@@ -1,5 +1,9 @@
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {AlertCircle, Loader2, Search} from 'lucide-react';
+import {Fragment, useMemo, useRef, useState} from 'react';
+import {AlertCircle, Search} from 'lucide-react';
+import {getInfiniteScrollTriggerIndex} from '../../config/scrollConfig';
+import {useCalmVerticalScroll} from '../../hooks/useCalmVerticalScroll';
+import {InfiniteScrollSentinel} from '../../hooks/InfiniteScrollSentinel';
+import {useInfiniteScrollLoadMore} from '../../hooks/useInfiniteScrollLoadMore';
 import type {SymbolSearchSuggestion} from '../symbol-search/types';
 import {
     MOST_VISITED_MARKET_OPTIONS,
@@ -96,35 +100,18 @@ export default function PopularSymbolsTabContent({
         );
     }, [items, searchQuery]);
 
-    const shouldLoadMore = hasMore && !loading && !loadingMore && searchQuery.trim() === '';
+    const canPrefetchMore = hasMore && !loading && searchQuery.trim() === '';
+    const loadTriggerIndex = getInfiniteScrollTriggerIndex(filteredItems.length);
 
-    useEffect(() => {
-        const root = listRef.current;
-        const sentinel = loadMoreRef.current;
-        if (!root || !sentinel || !shouldLoadMore) {
-            return;
-        }
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting) {
-                        return;
-                    }
-                    loadMore();
-                });
-            },
-            {
-                root,
-                rootMargin: '80px 0px 80px 0px',
-                threshold: 0.1,
-            },
-        );
-
-        observer.observe(sentinel);
-
-        return () => observer.disconnect();
-    }, [loadMore, shouldLoadMore, filteredItems.length]);
+    useCalmVerticalScroll(listRef, {contentLength: filteredItems.length});
+    useInfiniteScrollLoadMore({
+        rootRef: listRef,
+        sentinelRef: loadMoreRef,
+        enabled: canPrefetchMore,
+        isFetching: loadingMore,
+        onLoadMore: loadMore,
+        itemCount: filteredItems.length,
+    });
 
     const handleMarketChange = (nextMarketId: MostVisitedMarketId) => {
         setMarketId(nextMarketId);
@@ -221,75 +208,68 @@ export default function PopularSymbolsTabContent({
                         </p>
                     </div>
                 ) : (
-                    <div ref={listRef} className="thin-scrollbar max-h-[292px] overflow-y-auto">
-                        {filteredItems.map((item) => {
+                    <div ref={listRef} className="calm-scroll thin-scrollbar max-h-[292px] overflow-y-auto">
+                        {filteredItems.map((item, index) => {
                             const isActive = activeSymbolKey === item.suggestion.key;
                             const displayPrice = resolveMostVisitedDisplayPrice(item.instrument);
                             const changePercent = resolveMostVisitedChangePercent(item.instrument);
                             const isPositive = changePercent !== null && changePercent >= 0;
 
                             return (
-                                <button
-                                    key={item.suggestion.key}
-                                    type="button"
-                                    onClick={() => onSelectSymbol(item.suggestion)}
-                                    className={`${POPULAR_TABLE_GRID} w-full border-b border-border/60 px-3 py-2 text-xs last:border-b-0 ${
-                                        isActive
-                                            ? 'bg-primary/8'
-                                            : 'hover:bg-surface-2/60'
-                                    }`}
-                                >
-                                    <div className="flex justify-center">
-                                        <RankBadge rank={item.rank}/>
-                                    </div>
-
-                                    <div className="min-w-0 text-right">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="truncate font-semibold leading-5 text-text">
-                                                {item.suggestion.symbol}
-                                            </span>
-                                            {isActive ? (
-                                                <span
-                                                    className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold text-primary">
-                                                    فعال
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                        <p className="truncate text-[11px] leading-4 text-muted">
-                                            {item.suggestion.name}
-                                        </p>
-                                    </div>
-
-                                    <span className="text-center tabular-nums text-text">
-                                        {formatNumberOrDash(displayPrice)}
-                                    </span>
-
-                                    <span
-                                        className={`text-center text-[11px] font-semibold tabular-nums ${
-                                            changePercent === null
-                                                ? 'text-muted'
-                                                : isPositive
-                                                    ? 'text-positive'
-                                                    : 'text-negative'
+                                <Fragment key={item.suggestion.key}>
+                                    <button
+                                        type="button"
+                                        onClick={() => onSelectSymbol(item.suggestion)}
+                                        className={`${POPULAR_TABLE_GRID} w-full border-b border-border/60 px-3 py-2 text-xs last:border-b-0 ${
+                                            isActive
+                                                ? 'bg-primary/8'
+                                                : 'hover:bg-surface-2/60'
                                         }`}
                                     >
-                                        {formatPercentOrDash(changePercent)}
-                                    </span>
-                                </button>
+                                        <div className="flex justify-center">
+                                            <RankBadge rank={item.rank}/>
+                                        </div>
+
+                                        <div className="min-w-0 text-right">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="truncate font-semibold leading-5 text-text">
+                                                    {item.suggestion.symbol}
+                                                </span>
+                                                {isActive ? (
+                                                    <span
+                                                        className="shrink-0 rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold text-primary">
+                                                        فعال
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <p className="truncate text-[11px] leading-4 text-muted">
+                                                {item.suggestion.name}
+                                            </p>
+                                        </div>
+
+                                        <span className="text-center tabular-nums text-text">
+                                            {formatNumberOrDash(displayPrice)}
+                                        </span>
+
+                                        <span
+                                            className={`text-center text-[11px] font-semibold tabular-nums ${
+                                                changePercent === null
+                                                    ? 'text-muted'
+                                                    : isPositive
+                                                        ? 'text-positive'
+                                                        : 'text-negative'
+                                            }`}
+                                        >
+                                            {formatPercentOrDash(changePercent)}
+                                        </span>
+                                    </button>
+
+                                    {canPrefetchMore && index === loadTriggerIndex ? (
+                                        <InfiniteScrollSentinel sentinelRef={loadMoreRef}/>
+                                    ) : null}
+                                </Fragment>
                             );
                         })}
-
-                        {shouldLoadMore ? (
-                            <div ref={loadMoreRef} className="h-1 w-full" aria-hidden="true"/>
-                        ) : null}
-
-                        {loadingMore ? (
-                            <div
-                                className="flex items-center justify-center gap-2 border-t border-border/60 py-3 text-[11px] text-muted">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                در حال بارگذاری...
-                            </div>
-                        ) : null}
                     </div>
                 )}
             </section>

@@ -1,11 +1,12 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {INFINITE_SCROLL_PAGE_SIZE} from '../../config/scrollConfig';
 import {appConfig} from '../../config/appConfig';
 import {getTsetmcMostVisited} from '../symbol-search/api';
 import {toSymbolSuggestionFromMostVisited} from '../symbol-search/mappers';
 import type {SymbolSearchSuggestion, TsetmcMostVisitedInstrument} from '../symbol-search/types';
 import {MOST_VISITED_MARKET_OPTIONS, type MostVisitedMarketId} from './mostVisitedUtils';
 
-export const MOST_VISITED_PAGE_SIZE = 20;
+export const MOST_VISITED_PAGE_SIZE = INFINITE_SCROLL_PAGE_SIZE;
 
 export type PopularSymbolItem = {
     rank: number;
@@ -105,6 +106,21 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
     const applyItems = useCallback((mapped: PopularSymbolItem[], mode: 'initial' | 'background' | 'more') => {
         if (mode === 'background') {
             setItems((prev) => mergePopularItems(prev, mapped));
+            return;
+        }
+
+        if (mode === 'more') {
+            setItems((prev) => {
+                if (mapped.length <= prev.length) {
+                    return prev;
+                }
+
+                const appended = mapped.slice(prev.length).map((item, index) => ({
+                    ...item,
+                    rank: prev.length + index + 1,
+                }));
+                return [...prev, ...appended];
+            });
             return;
         }
 

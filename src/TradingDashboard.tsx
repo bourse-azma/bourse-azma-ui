@@ -1,4 +1,4 @@
-import {type FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {type FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertCircle,
     ArrowDownLeft,
@@ -29,7 +29,11 @@ import {
     X,
 } from 'lucide-react';
 import type {Theme} from './hooks/useTheme';
+import {useCalmVerticalScroll} from './hooks/useCalmVerticalScroll';
+import {InfiniteScrollSentinel} from './hooks/InfiniteScrollSentinel';
+import {useInfiniteScrollLoadMore} from './hooks/useInfiniteScrollLoadMore';
 import {appConfig} from './config/appConfig';
+import {getInfiniteScrollTriggerIndex, INFINITE_SCROLL_PAGE_SIZE} from './config/scrollConfig';
 import bourseAzmaLogo from './assets/bourse-azma-logo.png';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
 import {getCodalNotices} from './features/symbol-search/api';
@@ -300,9 +304,8 @@ const JALALI_MONTHS = [
     {value: 12, label: 'اسفند'},
 ] as const;
 
-const CODAL_MAX_LENGTH = 12;
+const CODAL_MAX_LENGTH = INFINITE_SCROLL_PAGE_SIZE;
 const CODAL_MAX_PAGE_LENGTH = CODAL_MAX_LENGTH;
-const SYMBOL_NOTICE_PAGES_PER_LOAD = 2;
 
 const DEFAULT_CODAL_NOTICE_QUERY: CodalNoticesQuery = {
     includeAudited: true,
@@ -2610,7 +2613,6 @@ export default function TradingDashboard({
     } = useCodalNotices(symbolCodalQuery, {
         enabled: symbolNoticesEnabled,
         autoRefresh: symbolNoticesEnabled,
-        pagesPerLoad: SYMBOL_NOTICE_PAGES_PER_LOAD,
         errorMessage: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
     });
     const codalSymbolUrl = codalSymbol
@@ -2920,10 +2922,10 @@ export default function TradingDashboard({
         [noticeFilters.fromDate]
     );
 
-    const shouldLoadMoreNotices = useMemo(() => {
+    const canPrefetchMoreNotices = useMemo(() => {
         if (codalNoticesError) return false;
         if (!codalNoticesHasMore) return false;
-        if (codalNoticesLoading || codalNoticesLoadingMore || codalNoticesRefreshing) return false;
+        if (codalNoticesLoading || codalNoticesRefreshing) return false;
         if (fromDateKey !== null && earliestLoadedDateKey !== null && earliestLoadedDateKey < fromDateKey) {
             return false;
         }
@@ -2932,13 +2934,10 @@ export default function TradingDashboard({
         codalNoticesError,
         codalNoticesHasMore,
         codalNoticesLoading,
-        codalNoticesLoadingMore,
         codalNoticesRefreshing,
         earliestLoadedDateKey,
         fromDateKey,
     ]);
-
-    const isWaitingForNoticeResults = codalNoticesLoading || codalNoticesLoadingMore || codalNoticesRefreshing;
 
     const activeNoticeDetails = useMemo(() => {
         if (!activeNoticeGroup) return null;
@@ -3017,16 +3016,15 @@ export default function TradingDashboard({
         applyNoticeFilters(nextDraft);
     };
 
-    const shouldLoadMoreSymbolNotices = useMemo(() => {
+    const canPrefetchMoreSymbolNotices = useMemo(() => {
         if (symbolCodalNoticesError) return false;
         if (!symbolCodalNoticesHasMore) return false;
-        if (symbolCodalNoticesLoading || symbolCodalNoticesLoadingMore || symbolCodalNoticesRefreshing) return false;
+        if (symbolCodalNoticesLoading || symbolCodalNoticesRefreshing) return false;
         return symbolTab === 'notices';
     }, [
         symbolCodalNoticesError,
         symbolCodalNoticesHasMore,
         symbolCodalNoticesLoading,
-        symbolCodalNoticesLoadingMore,
         symbolCodalNoticesRefreshing,
         symbolTab,
     ]);
@@ -3034,63 +3032,27 @@ export default function TradingDashboard({
     const isWaitingForSymbolNoticeResults =
         symbolCodalNoticesLoading || symbolCodalNoticesLoadingMore || symbolCodalNoticesRefreshing;
 
-    useEffect(() => {
-        const root = symbolNoticeListRef.current;
-        const sentinel = symbolNoticeLoadMoreRef.current;
-        if (!root || !sentinel) return;
+    const symbolNoticeLoadTriggerIndex = getInfiniteScrollTriggerIndex(symbolCodalNotices.length);
+    const noticeLoadTriggerIndex = getInfiniteScrollTriggerIndex(groupedNotices.length);
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting) return;
-                    if (!shouldLoadMoreSymbolNotices) return;
-                    loadMoreSymbolCodalNotices();
-                });
-            },
-            {
-                root,
-                rootMargin: '120px 0px 120px 0px',
-                threshold: 0.1,
-            }
-        );
-
-        observer.observe(sentinel);
-
-        return () => observer.disconnect();
-    }, [
-        loadMoreSymbolCodalNotices,
-        shouldLoadMoreSymbolNotices,
-        symbolCodalNotices.length,
-    ]);
-
-    useEffect(() => {
-        const root = noticeListRef.current;
-        const sentinel = noticeLoadMoreRef.current;
-        if (!root || !sentinel) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (!entry.isIntersecting) return;
-                    if (!shouldLoadMoreNotices) return;
-                    loadMoreCodalNotices();
-                });
-            },
-            {
-                root,
-                rootMargin: '160px 0px 160px 0px',
-                threshold: 0.1,
-            }
-        );
-
-        observer.observe(sentinel);
-
-        return () => observer.disconnect();
-    }, [
-        groupedNotices.length,
-        loadMoreCodalNotices,
-        shouldLoadMoreNotices,
-    ]);
+    useCalmVerticalScroll(symbolNoticeListRef, {contentLength: symbolCodalNotices.length});
+    useCalmVerticalScroll(noticeListRef, {contentLength: groupedNotices.length});
+    useInfiniteScrollLoadMore({
+        rootRef: symbolNoticeListRef,
+        sentinelRef: symbolNoticeLoadMoreRef,
+        enabled: canPrefetchMoreSymbolNotices,
+        isFetching: symbolCodalNoticesLoadingMore,
+        onLoadMore: loadMoreSymbolCodalNotices,
+        itemCount: symbolCodalNotices.length,
+    });
+    useInfiniteScrollLoadMore({
+        rootRef: noticeListRef,
+        sentinelRef: noticeLoadMoreRef,
+        enabled: canPrefetchMoreNotices,
+        isFetching: codalNoticesLoadingMore,
+        onLoadMore: loadMoreCodalNotices,
+        itemCount: groupedNotices.length,
+    });
 
     const orderFilters: Array<{ key: OrderFilter; label: string }> = [
         {
@@ -3777,10 +3739,10 @@ export default function TradingDashboard({
                                         <div className="flex flex-1 flex-col">
                                             <div
                                                 ref={symbolNoticeListRef}
-                                                className="thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
+                                                className="calm-scroll thin-scrollbar max-h-[280px] space-y-2 overflow-y-auto pl-1"
                                             >
                                                 {(isWaitingForSymbolNoticeResults ||
-                                                    (symbolCodalNotices.length === 0 && shouldLoadMoreSymbolNotices)) &&
+                                                    (symbolCodalNotices.length === 0 && canPrefetchMoreSymbolNotices)) &&
                                                 symbolCodalNotices.length === 0 ? (
                                                     Array.from({length: 4}, (_, index) => (
                                                         <div
@@ -3812,7 +3774,8 @@ export default function TradingDashboard({
                                                 ) : null}
 
                                                 {!isWaitingForSymbolNoticeResults &&
-                                                !shouldLoadMoreSymbolNotices &&
+                                                !canPrefetchMoreSymbolNotices &&
+                                                !symbolCodalNoticesHasMore &&
                                                 symbolCodalNotices.length === 0 &&
                                                 !symbolCodalNoticesError ? (
                                                     <div
@@ -3821,74 +3784,72 @@ export default function TradingDashboard({
                                                     </div>
                                                 ) : null}
 
-                                                {symbolCodalNotices.map((notice) => {
+                                                {symbolCodalNotices.map((notice, index) => {
                                                     const noticeGroup = toSingleNoticeGroup(notice);
                                                     const visibleSymbols = noticeGroup.symbols.slice(0, 3);
                                                     const extraSymbolsCount = noticeGroup.symbols.length - visibleSymbols.length;
 
                                                     return (
-                                                        <article
-                                                            key={noticeGroup.id}
-                                                            role="button"
-                                                            tabIndex={0}
-                                                            onClick={() => setActiveNoticeGroup(noticeGroup)}
-                                                            onKeyDown={(event) => {
-                                                                if (event.key === 'Enter' || event.key === ' ') {
-                                                                    event.preventDefault();
-                                                                    setActiveNoticeGroup(noticeGroup);
-                                                                }
-                                                            }}
-                                                            className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
-                                                        >
-                                                            <h4 className="text-sm leading-7 font-semibold text-text">
-                                                                {noticeGroup.title}
-                                                            </h4>
+                                                        <Fragment key={noticeGroup.id}>
+                                                            <article
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onClick={() => setActiveNoticeGroup(noticeGroup)}
+                                                                onKeyDown={(event) => {
+                                                                    if (event.key === 'Enter' || event.key === ' ') {
+                                                                        event.preventDefault();
+                                                                        setActiveNoticeGroup(noticeGroup);
+                                                                    }
+                                                                }}
+                                                                className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
+                                                            >
+                                                                <h4 className="text-sm leading-7 font-semibold text-text">
+                                                                    {noticeGroup.title}
+                                                                </h4>
 
-                                                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                                {visibleSymbols.map((symbol) => (
-                                                                    <span
-                                                                        key={`${noticeGroup.id}-${symbol}`}
-                                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
-                                                                    >
+                                                                <div
+                                                                    className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                                    {visibleSymbols.map((symbol) => (
+                                                                        <span
+                                                                            key={`${noticeGroup.id}-${symbol}`}
+                                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
+                                                                        >
                                                             {symbol}
                                                         </span>
-                                                                ))}
+                                                                    ))}
 
-                                                                {extraSymbolsCount > 0 ? (
-                                                                    <span
-                                                                        className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+                                                                    {extraSymbolsCount > 0 ? (
+                                                                        <span
+                                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
                                                             + {formatFaInteger(extraSymbolsCount)}
                                                         </span>
-                                                                ) : null}
+                                                                    ) : null}
 
-                                                                {noticeGroup.hasUnderSupervision ? (
-                                                                    <span
-                                                                        className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
+                                                                    {noticeGroup.hasUnderSupervision ? (
+                                                                        <span
+                                                                            className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
                                                             تحت نظارت
                                                         </span>
-                                                                ) : null}
-                                                            </div>
+                                                                    ) : null}
+                                                                </div>
 
-                                                            <p className="mt-2 text-[11px] tabular-nums text-muted"
-                                                               dir="ltr">
-                                                                {formatDateTimeFa(noticeGroup.publishDateTime)}
-                                                            </p>
-                                                        </article>
+                                                                <p className="mt-2 text-[11px] tabular-nums text-muted"
+                                                                   dir="ltr">
+                                                                    {formatDateTimeFa(noticeGroup.publishDateTime)}
+                                                                </p>
+                                                            </article>
+
+                                                            {canPrefetchMoreSymbolNotices && index === symbolNoticeLoadTriggerIndex ? (
+                                                                <InfiniteScrollSentinel
+                                                                    sentinelRef={symbolNoticeLoadMoreRef}/>
+                                                            ) : null}
+                                                        </Fragment>
                                                     );
                                                 })}
 
-                                                <div ref={symbolNoticeLoadMoreRef} className="h-6 w-full"/>
-
-                                                {symbolCodalNoticesLoadingMore && shouldLoadMoreSymbolNotices ? (
-                                                    <div
-                                                        className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
-                                                        <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                                        در حال بارگذاری اطلاعیه‌های بیشتر...
-                                                    </div>
-                                                ) : null}
-
-                                                {!symbolCodalNoticesLoading &&
-                                                !shouldLoadMoreSymbolNotices &&
+                                                {!symbolCodalNoticesHasMore &&
+                                                !symbolCodalNoticesLoading &&
+                                                !symbolCodalNoticesLoadingMore &&
                                                 symbolCodalNotices.length > 0 ? (
                                                     <div className="py-1 text-center text-[11px] text-muted">
                                                         همه اطلاعیه‌ها نمایش داده شد.
@@ -4209,8 +4170,8 @@ export default function TradingDashboard({
                                 </div>
 
                                 <div ref={noticeListRef}
-                                     className="thin-scrollbar h-[324px] space-y-2 overflow-y-auto pl-1">
-                                    {(isWaitingForNoticeResults || (groupedNotices.length === 0 && shouldLoadMoreNotices)) &&
+                                     className="calm-scroll thin-scrollbar h-[324px] space-y-2 overflow-y-auto pl-1">
+                                    {(codalNoticesLoading || (groupedNotices.length === 0 && canPrefetchMoreNotices)) &&
                                     groupedNotices.length === 0 ? (
                                         Array.from({length: 4}, (_, index) => (
                                             <div
@@ -4241,8 +4202,10 @@ export default function TradingDashboard({
                                         </div>
                                     ) : null}
 
-                                    {!isWaitingForNoticeResults &&
-                                    !shouldLoadMoreNotices &&
+                                    {!codalNoticesLoading &&
+                                    !codalNoticesLoadingMore &&
+                                    !canPrefetchMoreNotices &&
+                                    !codalNoticesHasMore &&
                                     groupedNotices.length === 0 &&
                                     !codalNoticesError ? (
                                         <div
@@ -4251,67 +4214,66 @@ export default function TradingDashboard({
                                         </div>
                                     ) : null}
 
-                                    {groupedNotices.map((group) => {
+                                    {groupedNotices.map((group, index) => {
                                         const visibleSymbols = group.symbols.slice(0, 4);
                                         const extraSymbolsCount = group.symbols.length - visibleSymbols.length;
 
                                         return (
-                                            <article
-                                                key={group.id}
-                                                role="button"
-                                                tabIndex={0}
-                                                onClick={() => setActiveNoticeGroup(group)}
-                                                onKeyDown={(event) => {
-                                                    if (event.key === 'Enter' || event.key === ' ') {
-                                                        event.preventDefault();
-                                                        setActiveNoticeGroup(group);
-                                                    }
-                                                }}
-                                                className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
-                                            >
-                                                <h4 className="text-sm leading-7 font-semibold text-text">{group.title}</h4>
+                                            <Fragment key={group.id}>
+                                                <article
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={() => setActiveNoticeGroup(group)}
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter' || event.key === ' ') {
+                                                            event.preventDefault();
+                                                            setActiveNoticeGroup(group);
+                                                        }
+                                                    }}
+                                                    className="cursor-pointer rounded-xl border border-border/70 bg-surface px-3 py-2.5 transition hover:border-primary/30 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-primary/45"
+                                                >
+                                                    <h4 className="text-sm leading-7 font-semibold text-text">{group.title}</h4>
 
-                                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                                    {visibleSymbols.map((symbol) => (
-                                                        <span
-                                                            key={`${group.id}-${symbol}`}
-                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
-                                                        >
+                                                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                        {visibleSymbols.map((symbol) => (
+                                                            <span
+                                                                key={`${group.id}-${symbol}`}
+                                                                className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted"
+                                                            >
                           {symbol}
                         </span>
-                                                    ))}
+                                                        ))}
 
-                                                    {extraSymbolsCount > 0 ? (
-                                                        <span
-                                                            className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
+                                                        {extraSymbolsCount > 0 ? (
+                                                            <span
+                                                                className="inline-flex rounded-full border border-border/70 bg-surface-2 px-2.5 py-0.5 text-[11px] text-muted">
                           + {formatFaInteger(extraSymbolsCount)}
                         </span>
-                                                    ) : null}
+                                                        ) : null}
 
-                                                    {group.hasUnderSupervision ? (
-                                                        <span
-                                                            className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
+                                                        {group.hasUnderSupervision ? (
+                                                            <span
+                                                                className="inline-flex rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] text-warning">
                           تحت نظارت
                         </span>
-                                                    ) : null}
-                                                </div>
+                                                        ) : null}
+                                                    </div>
 
-                                                <p className="mt-2 text-[11px] tabular-nums text-muted"
-                                                   dir="ltr">{formatDateTimeFa(group.publishDateTime)}</p>
-                                            </article>
+                                                    <p className="mt-2 text-[11px] tabular-nums text-muted"
+                                                       dir="ltr">{formatDateTimeFa(group.publishDateTime)}</p>
+                                                </article>
+
+                                                {canPrefetchMoreNotices && index === noticeLoadTriggerIndex ? (
+                                                    <InfiniteScrollSentinel sentinelRef={noticeLoadMoreRef}/>
+                                                ) : null}
+                                            </Fragment>
                                         );
                                     })}
 
-                                    <div ref={noticeLoadMoreRef} className="h-6 w-full"/>
-
-                                    {codalNoticesLoadingMore && shouldLoadMoreNotices ? (
-                                        <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted">
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
-                                            در حال بارگذاری پیام‌های بیشتر...
-                                        </div>
-                                    ) : null}
-
-                                    {!codalNoticesLoading && !shouldLoadMoreNotices && groupedNotices.length > 0 ? (
+                                    {!codalNoticesHasMore &&
+                                    !codalNoticesLoading &&
+                                    !codalNoticesLoadingMore &&
+                                    groupedNotices.length > 0 ? (
                                         <div className="py-1 text-center text-[11px] text-muted">همه پیام‌ها نمایش داده
                                             شد.</div>
                                     ) : null}
