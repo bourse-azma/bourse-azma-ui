@@ -2089,9 +2089,10 @@ export default function TradingDashboard({
     const farabourseIndex = farabourseOverview?.indexValue ?? null;
     const farabourseDelta = farabourseOverview?.indexChange ?? null;
 
-    const marketStateText = bourseOverview?.marketStateTitle || farabourseOverview?.marketStateTitle || null;
     const isMarketOpen =
         bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز';
+    const marketStateKnown =
+        bourseOverview?.marketStateTitle ?? farabourseOverview?.marketStateTitle ?? null;
     const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
     const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
     const [tradingAccountLoading, setTradingAccountLoading] = useState(true);
@@ -2635,7 +2636,6 @@ export default function TradingDashboard({
                 tradeValue: bourseOverview?.totalTradeValue ?? null,
                 tradeVolume: bourseOverview?.totalTradeVolume ?? null,
                 positive: marketPositive,
-                marketStateTitle: bourseOverview?.marketStateTitle ?? null,
             },
             {
                 id: 'farabourse',
@@ -2647,14 +2647,12 @@ export default function TradingDashboard({
                 tradeValue: farabourseOverview?.totalTradeValue ?? null,
                 tradeVolume: farabourseOverview?.totalTradeVolume ?? null,
                 positive: faraboursePositive,
-                marketStateTitle: farabourseOverview?.marketStateTitle ?? null,
             },
         ],
         [
             bourseOverview?.totalTrades,
             bourseOverview?.totalTradeValue,
             bourseOverview?.totalTradeVolume,
-            bourseOverview?.marketStateTitle,
             farabourseDelta,
             farabourseIndex,
             faraboursePercent,
@@ -2662,7 +2660,6 @@ export default function TradingDashboard({
             farabourseOverview?.totalTrades,
             farabourseOverview?.totalTradeValue,
             farabourseOverview?.totalTradeVolume,
-            farabourseOverview?.marketStateTitle,
             marketDelta,
             marketIndex,
             marketPercent,
@@ -3118,11 +3115,32 @@ export default function TradingDashboard({
                 <header className="border-b border-border/60 px-3 py-2 sm:px-4">
                     <div
                         className="mx-auto grid w-full max-w-[1800px] grid-cols-1 gap-3 lg:grid-cols-12 [direction:ltr]">
-                        <div dir="rtl" className="flex items-center gap-2 lg:col-span-3 lg:justify-start">
+                        <div dir="rtl" className="flex flex-wrap items-center gap-2 lg:col-span-3 lg:justify-start">
                             <div
-                                className="inline-flex items-center gap-1.5 rounded-full border border-border/80 bg-surface-2 px-3 py-1.5 text-xs text-muted">
-                                <Clock3 className="h-3.5 w-3.5"/>
-                                <span className="tabular-nums">{clockValue}</span>
+                                className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-surface-2 px-3 py-1.5 text-xs">
+                                <div className="flex items-center gap-1.5 text-muted">
+                                    <Clock3 className="h-3.5 w-3.5"/>
+                                    <span className="tabular-nums">{clockValue}</span>
+                                </div>
+                                {marketStateKnown ? (
+                                    <>
+                                        <span className="h-3 w-px bg-border/70"/>
+                                        <span
+                                            className={`inline-flex items-center gap-1.5 font-medium ${
+                                                isMarketOpen ? 'text-positive' : 'text-negative'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`h-1.5 w-1.5 rounded-full ${
+                                                    isMarketOpen
+                                                        ? 'bg-positive animate-pulse'
+                                                        : 'bg-negative'
+                                                }`}
+                                            />
+                                            {isMarketOpen ? 'بازار باز' : 'بازار بسته'}
+                                        </span>
+                                    </>
+                                ) : null}
                             </div>
 
                             <button
@@ -3187,21 +3205,6 @@ export default function TradingDashboard({
                                     <div className="flex items-center gap-1.5 text-xs text-muted">
                                         <span className="font-medium sm:text-sm">شاخص کل بورس</span>
                                         <span className="text-[11px] text-muted/80">بورس • فرابورس</span>
-                                        {marketStateText && (
-                                            <span
-                                                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors ${
-                                                    isMarketOpen
-                                                        ? 'bg-positive/10 text-positive'
-                                                        : 'bg-muted/10 text-muted'
-                                                }`}>
-                                                <span className={`h-1.5 w-1.5 rounded-full ${
-                                                    isMarketOpen
-                                                        ? 'bg-positive animate-pulse'
-                                                        : 'bg-muted'
-                                                }`}/>
-                                                {marketStateText}
-                                            </span>
-                                        )}
                                     </div>
 
                                     <div className="flex items-center gap-2 [direction:ltr]">
@@ -3685,8 +3688,9 @@ export default function TradingDashboard({
                                             <div className="flex items-center justify-between">
                                                 <span className="text-muted">پایانی</span>
                                                 <span className="font-medium tabular-nums text-text">
-                      {formatNumberOrDash(activeSymbolData?.closePrice)} ({formatPercentOrDash(activeSymbolData?.closePricePercent)})
-                    </span>
+                                                    {formatNumberOrDash(activeSymbolData?.closePrice)} (
+                                                    {formatPercentOrDash(activeSymbolData?.closePricePercent)})
+                                                </span>
                                             </div>
                                             <div className="flex items-center justify-between">
                                         <span className="text-muted">

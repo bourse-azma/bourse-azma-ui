@@ -26,9 +26,6 @@ const formatPeerPercent = (
     if (value === null || value === undefined || Number.isNaN(value)) {
         return '—';
     }
-    if (value < 0) {
-        return `(${formatPercent(Math.abs(value))})`;
-    }
     return formatPercent(value);
 };
 
