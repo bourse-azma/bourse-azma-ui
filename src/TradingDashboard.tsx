@@ -351,6 +351,16 @@ export const formatNumberFa = (value: number, digits = 0) =>
         }).format(value)
     );
 
+export const formatSignedNumberFa = (value: number, digits = 0) => {
+    const sign = value > 0 ? '+' : '';
+    return toLtrIsolated(
+        `${sign}${new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits,
+        }).format(value)}`
+    );
+};
+
 export const formatPercentFa = (value: number, digits = 2) => {
     const sign = value > 0 ? '+' : '';
     return toLtrIsolated(`${sign}${new Intl.NumberFormat('en-US', {
@@ -905,12 +915,23 @@ type WalletTx = {
     createdAt: string;
 };
 
-function WalletReportsPanel({accessToken}: { accessToken: string }) {
+function WalletReportsPanel({
+                                accessToken,
+                                walletBalance,
+                                enabled,
+                            }: {
+    accessToken: string;
+    walletBalance: number;
+    enabled: boolean;
+}) {
     const [txs, setTxs] = useState<WalletTx[]>([]);
     const [loading, setLoading] = useState(false);
+    const hasLoadedOnceRef = useRef(false);
 
-    const fetchTxs = useCallback(async () => {
-        setLoading(true);
+    const fetchTxs = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+        }
         try {
             const res = await fetch('/api/v1/wallet/transactions', {
                 headers: {Authorization: `Bearer ${accessToken}`},
@@ -918,135 +939,137 @@ function WalletReportsPanel({accessToken}: { accessToken: string }) {
             const data = await res.json();
             if (res.ok && data.result) {
                 setTxs(data.result);
+                hasLoadedOnceRef.current = true;
             }
         } catch (err) {
             console.error(err);
         } finally {
-            setLoading(false);
+            if (!silent) {
+                setLoading(false);
+            }
         }
     }, [accessToken]);
 
     useEffect(() => {
-        void fetchTxs();
-    }, [fetchTxs]);
+        void fetchTxs(hasLoadedOnceRef.current);
+    }, [fetchTxs, walletBalance]);
 
+    useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
+        let timer: number | undefined;
+        const tick = async () => {
+            await fetchTxs(true);
+            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        };
+        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+
+        return () => {
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
+        };
+    }, [enabled, fetchTxs]);
+
+    const currentBalance = txs[0]?.balanceAfter ?? walletBalance;
     const totalCount = txs.length;
     const totalNet = txs.reduce((sum, tx) => sum + tx.amount, 0);
     const inflowCount = txs.filter((tx) => tx.amount > 0).length;
     const outflowCount = txs.filter((tx) => tx.amount < 0).length;
-    const latestTx = txs[0];
 
     return (
         <section dir="rtl" className={`${cardClass} overflow-hidden`}>
-            <div
-                className="border-b border-border/60 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] px-4 py-4 sm:px-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3 sm:px-5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Wallet className="h-4 w-4"/>
+                    </div>
                     <div className="min-w-0">
-                        <div
-                            className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-surface-2 px-3 py-1 text-[10px] text-muted">
-                            <Wallet className="h-3.5 w-3.5 text-primary"/>
-                            گزارشات مالی
-                        </div>
-                        <h2 className="mt-3 text-base font-bold text-text">گزارشات کیف پول</h2>
-                        <p className="mt-1 max-w-xl text-xs leading-6 text-muted">
-                            مرور سریع تراکنش‌ها، تشخیص جریان ورود و خروج، و بررسی آخرین تغییرات موجودی.
+                        <h2 className="text-sm font-bold text-text">گزارشات کیف پول</h2>
+                        <p className="text-[11px] text-muted">تراکنش‌ها و موجودی</p>
+                    </div>
+                </div>
+                {loading && txs.length > 0 ? (
+                    <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted"/>
+                ) : null}
+            </div>
+
+            <div className="border-b border-border/50 px-4 py-3 sm:px-5">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <p className="text-[11px] text-muted">موجودی فعلی</p>
+                        <p className="text-lg font-bold tabular-nums text-text sm:text-xl">
+                            {formatNumberFa(currentBalance)}
+                            <span className="mr-1 text-xs font-normal text-muted">ریال</span>
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void fetchTxs()}
-                        disabled={loading}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 text-xs font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
-                    >
-                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
-                            <RefreshCw className="h-3.5 w-3.5"/>}
-                        بروزرسانی
-                    </button>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
-                        <div className="text-[10px] text-muted">تراکنش‌ها</div>
-                        <div
-                            className="mt-1 text-lg font-bold tabular-nums text-text">{formatFaInteger(totalCount)}</div>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
-                        <div className="text-[10px] text-muted">جریان خالص</div>
-                        <div
-                            className={`mt-1 text-lg font-bold tabular-nums ${totalNet >= 0 ? 'text-positive' : 'text-negative'}`}>
-                            {totalNet >= 0 ? '+' : ''}{formatFaInteger(totalNet)} ریال
-                        </div>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
-                        <div className="text-[10px] text-muted">ورودی‌ها</div>
-                        <div
-                            className="mt-1 text-lg font-bold tabular-nums text-positive">{formatFaInteger(inflowCount)}</div>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
-                        <div className="text-[10px] text-muted">خروجی‌ها</div>
-                        <div
-                            className="mt-1 text-lg font-bold tabular-nums text-negative">{formatFaInteger(outflowCount)}</div>
-                    </div>
-                    <div
-                        className="sm:col-span-2 xl:col-span-4 rounded-2xl border border-border/60 bg-surface-2/80 px-3 py-3">
-                        <div className="text-[10px] text-muted">آخرین وضعیت</div>
-                        <div className="mt-1 text-sm font-semibold text-text">
-                            {latestTx ? (latestTx.amount > 0 ? 'افزایش موجودی' : 'کاهش موجودی') : 'بدون تراکنش'}
-                        </div>
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted">
+                        <span>
+                            <span className="font-semibold tabular-nums text-text">{formatNumberFa(totalCount)}</span>
+                            {' '}تراکنش
+                        </span>
+                        <span aria-hidden className="text-border/80">·</span>
+                        <span className={totalNet >= 0 ? 'text-positive' : 'text-negative'}>
+                            {formatSignedNumberFa(totalNet)} خالص واریز و برداشت
+                        </span>
+                        <span aria-hidden className="text-border/80">·</span>
+                        <span>
+                            <span className="tabular-nums text-positive">{formatNumberFa(inflowCount)}</span> واریز
+                        </span>
+                        <span aria-hidden className="text-border/80">·</span>
+                        <span>
+                            <span className="tabular-nums text-negative">{formatNumberFa(outflowCount)}</span> برداشت
+                        </span>
                     </div>
                 </div>
             </div>
 
-            <div className="p-4 sm:p-5">
+            <div className="px-4 py-3 sm:px-5">
                 {loading && txs.length === 0 ? (
-                    <div
-                        className="flex items-center justify-center gap-2 rounded-2xl border border-dashed border-border/70 bg-surface-2 py-12 text-xs text-muted">
-                        <Loader2 className="h-4 w-4 animate-spin"/>
-                        در حال بارگذاری گزارشات...
+                    <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin"/>
+                        در حال بارگذاری...
                     </div>
                 ) : txs.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-border/70 bg-surface-2 p-8 text-center">
-                        <div
-                            className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-border/70 bg-surface text-muted">
-                            <Wallet className="h-5 w-5"/>
-                        </div>
-                        <div className="text-sm font-semibold text-text">هنوز تراکنشی ثبت نشده است</div>
-                        <p className="mt-1 text-xs leading-6 text-muted">
-                            بعد از اولین واریز یا برداشت، جزئیات اینجا به صورت فهرست زمانی نمایش داده می‌شود.
-                        </p>
+                    <div className="py-10 text-center">
+                        <Wallet className="mx-auto h-5 w-5 text-muted"/>
+                        <p className="mt-2 text-xs font-medium text-text">تراکنشی ثبت نشده</p>
+                        <p className="mt-0.5 text-[11px] text-muted">بعد از اولین واریز یا برداشت اینجا نمایش داده
+                            می‌شود.</p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="divide-y divide-border/50 rounded-xl border border-border/50">
                         {txs.map((tx) => {
                             const isIncrease = tx.amount > 0;
                             return (
                                 <div
                                     key={tx.id}
-                                    className="group flex items-start justify-between gap-3 rounded-2xl border border-border/60 bg-surface-2/70 p-3 text-xs transition hover:border-primary/25 hover:bg-surface-2"
+                                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs"
                                 >
-                                    <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex min-w-0 items-center gap-2.5">
                                         <span
-                                            className={`mt-0.5 rounded-2xl p-2 ${isIncrease ? 'bg-positive/12 text-positive' : 'bg-negative/12 text-negative'}`}
+                                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isIncrease ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}
                                         >
                                             {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> :
                                                 <ArrowDownLeft className="h-3.5 w-3.5"/>}
                                         </span>
                                         <div className="min-w-0">
-                                            <div
-                                                className="font-semibold leading-relaxed text-text">{tx.description}</div>
-                                            <div className="mt-1 text-[10px] tabular-nums text-muted" dir="ltr">
+                                            <p className="truncate font-medium text-text">{tx.description}</p>
+                                            <p className="mt-0.5 text-[10px] tabular-nums text-muted" dir="ltr">
                                                 {formatDateTimeFa(tx.createdAt)}
-                                            </div>
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="shrink-0 text-left">
-                                        <div
-                                            className={`font-bold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
-                                            {isIncrease ? '+' : ''}{tx.amount.toLocaleString('en-US')} ریال
-                                        </div>
-                                        <div className="mt-0.5 text-[10px] text-muted tabular-nums">
-                                            موجودی: {tx.balanceAfter.toLocaleString('en-US')}
-                                        </div>
+                                        <p className={`font-semibold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                            {formatSignedNumberFa(tx.amount)}
+                                        </p>
+                                        <p className="mt-0.5 text-[10px] tabular-nums text-muted">
+                                            {formatNumberFa(tx.balanceAfter)} ریال
+                                        </p>
                                     </div>
                                 </div>
                             );
@@ -3440,7 +3463,11 @@ export default function TradingDashboard({
 
             <main className="mx-auto w-full max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
                 {mainNavTab === 'گزارشات' ? (
-                    <WalletReportsPanel accessToken={accessToken}/>
+                    <WalletReportsPanel
+                        accessToken={accessToken}
+                        walletBalance={userProfile?.balance ?? 0}
+                        enabled={mainNavTab === 'گزارشات'}
+                    />
                 ) : mainNavTab === 'درخواست‌ها' ? (
                     <SupportRequestsPanel accessToken={accessToken} profileDisplayName={profileDisplayName}/>
                 ) : (
