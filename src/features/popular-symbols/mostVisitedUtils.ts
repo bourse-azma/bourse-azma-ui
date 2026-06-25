@@ -1,4 +1,5 @@
 import type {SymbolSourceType, TsetmcMostVisitedInstrument} from '../symbol-search/types';
+import {toLtrIsolated} from '../../utils/numberFormat';
 
 export type MostVisitedMarketId = 1 | 2;
 
@@ -49,10 +50,12 @@ export const resolveMostVisitedChangePercent = (instrument: TsetmcMostVisitedIns
 };
 
 const formatCompactNumber = (value: number, digits: number) =>
-    `\u2066${new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-    }).format(value)}\u2069`;
+    toLtrIsolated(
+        new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: digits,
+            maximumFractionDigits: digits,
+        }).format(value),
+    );
 
 export const formatCompactTradeValue = (value: number | null | undefined): string | null => {
     if (value === null || value === undefined || Number.isNaN(value)) {

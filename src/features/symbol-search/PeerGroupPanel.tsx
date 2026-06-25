@@ -1,4 +1,5 @@
 import type {PeerGroupRow, SymbolSearchSuggestion} from './types';
+import {ltrNumericClassName} from '../../utils/numberFormat';
 
 /** Shared height for order-book slot (info / peers / technical tabs). */
 export const ORDERBOOK_SLOT_HEIGHT_CLASS = 'h-[512px]';
@@ -52,7 +53,7 @@ function PriceCell({price, percent, formatNumber, formatPercent}: PriceCellProps
     return (
         <div className="flex flex-col items-center justify-center gap-0.5 leading-none">
             <span className="text-xs font-semibold text-text">{formatNumber(price)}</span>
-            <span className={`text-[10px] ${percentClassName(percent)}`}>
+            <span className={`text-[10px] ${ltrNumericClassName} ${percentClassName(percent)}`}>
                 {formatPeerPercent(percent, formatPercent)}
             </span>
         </div>

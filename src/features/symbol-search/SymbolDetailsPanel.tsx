@@ -1,5 +1,6 @@
 import {AlertCircle} from 'lucide-react';
 import {formatDateTimeFa} from '../../utils/formatDateTime';
+import {ltrNumericClassName} from '../../utils/numberFormat';
 import type {SymbolDetailRow} from './types';
 
 type SymbolDetailsPanelProps = {
@@ -99,7 +100,11 @@ export default function SymbolDetailsPanel({
                             >
                                 <span className="shrink-0 text-muted">{item.label}</span>
                                 <span
-                                    className="min-w-0 text-left font-medium tabular-nums text-text"
+                                    className={`min-w-0 text-left font-medium text-text ${
+                                        item.valueType === 'percent' || item.valueType === 'number'
+                                            ? ltrNumericClassName
+                                            : 'tabular-nums'
+                                    }`}
                                     dir={item.valueType === 'datetime' ? 'ltr' : undefined}
                                 >
                                     {displayValue}

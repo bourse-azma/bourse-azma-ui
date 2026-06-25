@@ -1,31 +1,9 @@
 import {useEffect, useState} from 'react';
 import {Eye, EyeOff} from 'lucide-react';
 import type {AccountSummary} from './accountSummary';
+import {formatGrowthLabel, formatNumberFa, ltrNumericClassName,} from '../../utils/numberFormat';
 
 const HIDE_VALUES_STORAGE_KEY = 'bourse-azma-hide-account-values';
-
-const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
-
-const formatNumberFa = (value: number, digits = 0) =>
-    toLtrIsolated(
-        new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits,
-        }).format(value)
-    );
-
-const formatGrowthLabel = (growth: number, growthPercent: number) => {
-    const growthSign = growth > 0 ? '+' : '';
-    const percentSign = growthPercent > 0 ? '+' : '';
-    return toLtrIsolated(
-        `(${growthSign}${new Intl.NumberFormat('en-US', {
-            maximumFractionDigits: 0,
-        }).format(growth)} (${percentSign}${new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-        }).format(growthPercent)}%))`
-    );
-};
 
 const HIDDEN_VALUE = '••••••';
 
@@ -50,7 +28,8 @@ function StatItem({label, value, hidden, valueClassName = 'text-text', suffix}: 
                 {hidden ? HIDDEN_VALUE : value}
             </span>
             {!hidden && suffix ? (
-                <span className={`whitespace-nowrap text-[11px] font-medium tabular-nums sm:text-xs ${valueClassName}`}>
+                <span
+                    className={`whitespace-nowrap text-[11px] font-medium sm:text-xs ${valueClassName} ${ltrNumericClassName}`}>
                     {suffix}
                 </span>
             ) : null}

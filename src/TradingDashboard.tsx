@@ -53,6 +53,13 @@ import PeerGroupPanel from './features/symbol-search/PeerGroupPanel';
 import TechnicalChartPanel from './features/technical-chart/TechnicalChartPanel';
 import SymbolDetailsPanel from './features/symbol-search/SymbolDetailsPanel';
 import {formatDateTimeFa, toEnglishDigits} from './utils/formatDateTime';
+import {
+    formatNumberFa,
+    formatPercentFa,
+    formatPercentOrDash as formatPercentOrDashBase,
+    formatSignedNumberFa,
+    ltrNumericClassName,
+} from './utils/numberFormat';
 import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from './features/symbol-search/orderBookUtils';
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import IndustriesTabContent from './features/industries/IndustriesTabContent';
@@ -341,34 +348,6 @@ const DEFAULT_SELECTED_SYMBOL: SymbolSearchSuggestion = {
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
-
-export const formatNumberFa = (value: number, digits = 0) =>
-    toLtrIsolated(
-        new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits,
-        }).format(value)
-    );
-
-export const formatSignedNumberFa = (value: number, digits = 0) => {
-    const sign = value > 0 ? '+' : '';
-    return toLtrIsolated(
-        `${sign}${new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits,
-        }).format(value)}`
-    );
-};
-
-export const formatPercentFa = (value: number, digits = 2) => {
-    const sign = value > 0 ? '+' : '';
-    return toLtrIsolated(`${sign}${new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-    }).format(value)}%`);
-};
-
 const formatNumberOrDash = (value: number | null | undefined, digits = 0) =>
     value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatNumberFa(value, digits);
 
@@ -387,7 +366,7 @@ const formatDepthPercent = (value: number | null | undefined) => {
 };
 
 const formatPercentOrDash = (value: number | null | undefined, digits = 2) =>
-    value === null || value === undefined || Number.isNaN(value) ? 'ناموجود' : formatPercentFa(value, digits);
+    formatPercentOrDashBase(value, digits, 'ناموجود');
 
 const formatCompactValue = (value: number, unit: 'T' | 'B') => {
     const divisor = unit === 'T' ? 1_000_000_000_000 : 1_000_000_000;
@@ -915,6 +894,38 @@ type WalletTx = {
     createdAt: string;
 };
 
+function getWalletTransactionMeta(tx: WalletTx) {
+    const isIncrease = tx.amount > 0;
+    const balanceBefore = tx.balanceAfter - tx.amount;
+    const trimmedDescription = tx.description.trim();
+    const title = isIncrease ? 'افزایش موجودی' : 'کاهش موجودی';
+    const isAutoDescription = /^(افزایش|کاهش|تغییر) موجودی/.test(trimmedDescription);
+
+    return {isIncrease, balanceBefore, title, isAutoDescription};
+}
+
+function getSupportRequestStatusMeta(status: string) {
+    switch (status.toUpperCase()) {
+        case 'CLOSED':
+        case 'RESOLVED':
+            return {
+                label: 'پاسخ داده شده',
+                className: 'border-border/70 bg-surface-2 text-muted',
+            };
+        case 'IN_PROGRESS':
+            return {
+                label: 'در حال بررسی',
+                className: 'border-primary/25 bg-primary/10 text-primary',
+            };
+        case 'OPEN':
+        default:
+            return {
+                label: 'در انتظار پاسخ',
+                className: 'border-positive/25 bg-positive/10 text-positive',
+            };
+    }
+}
+
 function WalletReportsPanel({
                                 accessToken,
                                 walletBalance,
@@ -926,6 +937,7 @@ function WalletReportsPanel({
 }) {
     const [txs, setTxs] = useState<WalletTx[]>([]);
     const [loading, setLoading] = useState(false);
+    const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
     const hasLoadedOnceRef = useRef(false);
 
     const fetchTxs = useCallback(async (silent = false) => {
@@ -974,10 +986,14 @@ function WalletReportsPanel({
     }, [enabled, fetchTxs]);
 
     const currentBalance = txs[0]?.balanceAfter ?? walletBalance;
-    const totalCount = txs.length;
-    const totalNet = txs.reduce((sum, tx) => sum + tx.amount, 0);
-    const inflowCount = txs.filter((tx) => tx.amount > 0).length;
-    const outflowCount = txs.filter((tx) => tx.amount < 0).length;
+    const sortedTxs = useMemo(
+        () => [...txs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+        [txs],
+    );
+    const totalCount = sortedTxs.length;
+    const totalNet = sortedTxs.reduce((sum, tx) => sum + tx.amount, 0);
+    const inflowCount = sortedTxs.filter((tx) => tx.amount > 0).length;
+    const outflowCount = sortedTxs.filter((tx) => tx.amount < 0).length;
 
     return (
         <section dir="rtl" className={`${cardClass} overflow-hidden`}>
@@ -997,37 +1013,42 @@ function WalletReportsPanel({
                 ) : null}
             </div>
 
-            <div className="border-b border-border/50 px-4 py-3 sm:px-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <p className="text-[11px] text-muted">موجودی فعلی</p>
-                        <p className="text-lg font-bold tabular-nums text-text sm:text-xl">
-                            {formatNumberFa(currentBalance)}
-                            <span className="mr-1 text-xs font-normal text-muted">ریال</span>
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted">
-                        <span>
-                            <span className="font-semibold tabular-nums text-text">{formatNumberFa(totalCount)}</span>
-                            {' '}تراکنش
-                        </span>
-                        <span aria-hidden className="text-border/80">·</span>
-                        <span className={totalNet >= 0 ? 'text-positive' : 'text-negative'}>
-                            {formatSignedNumberFa(totalNet)} خالص واریز و برداشت
-                        </span>
-                        <span aria-hidden className="text-border/80">·</span>
-                        <span>
-                            <span className="tabular-nums text-positive">{formatNumberFa(inflowCount)}</span> واریز
-                        </span>
-                        <span aria-hidden className="text-border/80">·</span>
-                        <span>
-                            <span className="tabular-nums text-negative">{formatNumberFa(outflowCount)}</span> برداشت
-                        </span>
-                    </div>
+            <div className="border-b border-border/50 bg-surface-2/40 px-4 py-4 sm:px-5">
+                <div
+                    className="rounded-2xl border border-primary/15 bg-gradient-to-l from-primary/8 via-surface to-surface p-4">
+                    <p className="text-[11px] font-medium text-muted">موجودی فعلی کیف پول</p>
+                    <p className="mt-1 text-2xl font-black tabular-nums text-text sm:text-3xl">
+                        {formatNumberFa(currentBalance)}
+                        <span className="mr-1.5 text-sm font-medium text-muted">ریال</span>
+                    </p>
                 </div>
+
+                {totalCount > 0 ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="rounded-xl border border-border/60 bg-surface px-3 py-2.5">
+                            <p className="text-[10px] text-muted">تعداد تراکنش</p>
+                            <p className="mt-0.5 text-sm font-bold tabular-nums text-text">{formatNumberFa(totalCount)}</p>
+                        </div>
+                        <div className="rounded-xl border border-border/60 bg-surface px-3 py-2.5">
+                            <p className="text-[10px] text-muted">خالص واریز و برداشت</p>
+                            <p className={`mt-0.5 text-sm font-bold ${ltrNumericClassName} ${totalNet >= 0 ? 'text-positive' : 'text-negative'}`}>
+                                {formatSignedNumberFa(totalNet)}
+                                <span className="mr-1 text-[10px] font-medium text-muted">ریال</span>
+                            </p>
+                        </div>
+                        <div className="rounded-xl border border-positive/20 bg-positive/5 px-3 py-2.5">
+                            <p className="text-[10px] text-positive/80">افزایش موجودی</p>
+                            <p className="mt-0.5 text-sm font-bold tabular-nums text-positive">{formatNumberFa(inflowCount)}</p>
+                        </div>
+                        <div className="rounded-xl border border-negative/20 bg-negative/5 px-3 py-2.5">
+                            <p className="text-[10px] text-negative/80">کاهش موجودی</p>
+                            <p className="mt-0.5 text-sm font-bold tabular-nums text-negative">{formatNumberFa(outflowCount)}</p>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
-            <div className="px-4 py-3 sm:px-5">
+            <div className="px-4 py-4 sm:px-5">
                 {loading && txs.length === 0 ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted">
                         <Loader2 className="h-3.5 w-3.5 animate-spin"/>
@@ -1037,41 +1058,98 @@ function WalletReportsPanel({
                     <div className="py-10 text-center">
                         <Wallet className="mx-auto h-5 w-5 text-muted"/>
                         <p className="mt-2 text-xs font-medium text-text">تراکنشی ثبت نشده</p>
-                        <p className="mt-0.5 text-[11px] text-muted">بعد از اولین واریز یا برداشت اینجا نمایش داده
+                        <p className="mt-0.5 text-[11px] text-muted">بعد از اولین افزایش یا کاهش موجودی اینجا نمایش داده
                             می‌شود.</p>
                     </div>
                 ) : (
-                    <div className="divide-y divide-border/50 rounded-xl border border-border/50">
-                        {txs.map((tx) => {
-                            const isIncrease = tx.amount > 0;
+                    <div className="space-y-2">
+                        {sortedTxs.map((tx) => {
+                            const {isIncrease, balanceBefore, title, isAutoDescription} = getWalletTransactionMeta(tx);
+                            const showDescription = !isAutoDescription && tx.description.trim().length > 0;
+                            const isExpanded = expandedTxId === tx.id;
+
                             return (
-                                <div
+                                <article
                                     key={tx.id}
-                                    className="flex items-center justify-between gap-3 px-3 py-2.5 text-xs"
+                                    className="rounded-xl border border-border/60 bg-surface"
                                 >
-                                    <div className="flex min-w-0 items-center gap-2.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setExpandedTxId((prev) => (prev === tx.id ? null : tx.id))}
+                                        className="flex w-full items-start gap-3 px-3.5 py-3 text-right sm:px-4"
+                                    >
                                         <span
-                                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isIncrease ? 'bg-positive/10 text-positive' : 'bg-negative/10 text-negative'}`}
+                                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                                isIncrease ? 'bg-positive/12 text-positive' : 'bg-negative/12 text-negative'
+                                            }`}
                                         >
                                             {isIncrease ? <ArrowUpRight className="h-3.5 w-3.5"/> :
                                                 <ArrowDownLeft className="h-3.5 w-3.5"/>}
                                         </span>
-                                        <div className="min-w-0">
-                                            <p className="truncate font-medium text-text">{tx.description}</p>
-                                            <p className="mt-0.5 text-[10px] tabular-nums text-muted" dir="ltr">
-                                                {formatDateTimeFa(tx.createdAt)}
-                                            </p>
+
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <h3 className="text-sm font-bold text-text">{title}</h3>
+                                                    <p
+                                                        className="mt-1 inline-flex items-center gap-1 text-[10px] tabular-nums text-muted"
+                                                        dir="ltr"
+                                                    >
+                                                        <Clock3 className="h-3 w-3 shrink-0"/>
+                                                        {formatDateTimeFa(tx.createdAt)}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 flex-col items-end gap-1">
+                                                    <p className={`text-sm font-bold ${ltrNumericClassName} ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                                        {formatSignedNumberFa(tx.amount)}
+                                                        <span
+                                                            className="mr-1 text-[10px] font-medium text-muted">ریال</span>
+                                                    </p>
+                                                    <span
+                                                        className="inline-flex items-center gap-0.5 text-[10px] text-muted">
+                                                        جزئیات
+                                                        <ChevronDown
+                                                            className={`h-3 w-3 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                                        />
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="shrink-0 text-left">
-                                        <p className={`font-semibold tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
-                                            {formatSignedNumberFa(tx.amount)}
-                                        </p>
-                                        <p className="mt-0.5 text-[10px] tabular-nums text-muted">
-                                            {formatNumberFa(tx.balanceAfter)} ریال
-                                        </p>
-                                    </div>
-                                </div>
+                                    </button>
+
+                                    {isExpanded ? (
+                                        <div
+                                            className="space-y-1.5 border-t border-border/50 px-3.5 pb-3 pt-2.5 text-[11px] sm:px-4">
+                                            <div className="flex items-center justify-between gap-4">
+                                                <span className="text-muted">موجودی قبلی</span>
+                                                <span className="font-medium tabular-nums text-text">
+                                                    {formatNumberFa(balanceBefore)} ریال
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-4">
+                                                <span className="text-muted">مبلغ تراکنش</span>
+                                                <span
+                                                    className={`font-medium tabular-nums ${isIncrease ? 'text-positive' : 'text-negative'}`}>
+                                                    <span
+                                                        className={ltrNumericClassName}>{formatSignedNumberFa(tx.amount)}</span> ریال
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-4">
+                                                <span className="text-muted">موجودی جدید</span>
+                                                <span className="font-bold tabular-nums text-text">
+                                                    {formatNumberFa(tx.balanceAfter)} ریال
+                                                </span>
+                                            </div>
+                                            {showDescription ? (
+                                                <div className="flex items-start justify-between gap-4 pt-0.5">
+                                                    <span className="shrink-0 text-muted">توضیحات</span>
+                                                    <span
+                                                        className="text-left leading-5 text-text">{tx.description}</span>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                </article>
                             );
                         })}
                     </div>
@@ -1160,143 +1238,191 @@ function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: 
         }
     };
 
+    const sortedRequests = useMemo(
+        () => [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+        [requests],
+    );
+    const openCount = sortedRequests.filter((item) => item.status.toUpperCase() === 'OPEN').length;
+
     return (
         <section dir="rtl" className={`${cardClass} overflow-hidden`}>
-            <div className="border-b border-border/60 bg-surface-2/60 px-4 py-4 sm:px-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                        <div
-                            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[11px] font-medium text-primary">
-                            <MessageSquare className="h-3.5 w-3.5"/>
-                            پشتیبانی بورس آزما
-                        </div>
-                        <h2 className="mt-3 text-lg font-black text-text">درخواست‌ها</h2>
-                        <p className="mt-1 max-w-2xl text-xs leading-6 text-muted">
-                            سوال، مشکل یا درخواست خود را مستقیم برای تیم پشتیبانی ارسال کنید. پیام‌های شما در همین بخش
-                            ثبت می‌شوند.
-                        </p>
+            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3 sm:px-5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                    <div
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <MessageSquare className="h-4 w-4"/>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void fetchRequests()}
-                        disabled={loading}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-border/70 bg-surface px-3 text-xs font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
-                    >
-                        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
-                            <RefreshCw className="h-3.5 w-3.5"/>}
-                        بروزرسانی
-                    </button>
+                    <div className="min-w-0">
+                        <h2 className="text-sm font-bold text-text">درخواست‌های پشتیبانی</h2>
+                        <p className="text-[11px] text-muted">ارسال پیام و پیگیری وضعیت</p>
+                    </div>
                 </div>
+                <button
+                    type="button"
+                    onClick={() => void fetchRequests()}
+                    disabled={loading}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface px-2.5 text-[11px] font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
+                >
+                    {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
+                        <RefreshCw className="h-3.5 w-3.5"/>}
+                    بروزرسانی
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                <form onSubmit={submitRequest}
-                      className="space-y-3 rounded-2xl border border-border/70 bg-surface-2/70 p-4">
-                    <div>
-                        <label htmlFor="support-subject" className="mb-1.5 block text-xs font-semibold text-text">
-                            موضوع
-                        </label>
-                        <input
-                            id="support-subject"
-                            value={subject}
-                            onChange={(event) => {
-                                setSubject(event.target.value);
-                                setError(null);
-                                setSuccess(null);
-                            }}
-                            maxLength={120}
-                            placeholder="مثلا مشکل در ثبت سفارش"
-                            className="h-11 w-full rounded-xl border border-border/80 bg-surface px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
-                        />
+            {sortedRequests.length > 0 ? (
+                <div
+                    className="grid grid-cols-2 gap-2 border-b border-border/50 bg-surface-2/40 px-4 py-3 sm:grid-cols-3 sm:px-5">
+                    <div className="rounded-xl border border-border/60 bg-surface px-3 py-2.5">
+                        <p className="text-[10px] text-muted">کل درخواست‌ها</p>
+                        <p className="mt-0.5 text-sm font-bold tabular-nums text-text">{formatNumberFa(sortedRequests.length)}</p>
                     </div>
-
-                    <div>
-                        <label htmlFor="support-message" className="mb-1.5 block text-xs font-semibold text-text">
-                            متن پیام
-                        </label>
-                        <textarea
-                            id="support-message"
-                            value={message}
-                            onChange={(event) => {
-                                setMessage(event.target.value);
-                                setError(null);
-                                setSuccess(null);
-                            }}
-                            maxLength={2000}
-                            rows={7}
-                            placeholder={`${profileDisplayName} عزیز، پیام خود را بنویسید...`}
-                            className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-3 text-sm leading-7 text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
-                        />
+                    <div className="rounded-xl border border-positive/20 bg-positive/5 px-3 py-2.5">
+                        <p className="text-[10px] text-positive/80">در انتظار پاسخ</p>
+                        <p className="mt-0.5 text-sm font-bold tabular-nums text-positive">{formatNumberFa(openCount)}</p>
                     </div>
+                    <div className="col-span-2 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:col-span-1">
+                        <p className="text-[10px] text-muted">آخرین درخواست</p>
+                        <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-text" dir="ltr">
+                            {formatDateTimeFa(sortedRequests[0].createdAt)}
+                        </p>
+                    </div>
+                </div>
+            ) : null}
 
-                    {error ? (
-                        <div
-                            className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
-                            <AlertCircle className="h-4 w-4"/>
-                            {error}
-                        </div>
-                    ) : null}
-                    {success ? (
-                        <div
-                            className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
-                            <Check className="h-4 w-4"/>
-                            {success}
-                        </div>
-                    ) : null}
+            <div className="space-y-4 p-4 sm:px-5">
+                <form onSubmit={submitRequest} className="rounded-xl border border-border/60 bg-surface-2/50 p-4">
+                    <h3 className="text-sm font-bold text-text">ارسال درخواست جدید</h3>
+                    <p className="mt-1 text-[11px] leading-5 text-muted">
+                        سوال، مشکل یا پیشنهاد خود را برای تیم پشتیبانی بنویسید.
+                    </p>
 
-                    <button
-                        type="submit"
-                        disabled={submitting}
-                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                        {submitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
-                        ارسال به پشتیبانی
-                    </button>
+                    <div className="mt-4 space-y-3">
+                        <div>
+                            <label htmlFor="support-subject"
+                                   className="mb-1.5 block text-[11px] font-semibold text-text">
+                                موضوع
+                            </label>
+                            <input
+                                id="support-subject"
+                                value={subject}
+                                onChange={(event) => {
+                                    setSubject(event.target.value);
+                                    setError(null);
+                                    setSuccess(null);
+                                }}
+                                maxLength={120}
+                                placeholder="مثلا مشکل در ثبت سفارش"
+                                className="h-10 w-full rounded-xl border border-border/80 bg-surface px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
+                            />
+                        </div>
+
+                        <div>
+                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                                <label htmlFor="support-message" className="text-[11px] font-semibold text-text">
+                                    متن پیام
+                                </label>
+                                <span className="text-[10px] tabular-nums text-muted">
+                                    {formatNumberFa(message.length)}/{formatNumberFa(2000)}
+                                </span>
+                            </div>
+                            <textarea
+                                id="support-message"
+                                value={message}
+                                onChange={(event) => {
+                                    setMessage(event.target.value);
+                                    setError(null);
+                                    setSuccess(null);
+                                }}
+                                maxLength={2000}
+                                rows={5}
+                                placeholder={`${profileDisplayName} عزیز، پیام خود را بنویسید...`}
+                                className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-3 text-sm leading-7 text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
+                            />
+                        </div>
+
+                        {error ? (
+                            <div
+                                className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                                <AlertCircle className="h-4 w-4 shrink-0"/>
+                                {error}
+                            </div>
+                        ) : null}
+                        {success ? (
+                            <div
+                                className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
+                                <Check className="h-4 w-4 shrink-0"/>
+                                {success}
+                            </div>
+                        ) : null}
+
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            {submitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                            ارسال درخواست
+                        </button>
+                    </div>
                 </form>
 
-                <div className="rounded-2xl border border-border/70 bg-surface p-3">
-                    <div className="mb-3 flex items-center justify-between">
-                        <h3 className="text-sm font-bold text-text">پیام‌های ثبت‌شده</h3>
-                        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] text-muted">
-                            {formatNumberFa(requests.length)} پیام
+                <div>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-bold text-text">تاریخچه درخواست‌ها</h3>
+                        <span className="text-[11px] tabular-nums text-muted">
+                            {formatNumberFa(sortedRequests.length)} مورد
                         </span>
                     </div>
 
-                    {loading && requests.length === 0 ? (
+                    {loading && sortedRequests.length === 0 ? (
                         <div className="space-y-2">
                             {Array.from({length: 3}, (_, index) => (
-                                <div key={index} className="h-20 animate-pulse rounded-xl bg-surface-2"/>
+                                <div key={index} className="h-24 animate-pulse rounded-xl bg-surface-2"/>
                             ))}
                         </div>
-                    ) : requests.length === 0 ? (
+                    ) : sortedRequests.length === 0 ? (
                         <div
-                            className="flex min-h-[260px] flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2 px-5 text-center">
-                            <MessageSquare className="mb-3 h-8 w-8 text-muted"/>
-                            <h4 className="text-sm font-bold text-text">هنوز درخواستی ثبت نکرده‌اید</h4>
-                            <p className="mt-1 text-xs leading-6 text-muted">
-                                اولین پیام را از فرم کنار همین بخش برای تیم پشتیبانی بفرستید.
+                            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-10 text-center">
+                            <MessageSquare className="h-6 w-6 text-muted"/>
+                            <p className="mt-2 text-sm font-semibold text-text">هنوز درخواستی ثبت نشده</p>
+                            <p className="mt-1 max-w-sm text-[11px] leading-5 text-muted">
+                                اولین پیام خود را از فرم بالا برای تیم پشتیبانی ارسال کنید.
                             </p>
                         </div>
                     ) : (
-                        <div className="thin-scrollbar max-h-[430px] space-y-2 overflow-y-auto pl-1">
-                            {requests.map((item) => (
-                                <article
-                                    key={item.id}
-                                    className="rounded-xl border border-border/70 bg-surface-2 px-3 py-3"
-                                >
-                                    <div className="mb-2 flex items-start justify-between gap-3">
-                                        <h4 className="min-w-0 font-bold leading-6 text-text">{item.subject}</h4>
-                                        <span
-                                            className="shrink-0 rounded-full bg-positive/10 px-2 py-0.5 text-[10px] font-semibold text-positive">
-                                            باز
-                                        </span>
-                                    </div>
-                                    <p className="text-xs leading-6 text-muted">{item.message}</p>
-                                    <div className="mt-2 text-[11px] tabular-nums text-muted" dir="ltr">
-                                        {formatDateTimeFa(item.createdAt)}
-                                    </div>
-                                </article>
-                            ))}
+                        <div className="thin-scrollbar max-h-[480px] space-y-2 overflow-y-auto pl-1">
+                            {sortedRequests.map((item) => {
+                                const statusMeta = getSupportRequestStatusMeta(item.status);
+
+                                return (
+                                    <article
+                                        key={item.id}
+                                        className="rounded-xl border border-border/60 bg-surface px-3.5 py-3 sm:px-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <h4 className="text-sm font-bold leading-6 text-text">{item.subject}</h4>
+                                                <p
+                                                    className="mt-1 inline-flex items-center gap-1 text-[10px] tabular-nums text-muted"
+                                                    dir="ltr"
+                                                >
+                                                    <Clock3 className="h-3 w-3 shrink-0"/>
+                                                    {formatDateTimeFa(item.createdAt)}
+                                                </p>
+                                            </div>
+                                            <span
+                                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusMeta.className}`}
+                                            >
+                                                {statusMeta.label}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-2.5 border-t border-border/50 pt-2.5">
+                                            <p className="text-[11px] leading-6 text-text">{item.message}</p>
+                                        </div>
+                                    </article>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -1989,7 +2115,7 @@ function WatchlistPanel({
                                                 {formatNumberOrDash(livePrice)}
                                             </span>
                                             <span
-                                                className={`text-center text-[11px] font-semibold tabular-nums ${
+                                                className={`text-center text-[11px] font-semibold ${ltrNumericClassName} ${
                                                     changePercent === null
                                                         ? 'text-muted'
                                                         : isPositive
@@ -3237,7 +3363,7 @@ export default function TradingDashboard({
                     </span>
 
                                         <span
-                                            className={`text-xs font-semibold tabular-nums sm:text-sm ${
+                                            className={`text-xs font-semibold ${ltrNumericClassName} sm:text-sm ${
                                                 marketPositive ? 'text-positive' : 'text-negative'
                                             }`}
                                         >
@@ -3245,7 +3371,7 @@ export default function TradingDashboard({
                     </span>
 
                                         <span
-                                            className={`text-xs font-semibold tabular-nums sm:text-sm ${
+                                            className={`text-xs font-semibold ${ltrNumericClassName} sm:text-sm ${
                                                 marketPositive ? 'text-positive' : 'text-negative'
                                             }`}
                                         >
@@ -3271,7 +3397,7 @@ export default function TradingDashboard({
                                                         <span
                                                             className="text-xs font-semibold text-text sm:text-sm">{item.label}</span>
                                                         <span
-                                                            className={`text-[11px] font-semibold tabular-nums ${
+                                                            className={`text-[11px] font-semibold ${ltrNumericClassName} ${
                                                                 item.positive ? 'text-positive' : 'text-negative'
                                                             }`}
                                                         >
@@ -3289,7 +3415,7 @@ export default function TradingDashboard({
 
                                                         <span className="text-muted">تغییرات</span>
                                                         <span
-                                                            className={`text-left font-semibold tabular-nums [direction:ltr] ${
+                                                            className={`text-left font-semibold ${ltrNumericClassName} ${
                                                                 item.positive ? 'text-positive' : 'text-negative'
                                                             }`}
                                                         >
@@ -3704,7 +3830,7 @@ export default function TradingDashboard({
                                         <div
                                             className="text-4xl font-bold tabular-nums tracking-tight text-text">{formatNumberOrDash(symbolPrice)}</div>
                                         <div
-                                            className={`mt-1 text-sm font-semibold tabular-nums ${
+                                            className={`mt-1 text-sm font-semibold ${ltrNumericClassName} ${
                                                 symbolPercent === null ? 'text-muted' : symbolPositive ? 'text-positive' : 'text-negative'
                                             }`}
                                         >
@@ -4151,7 +4277,7 @@ export default function TradingDashboard({
                                                                 <span
                                                                     className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
                                                                 <span
-                                                                    className={`text-[11px] font-semibold tabular-nums ${
+                                                                    className={`text-[11px] font-semibold ${ltrNumericClassName} ${
                                                                         gainPercent === null
                                                                             ? 'text-muted'
                                                                             : gainPercent >= 0

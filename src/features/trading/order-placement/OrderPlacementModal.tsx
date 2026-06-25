@@ -8,6 +8,7 @@ import OrderSuccessOverlay from './OrderSuccessOverlay';
 import {buildOrderSuccessDetails} from './orderSuccess';
 import {useOrderPlacement} from './useOrderPlacement';
 import type {OrderSide, OrderSymbolContext, OrderValidationContext} from './types';
+import {formatPercentFa, ltrNumericClassName} from '../../../utils/numberFormat';
 
 type OrderPlacementModalProps = {
     open: boolean;
@@ -23,8 +24,7 @@ type OrderPlacementModalProps = {
 
 const formatPercent = (value: number | null): { text: string; positive: boolean } => {
     if (value === null || Number.isNaN(value)) return {text: '—', positive: true};
-    const sign = value > 0 ? '+' : '';
-    return {text: `(${sign}${value.toFixed(2)}%)`, positive: value >= 0};
+    return {text: `(${formatPercentFa(value)})`, positive: value >= 0};
 };
 
 const formatNumberOrDash = (
@@ -145,7 +145,7 @@ export default function OrderPlacementModal({
                                             {formatNumberOrDash(symbol.lastPrice, formatNumber)}
                                         </div>
                                         <div
-                                            className={`text-xs tabular-nums ${
+                                            className={`text-xs ${ltrNumericClassName} ${
                                                 lastChange.positive ? 'text-positive' : 'text-negative'
                                             }`}
                                         >

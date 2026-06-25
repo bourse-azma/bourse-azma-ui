@@ -13,31 +13,17 @@ import {
 } from './mostVisitedUtils';
 import {useMostVisited} from './useMostVisited';
 
-const toLtrIsolated = (value: string) => `\u2066${value}\u2069`;
-
-const formatNumberFa = (value: number, digits = 0) =>
-    toLtrIsolated(
-        new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits,
-        }).format(value),
-    );
-
-const formatPercentFa = (value: number, digits = 2) => {
-    const sign = value > 0 ? '+' : '';
-    return toLtrIsolated(
-        `${sign}${new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits,
-        }).format(value)}%`,
-    );
-};
+import {
+    formatNumberFa,
+    formatPercentOrDash as formatPercentOrDashBase,
+    ltrNumericClassName,
+} from '../../utils/numberFormat';
 
 const formatNumberOrDash = (value: number | null | undefined) =>
     value === null || value === undefined || Number.isNaN(value) ? '—' : formatNumberFa(value);
 
 const formatPercentOrDash = (value: number | null | undefined) =>
-    value === null || value === undefined || Number.isNaN(value) ? '—' : formatPercentFa(value);
+    formatPercentOrDashBase(value, 2, '—');
 
 const POPULAR_TABLE_GRID = 'grid grid-cols-[1.75rem_minmax(0,1fr)_4.5rem_3.75rem] items-center gap-x-2';
 
@@ -252,7 +238,7 @@ export default function PopularSymbolsTabContent({
                                         </span>
 
                                         <span
-                                            className={`text-center text-[11px] font-semibold tabular-nums ${
+                                            className={`text-center text-[11px] font-semibold ${ltrNumericClassName} ${
                                                 changePercent === null
                                                     ? 'text-muted'
                                                     : isPositive
