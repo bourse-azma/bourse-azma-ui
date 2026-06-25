@@ -131,42 +131,6 @@ export type TsetmcEtfInfo = {
     iClose: number | null;
 };
 
-export type FipiranInstrumentSnapshot = {
-    instrumentCode: string;
-    lastTradeAt: string | null;
-    instrument: Record<string, unknown>;
-    transaction: Record<string, unknown>;
-    bestLimits: Array<Record<string, unknown>>;
-    clientTypes: Array<Record<string, unknown>>;
-};
-
-export type FipiranFundSummary = {
-    registrationNumber: string;
-    name: string;
-    fundType: string;
-    date: string;
-    navAnnouncementAt: string | null;
-    netAsset: number;
-    issueNav: number;
-    cancelNav: number;
-    instrumentCode: string;
-};
-
-export type FipiranFundDetails = {
-    registrationNumber: string;
-    details: {
-        registrationNumber: string;
-        name: string;
-        date: string;
-        lastModificationTime: string;
-        navAnnouncementAt: string | null;
-        netAsset: number;
-        issueNav: number;
-        cancelNav: number;
-        instrumentCode: string;
-    };
-};
-
 export type SymbolOrderBookRow = {
     id: string;
     level: number | null;

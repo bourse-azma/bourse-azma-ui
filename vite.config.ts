@@ -4,7 +4,6 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({mode}) => {
     const env = loadEnv(mode, '.', '');
     const marketOverviewProxyTarget = env.VITE_MARKET_OVERVIEW_PROXY_TARGET;
-    const fipiranProxyTarget = env.VITE_FIPIRAN_PROXY_TARGET ?? 'http://localhost:9001';
     const codalProxyTarget = env.VITE_CODAL_PROXY_TARGET ?? marketOverviewProxyTarget;
     const authProxyTarget = env.VITE_AUTH_PROXY_TARGET ?? 'http://localhost:9003';
     const marketSearchProxyTarget = env.VITE_MARKET_SEARCH_PROXY_TARGET ?? authProxyTarget;
@@ -24,12 +23,6 @@ export default defineConfig(({mode}) => {
                     changeOrigin: true,
                     secure: true,
                     rewrite: (path) => path.replace(/^\/api\/tsetmc/, '/tsetmc/api/v1'),
-                },
-                '/api/fipiran': {
-                    target: fipiranProxyTarget,
-                    changeOrigin: true,
-                    secure: false,
-                    rewrite: (path) => path.replace(/^\/api\/fipiran/, '/fipiran/api/v1'),
                 },
                 '/api/codal': {
                     target: codalProxyTarget,

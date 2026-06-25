@@ -1,9 +1,6 @@
 import {appConfig} from '../../config/appConfig';
 import type {
     ApiResponse,
-    FipiranFundDetails,
-    FipiranFundSummary,
-    FipiranInstrumentSnapshot,
     SymbolSearchRow,
     TsetmcBestLimitLevel,
     TsetmcClientType,
@@ -38,15 +35,6 @@ export type TsetmcCodalNotice = {
 
 type TsetmcCodalNoticesResult = {
     notices: TsetmcCodalNotice[];
-};
-
-type FipiranFundsResult = {
-    funds: {
-        items: FipiranFundSummary[];
-        page: number;
-        pageSize: number;
-        totalCount: number;
-    };
 };
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
@@ -128,26 +116,6 @@ const buildSymbolSearchUrl = (query: string) => {
         appConfig.symbolSearchApiBaseUrl,
         applyTemplate(appConfig.symbolSearchApiPath, {
             query: encodeURIComponent(query),
-        })
-    );
-};
-
-const buildFundsSearchUrl = (query: string, pageSize: number) => {
-    return joinUrl(
-        appConfig.fipiranApiBaseUrl,
-        applyTemplate(appConfig.fipiranFundsApiPath, {
-            pageIndex: '1',
-            pageSize: encodeURIComponent(String(pageSize)),
-            search: encodeURIComponent(query),
-        })
-    );
-};
-
-const buildFundDetailsUrl = (registrationNumber: string) => {
-    return joinUrl(
-        appConfig.fipiranApiBaseUrl,
-        applyTemplate(appConfig.fipiranFundDetailsApiPath, {
-            registrationNumber: encodeURIComponent(registrationNumber),
         })
     );
 };
@@ -246,20 +214,6 @@ export const getTsetmcMostVisited = async (marketId: number, limit: number, sign
             limit: encodeURIComponent(String(limit)),
         })
     ), signal);
-
-export const getFipiranInstrumentSnapshot = async (instrumentCode: string, signal?: AbortSignal) =>
-    fetchApi<FipiranInstrumentSnapshot>(joinUrl(
-        appConfig.fipiranApiBaseUrl,
-        applyTemplate(appConfig.fipiranSnapshotApiPath, {
-            instrumentCode: encodeURIComponent(instrumentCode),
-        })
-    ), signal);
-
-export const searchFunds = async (query: string, pageSize: number, signal?: AbortSignal) =>
-    fetchApi<FipiranFundsResult>(buildFundsSearchUrl(query, pageSize), signal);
-
-export const getFundDetails = async (registrationNumber: string, signal?: AbortSignal) =>
-    fetchApi<FipiranFundDetails>(buildFundDetailsUrl(registrationNumber), signal);
 
 const inflightCodalNoticeRequests = new Map<string, Promise<unknown>>();
 

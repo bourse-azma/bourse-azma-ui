@@ -1,7 +1,4 @@
 import type {
-    FipiranFundDetails,
-    FipiranFundSummary,
-    FipiranInstrumentSnapshot,
     SymbolDepthRow,
     SymbolDetailRow,
     SymbolDetailsViewModel,
@@ -16,7 +13,7 @@ import type {
     TsetmcInstrumentInfo,
     TsetmcMostVisitedInstrument,
 } from './types';
-import {buildDepthRowsFromClientType, calculateDepthPercent} from './depthMapper';
+import {buildDepthRowsFromClientType} from './depthMapper';
 
 type DetailsSources = {
     symbol: SymbolSearchSuggestion;
@@ -25,9 +22,6 @@ type DetailsSources = {
     tsetmcBestLimits: TsetmcBestLimitLevel[] | null;
     tsetmcClientType: TsetmcClientType | null;
     tsetmcEtf: TsetmcEtfInfo | null;
-    snapshot: FipiranInstrumentSnapshot | null;
-    fundSummary: FipiranFundSummary | null;
-    fundDetails: FipiranFundDetails | null;
 };
 
 const normalizeText = (value: string) =>
@@ -196,120 +190,6 @@ const normalizeOrderBookSides = (row: SymbolOrderBookRow): SymbolOrderBookRow =>
     return row;
 };
 
-const toOrderBookFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): SymbolOrderBookRow[] => {
-    if (!snapshot || snapshot.bestLimits.length === 0) return [];
-    return snapshot.bestLimits
-        .map((item, index) => {
-            const row = toRecord(item);
-            return normalizeOrderBookSides({
-                id: `snapshot-${index + 1}`,
-                level: pickNumber(row, 'rowNumber', 'levelNumber', 'number'),
-                askCount: pickNumber(row, 'numberSupply', 'askOrderCount', 'zOrdMeOf'),
-                askVolume: pickNumber(row, 'supplyVolume', 'askVolume', 'qTitMeOf'),
-                askPrice: pickNumber(row, 'supplyPrice', 'askPrice', 'pMeOf', 'sellPrice'),
-                bidPrice: pickNumber(row, 'demandPrice', 'bidPrice', 'pMeDem', 'buyPrice'),
-                bidVolume: pickNumber(row, 'demandVolume', 'bidVolume', 'qTitMeDem'),
-                bidCount: pickNumber(row, 'numberRequests', 'bidOrderCount', 'zOrdMeDem'),
-            });
-        })
-        .sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
-};
-
-const mergeOrderBookRows = (
-    primary: SymbolOrderBookRow[],
-    fallback: SymbolOrderBookRow[]
-): SymbolOrderBookRow[] => {
-    if (primary.length === 0) return fallback;
-    if (fallback.length === 0) return primary;
-
-    const mergedLength = Math.max(primary.length, fallback.length, 5);
-    return Array.from({length: mergedLength}, (_, index) => {
-        const primaryRow = primary[index];
-        const fallbackRow = fallback[index];
-        if (!primaryRow) return fallbackRow;
-        if (!fallbackRow) return primaryRow;
-
-        const pickSide = (
-            primaryValue: number | null,
-            fallbackValue: number | null
-        ) => (primaryValue !== null && primaryValue > 0 ? primaryValue : fallbackValue);
-
-        return normalizeOrderBookSides({
-            id: primaryRow.id,
-            level: primaryRow.level ?? fallbackRow.level,
-            askCount: pickSide(primaryRow.askCount, fallbackRow.askCount),
-            askVolume: pickSide(primaryRow.askVolume, fallbackRow.askVolume),
-            askPrice: pickSide(primaryRow.askPrice, fallbackRow.askPrice),
-            bidPrice: pickSide(primaryRow.bidPrice, fallbackRow.bidPrice),
-            bidVolume: pickSide(primaryRow.bidVolume, fallbackRow.bidVolume),
-            bidCount: pickSide(primaryRow.bidCount, fallbackRow.bidCount),
-        });
-    }).slice(0, 5);
-};
-
-const sumNullableValues = (...values: Array<number | null | undefined>) =>
-    values.reduce<number>((sum, value) => sum + (value ?? 0), 0);
-
-const toDepthFromTsetmc = buildDepthRowsFromClientType;
-
-const toDepthFromSnapshot = (snapshot: FipiranInstrumentSnapshot | null): SymbolDepthRow[] => {
-    if (!snapshot || snapshot.clientTypes.length === 0) return [];
-    const row = toRecord(snapshot.clientTypes[0]);
-
-    const individualBuyVolume = pickNumber(row, 'sumIndividualBuyVolume', 'individualBuyVolume', 'buy_I_Volume');
-    const institutionalBuyVolume = pickNumber(
-        row,
-        'sumNonIndividualBuyVolume',
-        'institutionalBuyVolume',
-        'buy_N_Volume'
-    );
-    const individualSellVolume = pickNumber(row, 'sumIndividualSellVolume', 'individualSellVolume', 'sell_I_Volume');
-    const institutionalSellVolume = pickNumber(
-        row,
-        'sumNonIndividualSellVolume',
-        'institutionalSellVolume',
-        'sell_N_Volume'
-    );
-
-    const totalBuy = sumNullableValues(individualBuyVolume, institutionalBuyVolume);
-    const totalSell = sumNullableValues(individualSellVolume, institutionalSellVolume);
-
-    return [
-        {
-            id: 'real',
-            label: 'حقیقی',
-            buyCount: pickNumber(row, 'numberIndividualsBuyers', 'buy_CountI'),
-            sellCount: pickNumber(row, 'numberIndividualsSellers', 'sell_CountI'),
-            buyVolume: individualBuyVolume,
-            sellVolume: individualSellVolume,
-            buyPercent: calculateDepthPercent(individualBuyVolume, totalBuy),
-            sellPercent: calculateDepthPercent(individualSellVolume, totalSell),
-        },
-        {
-            id: 'legal',
-            label: 'حقوقی',
-            buyCount: pickNumber(row, 'numberNonIndividualBuyers', 'buy_CountN'),
-            sellCount: pickNumber(row, 'numberNonIndividualSellers', 'sell_CountN'),
-            buyVolume: institutionalBuyVolume,
-            sellVolume: institutionalSellVolume,
-            buyPercent: calculateDepthPercent(institutionalBuyVolume, totalBuy),
-            sellPercent: calculateDepthPercent(institutionalSellVolume, totalSell),
-        },
-    ];
-};
-
-const pickSnapshotNumber = (snapshot: FipiranInstrumentSnapshot | null, target: 'instrument' | 'transaction', ...keys: string[]) => {
-    if (!snapshot) return null;
-    const record = target === 'instrument' ? toRecord(snapshot.instrument) : toRecord(snapshot.transaction);
-    return pickNumber(record, ...keys);
-};
-
-const pickSnapshotString = (snapshot: FipiranInstrumentSnapshot | null, target: 'instrument' | 'transaction', ...keys: string[]) => {
-    if (!snapshot) return null;
-    const record = target === 'instrument' ? toRecord(snapshot.instrument) : toRecord(snapshot.transaction);
-    return pickString(record, ...keys);
-};
-
 const firstNonMissingString = (...values: Array<string | null | undefined>) => {
     for (const value of values) {
         if (!isMissing(value)) {
@@ -356,47 +236,21 @@ const toDetailRows = (input: {
 };
 
 export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetailsViewModel => {
-    const {
-        symbol,
-        tsetmcClosing,
-        tsetmcInfo,
-        tsetmcBestLimits,
-        tsetmcClientType,
-        tsetmcEtf,
-        snapshot,
-        fundSummary,
-        fundDetails
-    } =
-        sources;
+    const {symbol, tsetmcClosing, tsetmcInfo, tsetmcBestLimits, tsetmcClientType, tsetmcEtf} = sources;
 
-    const previousClose = firstNonNullNumber(
-        tsetmcClosing?.previousClosingPrice,
-        pickSnapshotNumber(snapshot, 'transaction', 'priceYesterday', 'yesterdayPrice')
-    );
-
-    const closePrice = firstNonNullNumber(
-        tsetmcClosing?.closingPrice,
-        pickSnapshotNumber(snapshot, 'transaction', 'closingPrice')
-    );
-
-    const lastPrice = firstNonNullNumber(
-        tsetmcClosing?.lastTradePrice,
-        pickSnapshotNumber(snapshot, 'transaction', 'lastTransaction', 'lastPrice')
-    );
+    const previousClose = tsetmcClosing?.previousClosingPrice ?? null;
+    const closePrice = tsetmcClosing?.closingPrice ?? null;
+    const lastPrice = tsetmcClosing?.lastTradePrice ?? null;
 
     const closePricePercent =
         previousClose !== null && previousClose !== 0 && closePrice !== null ? ((closePrice - previousClose) / previousClose) * 100 : null;
     const lastPricePercent =
         previousClose !== null && previousClose !== 0 && lastPrice !== null ? ((lastPrice - previousClose) / previousClose) * 100 : null;
 
-    const navCancel = firstNonNullNumber(tsetmcEtf?.cancelNav, fundDetails?.details.cancelNav, fundSummary?.cancelNav);
+    const navCancel = tsetmcEtf?.cancelNav ?? null;
 
     const isFund =
-        symbol.type === 'FUND' ||
-        symbol.name.includes('صندوق') ||
-        fundSummary !== null ||
-        fundDetails !== null ||
-        tsetmcEtf !== null;
+        symbol.type === 'FUND' || symbol.name.includes('صندوق') || tsetmcEtf !== null;
 
     const bubblePercent = isFund
         ? navCancel !== null && navCancel !== 0 && lastPrice !== null
@@ -406,51 +260,19 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
             ? ((lastPrice - closePrice) / closePrice) * 100
             : null;
 
-    const allowedMinPrice = firstNonNullNumber(
-        tsetmcInfo?.staticPriceThreshold?.minAllowedPrice ?? null,
-        pickSnapshotNumber(snapshot, 'instrument', 'staticThresholdMinPrice')
-    );
-    const allowedMaxPrice = firstNonNullNumber(
-        tsetmcInfo?.staticPriceThreshold?.maxAllowedPrice ?? null,
-        pickSnapshotNumber(snapshot, 'instrument', 'staticThresholdMaxPrice')
-    );
+    const allowedMinPrice = tsetmcInfo?.staticPriceThreshold?.minAllowedPrice ?? null;
+    const allowedMaxPrice = tsetmcInfo?.staticPriceThreshold?.maxAllowedPrice ?? null;
 
-    const tradeCount = firstNonNullNumber(
-        tsetmcClosing?.tradeCount,
-        pickSnapshotNumber(snapshot, 'transaction', 'numberOfTransactions')
-    );
-    const tradeVolume = firstNonNullNumber(
-        tsetmcClosing?.tradeVolume,
-        pickSnapshotNumber(snapshot, 'transaction', 'numberOfVolume')
-    );
-    const tradeValue = firstNonNullNumber(
-        tsetmcClosing?.tradeValue,
-        pickSnapshotNumber(snapshot, 'transaction', 'transactionValue')
-    );
-    const totalShares = firstNonNullNumber(
-        tsetmcInfo?.totalShares,
-        pickSnapshotNumber(snapshot, 'instrument', 'totalShares', 'shareCount', 'zTitad')
-    );
-    const marketValue = firstNonNullNumber(
-        pickSnapshotNumber(snapshot, 'instrument', 'marketValue'),
-        closePrice !== null && totalShares !== null ? closePrice * totalShares : null
-    );
+    const tradeCount = tsetmcClosing?.tradeCount ?? null;
+    const tradeVolume = tsetmcClosing?.tradeVolume ?? null;
+    const tradeValue = tsetmcClosing?.tradeValue ?? null;
+    const totalShares = tsetmcInfo?.totalShares ?? null;
+    const marketValue = closePrice !== null && totalShares !== null ? closePrice * totalShares : null;
 
-    const lastTradeAt = firstNonMissingString(tsetmcClosing?.lastTradeAt ?? null, snapshot?.lastTradeAt ?? null);
+    const lastTradeAt = firstNonMissingString(tsetmcClosing?.lastTradeAt ?? null);
+    const stateTitle = firstNonMissingString(tsetmcClosing?.instrumentState?.stateTitle);
+    const navAnnouncementAt = firstNonMissingString(tsetmcEtf?.navAnnouncementAt ?? null);
 
-    const stateTitle = firstNonMissingString(
-        tsetmcClosing?.instrumentState?.stateTitle,
-        pickSnapshotString(snapshot, 'instrument', 'stateTitle', 'cEtavalTitle', 'instrumentStateTitle')
-    );
-
-    const navAnnouncementAt = firstNonMissingString(
-        tsetmcEtf?.navAnnouncementAt ?? null,
-        fundDetails?.details.navAnnouncementAt ?? null,
-        fundSummary?.navAnnouncementAt ?? null
-    );
-
-    const instrumentRecord = snapshot ? toRecord(snapshot.instrument) : {};
-    const transactionRecord = snapshot ? toRecord(snapshot.transaction) : {};
     const tsetmcInfoRecord = tsetmcInfo ? toRecord(tsetmcInfo as unknown) : {};
     const tsetmcEpsRecord = tsetmcInfo?.eps ? toRecord(tsetmcInfo.eps as unknown) : {};
 
@@ -465,17 +287,11 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
     const eps = firstNonNullNumber(
         tsetmcInfo?.eps?.epsValue,
         tsetmcInfo?.eps?.estimatedEps,
-        pickFromRecords(
-            [instrumentRecord, transactionRecord, tsetmcInfoRecord, tsetmcEpsRecord],
-            ['ePS', 'eps', 'EPS', 'estimatedEPS', 'estimatedEps', 'epsValue', 'zEPS', 'earningPerShare']
-        )
+        pickFromRecords([tsetmcInfoRecord, tsetmcEpsRecord], ['ePS', 'eps', 'EPS', 'estimatedEPS', 'estimatedEps', 'epsValue', 'zEPS', 'earningPerShare'])
     );
 
     const peFromApi = firstNonNullNumber(
-        pickFromRecords(
-            [instrumentRecord, transactionRecord, tsetmcInfoRecord],
-            ['pToE', 'pe', 'pOverE', 'P/E', 'pE', 'priceToEarning', 'priceEarningRatio']
-        )
+        pickFromRecords([tsetmcInfoRecord], ['pToE', 'pe', 'pOverE', 'P/E', 'pE', 'priceToEarning', 'priceEarningRatio'])
     );
     const epsForPe = firstNonNullNumber(tsetmcInfo?.eps?.epsValue, tsetmcInfo?.eps?.estimatedEps);
     const peCalculated =
@@ -486,10 +302,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
 
     const groupPe = firstNonNullNumber(
         tsetmcInfo?.eps?.sectorPe,
-        pickFromRecords(
-            [instrumentRecord, transactionRecord, tsetmcInfoRecord, tsetmcEpsRecord],
-            ['pToEGroup', 'groupPe', 'industryPE', 'groupPE', 'P/EGroup', 'sectorPE', 'industryPe', 'sectorPe']
-        )
+        pickFromRecords([tsetmcInfoRecord, tsetmcEpsRecord], ['pToEGroup', 'groupPe', 'industryPE', 'groupPE', 'P/EGroup', 'sectorPE', 'industryPe', 'sectorPe'])
     );
 
     const source = isFund ? 'fund' : 'market';
@@ -504,23 +317,14 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         } else if (tsetmcInfo?.marketFlowTitle) {
             marketLabel = tsetmcInfo.marketFlowTitle;
             exchangeBadge = marketLabel.includes('فرابورس') || marketLabel.includes('پایه') ? 'IFB' : 'TSE';
-        } else if (snapshot) {
-            const flow = pickSnapshotString(snapshot, 'instrument', 'flowTitle', 'marketName', 'flow');
-            if (flow) {
-                marketLabel = flow;
-                exchangeBadge = marketLabel.includes('فرابورس') || marketLabel.includes('پایه') ? 'IFB' : 'TSE';
-            } else {
-                exchangeBadge = '';
-                marketLabel = '';
-            }
         } else {
             exchangeBadge = '';
             marketLabel = '';
         }
     }
-    const orderBook = mergeOrderBookRows(toOrderBookFromTsetmc(tsetmcBestLimits), toOrderBookFromSnapshot(snapshot));
-    const depth = toDepthFromTsetmc(tsetmcClientType);
-    const depthFallback = toDepthFromSnapshot(snapshot);
+
+    const orderBook = toOrderBookFromTsetmc(tsetmcBestLimits);
+    const depth: SymbolDepthRow[] = buildDepthRowsFromClientType(tsetmcClientType);
 
     return {
         key: symbol.key,
@@ -546,7 +350,7 @@ export const toSymbolDetailsViewModel = (sources: DetailsSources): SymbolDetails
         navAnnouncementAt,
         lastTradeAt,
         orderBook,
-        depth: depth.some((row) => (row.buyVolume ?? 0) > 0 || (row.sellVolume ?? 0) > 0) ? depth : depthFallback,
+        depth,
         detailRows: toDetailRows({
             source,
             tradeVolume,

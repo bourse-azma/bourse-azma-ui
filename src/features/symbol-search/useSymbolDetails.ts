@@ -1,20 +1,14 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {appConfig} from '../../config/appConfig';
 import {
-    getFipiranInstrumentSnapshot,
-    getFundDetails,
     getTsetmcBestLimits,
     getTsetmcClientType,
     getTsetmcClosingPriceInfo,
     getTsetmcEtfInfo,
     getTsetmcInstrumentInfo,
-    searchFunds,
 } from './api';
 import {toSymbolDetailsViewModel} from './mappers';
 import type {
-    FipiranFundDetails,
-    FipiranFundSummary,
-    FipiranInstrumentSnapshot,
     SymbolDetailsViewModel,
     SymbolSearchSuggestion,
     TsetmcBestLimitLevel,
@@ -37,9 +31,6 @@ type RawDetailsSources = {
     tsetmcBestLimits: TsetmcBestLimitLevel[] | null;
     tsetmcClientType: TsetmcClientType | null;
     tsetmcEtf: TsetmcEtfInfo | null;
-    snapshot: FipiranInstrumentSnapshot | null;
-    fundSummary: FipiranFundSummary | null;
-    fundDetails: FipiranFundDetails | null;
 };
 
 type DetailCacheEntry = {
@@ -61,70 +52,20 @@ const emptyRaw = (): RawDetailsSources => ({
     tsetmcBestLimits: null,
     tsetmcClientType: null,
     tsetmcEtf: null,
-    snapshot: null,
-    fundSummary: null,
-    fundDetails: null,
 });
-
-const normalize = (value: string) =>
-    value
-        .replace('ي', 'ی')
-        .replace('ك', 'ک')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .toLowerCase();
 
 const isAbortError = (error: unknown) => error instanceof DOMException && error.name === 'AbortError';
 const isMarketSymbol = (type: string) => type === 'TSE' || type === 'IFB' || type === 'FUND' || type === 'UNKNOWN';
 
 const isLikelyFundSymbol = (symbol: SymbolSearchSuggestion) => {
     if (symbol.type === 'FUND') return true;
-    const normalizedName = normalize(symbol.name);
+    const normalizedName = symbol.name
+        .replace('ي', 'ی')
+        .replace('ك', 'ک')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
     return normalizedName.includes('صندوق') || normalizedName.includes('etf');
-};
-
-const chooseFundSummary = (
-    symbol: SymbolSearchSuggestion,
-    groups: Array<FipiranFundSummary[]>
-): FipiranFundSummary | null => {
-    const normalizedSymbol = normalize(symbol.symbol);
-    const normalizedName = normalize(symbol.name);
-
-    for (const items of groups) {
-        const byInstrumentCode =
-            symbol.instrumentCode &&
-            items.find((item) => item.instrumentCode && item.instrumentCode === symbol.instrumentCode);
-        if (byInstrumentCode) return byInstrumentCode;
-
-        const byExactName = items.find((item) => normalize(item.name) === normalizedName);
-        if (byExactName) return byExactName;
-
-        const byContains = items.find((item) => normalize(item.name).includes(normalizedSymbol));
-        if (byContains) return byContains;
-    }
-
-    return null;
-};
-
-const fetchFundSummary = async (
-    symbol: SymbolSearchSuggestion,
-    signal: AbortSignal
-): Promise<FipiranFundSummary | null> => {
-    const queries = Array.from(new Set([symbol.name, symbol.symbol].map((item) => item.trim()).filter(Boolean)));
-    if (queries.length === 0) return null;
-
-    const results = await Promise.all(
-        queries.map(async (query) => {
-            try {
-                const response = await searchFunds(query, 60, signal);
-                return response.funds.items;
-            } catch {
-                return [] as FipiranFundSummary[];
-            }
-        })
-    );
-
-    return chooseFundSummary(symbol, results);
 };
 
 const fetchCoreRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSignal): Promise<Partial<RawDetailsSources>> => {
@@ -133,8 +74,7 @@ const fetchCoreRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSignal)
     }
 
     const instrumentCode = symbol.instrumentCode;
-    const [snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits] = await Promise.all([
-        getFipiranInstrumentSnapshot(instrumentCode, signal).catch(() => null),
+    const [tsetmcClosing, tsetmcInfo, tsetmcBestLimits] = await Promise.all([
         getTsetmcClosingPriceInfo(instrumentCode, signal).catch(() => null),
         getTsetmcInstrumentInfo(instrumentCode, signal).catch(() => null),
         getTsetmcBestLimits(instrumentCode, signal)
@@ -142,7 +82,7 @@ const fetchCoreRaw = async (symbol: SymbolSearchSuggestion, signal: AbortSignal)
             .catch(() => null),
     ]);
 
-    return {snapshot, tsetmcClosing, tsetmcInfo, tsetmcBestLimits};
+    return {tsetmcClosing, tsetmcInfo, tsetmcBestLimits};
 };
 
 const fetchClientTypeRaw = async (
@@ -165,18 +105,8 @@ const fetchDetailSourcesRaw = async (
         return {};
     }
 
-    const instrumentCode = symbol.instrumentCode;
-    const [tsetmcEtf, fundSummary] = await Promise.all([
-        getTsetmcEtfInfo(instrumentCode, signal).catch(() => null),
-        fetchFundSummary(symbol, signal).catch(() => null),
-    ]);
-
-    let fundDetails: FipiranFundDetails | null = null;
-    if (fundSummary?.registrationNumber) {
-        fundDetails = await getFundDetails(fundSummary.registrationNumber, signal).catch(() => null);
-    }
-
-    return {tsetmcEtf, fundSummary, fundDetails};
+    const tsetmcEtf = await getTsetmcEtfInfo(symbol.instrumentCode, signal).catch(() => null);
+    return {tsetmcEtf};
 };
 
 const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
@@ -187,9 +117,6 @@ const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
         tsetmcBestLimits: raw.tsetmcBestLimits,
         tsetmcClientType: raw.tsetmcClientType,
         tsetmcEtf: raw.tsetmcEtf,
-        snapshot: raw.snapshot,
-        fundSummary: raw.fundSummary,
-        fundDetails: raw.fundDetails,
     });
 
 type PollController = {
@@ -378,17 +305,6 @@ export const useSymbolDetails = (
                     isActive
                 )
             );
-
-            polls.push(
-                startPoll(
-                    appConfig.fipiranSnapshotRefreshMs,
-                    async (signal) => {
-                        const snapshot = await getFipiranInstrumentSnapshot(instrumentCode, signal).catch(() => null);
-                        applyRaw({snapshot}, symbol, requestVersion);
-                    },
-                    isActive
-                )
-            );
         }
 
         return () => {
@@ -476,30 +392,6 @@ export const useSymbolDetails = (
                     async (signal) => {
                         const tsetmcEtf = await getTsetmcEtfInfo(instrumentCode, signal).catch(() => null);
                         applyRaw({tsetmcEtf}, symbol, requestVersion);
-                    },
-                    isActive
-                )
-            );
-
-            polls.push(
-                startPoll(
-                    appConfig.fipiranFundSummaryRefreshMs,
-                    async (signal) => {
-                        const fundSummary = await fetchFundSummary(symbol, signal).catch(() => null);
-                        applyRaw({fundSummary}, symbol, requestVersion);
-                    },
-                    isActive
-                )
-            );
-
-            polls.push(
-                startPoll(
-                    appConfig.fipiranFundDetailsRefreshMs,
-                    async (signal) => {
-                        const registrationNumber = rawRef.current.fundSummary?.registrationNumber;
-                        if (!registrationNumber) return;
-                        const fundDetails = await getFundDetails(registrationNumber, signal).catch(() => null);
-                        applyRaw({fundDetails}, symbol, requestVersion);
                     },
                     isActive
                 )

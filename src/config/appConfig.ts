@@ -12,10 +12,6 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_ETF_INFO_API_PATH'
     | 'VITE_TSETMC_RELATED_COMPANIES_API_PATH'
     | 'VITE_TSETMC_MOST_VISITED_API_PATH'
-    | 'VITE_FIPIRAN_API_BASE_URL'
-    | 'VITE_FIPIRAN_SNAPSHOT_API_PATH'
-    | 'VITE_FIPIRAN_FUNDS_API_PATH'
-    | 'VITE_FIPIRAN_FUND_DETAILS_API_PATH'
     | 'VITE_SYMBOL_SEARCH_API_BASE_URL'
     | 'VITE_SYMBOL_SEARCH_API_PATH'
     | 'VITE_CODAL_API_BASE_URL'
@@ -29,9 +25,6 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'
     | 'VITE_TSETMC_BEST_LIMITS_REFRESH_MS'
     | 'VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'
-    | 'VITE_FIPIRAN_SNAPSHOT_REFRESH_MS'
-    | 'VITE_FIPIRAN_FUND_SUMMARY_REFRESH_MS'
-    | 'VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'
     | 'VITE_TSETMC_ETF_INFO_REFRESH_MS'
     | 'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
     | 'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
@@ -68,10 +61,6 @@ export const appConfig = Object.freeze({
     tsetmcEtfInfoApiPath: getRequiredEnv('VITE_TSETMC_ETF_INFO_API_PATH'),
     tsetmcRelatedCompaniesApiPath: getRequiredEnv('VITE_TSETMC_RELATED_COMPANIES_API_PATH'),
     tsetmcMostVisitedApiPath: getRequiredEnv('VITE_TSETMC_MOST_VISITED_API_PATH'),
-    fipiranApiBaseUrl: getRequiredEnv('VITE_FIPIRAN_API_BASE_URL'),
-    fipiranSnapshotApiPath: getRequiredEnv('VITE_FIPIRAN_SNAPSHOT_API_PATH'),
-    fipiranFundsApiPath: getRequiredEnv('VITE_FIPIRAN_FUNDS_API_PATH'),
-    fipiranFundDetailsApiPath: getRequiredEnv('VITE_FIPIRAN_FUND_DETAILS_API_PATH'),
     symbolSearchApiBaseUrl: getRequiredEnv('VITE_SYMBOL_SEARCH_API_BASE_URL'),
     symbolSearchApiPath: getRequiredEnv('VITE_SYMBOL_SEARCH_API_PATH'),
     symbolSearchDebounceMs: parsePositiveInt(
@@ -97,18 +86,6 @@ export const appConfig = Object.freeze({
     tsetmcClientTypeRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'),
         'VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'
-    ),
-    fipiranSnapshotRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_FIPIRAN_SNAPSHOT_REFRESH_MS'),
-        'VITE_FIPIRAN_SNAPSHOT_REFRESH_MS'
-    ),
-    fipiranFundSummaryRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_FIPIRAN_FUND_SUMMARY_REFRESH_MS'),
-        'VITE_FIPIRAN_FUND_SUMMARY_REFRESH_MS'
-    ),
-    fipiranFundDetailsRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'),
-        'VITE_FIPIRAN_FUND_DETAILS_REFRESH_MS'
     ),
     tsetmcEtfInfoRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TSETMC_ETF_INFO_REFRESH_MS'),
