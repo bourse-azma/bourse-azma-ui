@@ -3581,7 +3581,7 @@ export default function TradingDashboard({
                                 )}
                             </section>
 
-                            <section dir="rtl" className={`${cardClass} flex flex-col p-3 md:col-span-1 xl:col-span-3`}>
+                            <section dir="rtl" className={`${cardClass} self-start p-3 md:col-span-1 xl:col-span-3`}>
                                 {symbolLoading && !activeSymbolData ? (
                                     <div className="rounded-2xl border border-border/70 bg-surface-2 p-3 animate-pulse">
                                         <div className="mb-2 flex items-center justify-between">
@@ -3730,7 +3730,9 @@ export default function TradingDashboard({
                                 </div>
 
                                 <div
-                                    className="mt-3 flex min-h-[280px] flex-1 flex-col rounded-2xl border border-border/70 bg-surface-2 p-3">
+                                    className={`mt-3 rounded-2xl border border-border/70 bg-surface-2 p-3 ${
+                                        symbolTab === 'notices' ? 'flex min-h-[280px] flex-col' : ''
+                                    }`}>
                                     {symbolTab === 'notices' ? (
                                         <div className="flex flex-1 flex-col">
                                             <div
@@ -3883,7 +3885,7 @@ export default function TradingDashboard({
                                 </div>
                             </section>
 
-                            <div className="hidden md:block md:col-span-1 xl:col-span-3">
+                            <div className="hidden self-start md:block md:col-span-1 xl:col-span-3">
                                 <WatchlistPanel
                                     activeTab={sidebarTab}
                                     onTabChange={setSidebarTab}

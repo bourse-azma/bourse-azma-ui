@@ -45,7 +45,7 @@ export default function SymbolDetailsPanel({
                                                formatCurrency,
                                            }: SymbolDetailsPanelProps) {
     return (
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-col">
             {error && !hasSymbolData ? (
                 <div className="rounded-xl border border-negative/30 bg-negative/10 p-3 text-xs text-negative">
                     <div className="mb-2 flex items-center gap-2">
@@ -64,10 +64,10 @@ export default function SymbolDetailsPanel({
 
             {loading && !hasSymbolData
                 ? (
-                    <div className="flex flex-1 flex-col justify-evenly text-xs">
+                    <div className="text-xs">
                         {Array.from({length: 6}, (_, index) => (
                             <div key={`symbol-detail-skeleton-${index + 1}`}
-                                 className="flex items-center justify-between py-1.5">
+                                 className="flex items-center justify-between py-2">
                                 <div className="h-3 w-1/3 animate-pulse rounded bg-border/60"/>
                                 <div className="h-3 w-1/4 animate-pulse rounded bg-border/45"/>
                             </div>
@@ -77,13 +77,13 @@ export default function SymbolDetailsPanel({
                 : null}
 
             {!loading && rows.length === 0 && !error ? (
-                <div className="flex flex-1 items-center justify-center text-center text-xs text-muted">
+                <div className="py-6 text-center text-xs text-muted">
                     اطلاعات نماد موجود نیست.
                 </div>
             ) : null}
 
             {rows.length > 0 ? (
-                <div className="flex flex-1 flex-col justify-evenly text-xs">
+                <div className="text-xs">
                     {rows.map((item) => {
                         const displayValue = formatDetailValue(
                             item,
@@ -95,7 +95,7 @@ export default function SymbolDetailsPanel({
                         return (
                             <div
                                 key={item.label}
-                                className="flex items-center justify-between gap-4 py-1.5"
+                                className="flex items-center justify-between gap-4 py-2"
                             >
                                 <span className="shrink-0 text-muted">{item.label}</span>
                                 <span
