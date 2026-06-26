@@ -47,3 +47,32 @@ export const formatPercentOrDash = (
 
 export const formatGrowthLabel = (growth: number, growthPercent: number) =>
     toLtrIsolated(`(${formatSignedCore(growth, 0)} (${formatSignedCore(growthPercent, 2)}%))`);
+
+export const formatPriceWithPercent = (
+    price: number,
+    percent: number,
+    priceDigits = 0,
+    percentDigits = 2,
+) =>
+    toLtrIsolated(
+        `${formatEnNumber(price, priceDigits)} (${formatSignedCore(percent, percentDigits)}%)`,
+    );
+
+export const formatPriceWithPercentOrDash = (
+    price: number | null | undefined,
+    percent: number | null | undefined,
+    dash = 'ناموجود',
+) => {
+    if (
+        price === null
+        || price === undefined
+        || Number.isNaN(price)
+        || percent === null
+        || percent === undefined
+        || Number.isNaN(percent)
+    ) {
+        return dash;
+    }
+
+    return formatPriceWithPercent(price, percent);
+};

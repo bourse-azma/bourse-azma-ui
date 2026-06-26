@@ -55,6 +55,7 @@ import {
     formatNumberFa,
     formatPercentFa,
     formatPercentOrDash as formatPercentOrDashBase,
+    formatPriceWithPercentOrDash,
     formatSignedNumberFa,
     ltrNumericClassName,
 } from './utils/numberFormat';
@@ -3684,9 +3685,12 @@ export default function TradingDashboard({
                                         <div className="mt-2 space-y-1 text-xs">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-muted">پایانی</span>
-                                                <span className="font-medium tabular-nums text-text">
-                                                    {formatNumberOrDash(activeSymbolData?.closePrice)} (
-                                                    {formatPercentOrDash(activeSymbolData?.closePricePercent)})
+                                                <span className={`font-medium text-text ${ltrNumericClassName}`}>
+                                                    {formatPriceWithPercentOrDash(
+                                                        activeSymbolData?.closePrice,
+                                                        activeSymbolData?.closePricePercent,
+                                                        'ناموجود',
+                                                    )}
                                                 </span>
                                             </div>
                                             <div className="flex items-center justify-between">
