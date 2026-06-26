@@ -292,6 +292,23 @@ type WatchlistModalState =
     originalName: string;
 };
 
+type AddToWatchlistModalState = {
+    symbol: SymbolSearchSuggestion;
+};
+
+const isSymbolSearchSuggestion = (value: unknown): value is SymbolSearchSuggestion => {
+    if (!value || typeof value !== 'object') return false;
+    const candidate = value as SymbolSearchSuggestion;
+    return (
+        typeof candidate.key === 'string' &&
+        candidate.key.trim() !== '' &&
+        typeof candidate.symbol === 'string' &&
+        candidate.symbol.trim() !== '' &&
+        typeof candidate.name === 'string' &&
+        candidate.name.trim() !== ''
+    );
+};
+
 const WATCHLIST_TABLE_GRID = 'grid grid-cols-[minmax(0,1fr)_4.75rem_4rem_4.5rem] items-center gap-x-2';
 
 type WatchlistToast = {
@@ -1658,7 +1675,7 @@ function WatchlistPanel({
 
                         <button
                             type="button"
-                            onClick={onRequestCreateWatchlist}
+                            onClick={() => onRequestCreateWatchlist()}
                             className="mt-4 rounded-full border border-positive/30 bg-positive/10 px-4 py-1.5 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
                         >
                             ساخت دیده‌بان
@@ -1754,7 +1771,7 @@ function WatchlistPanel({
 
                         <button
                             type="button"
-                            onClick={onRequestCreateWatchlist}
+                            onClick={() => onRequestCreateWatchlist()}
                             className="inline-flex h-10 shrink-0 items-center justify-center gap-1 rounded-xl border border-positive/30 bg-positive/10 px-3 text-xs font-semibold text-positive transition hover:bg-positive/15 focus-visible:ring-2 focus-visible:ring-positive/45"
                         >
                             <Plus className="h-3.5 w-3.5"/>
@@ -1990,6 +2007,7 @@ export default function TradingDashboard({
     const [watchlistsError, setWatchlistsError] = useState<string | null>(null);
     const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(null);
     const [watchlistModal, setWatchlistModal] = useState<WatchlistModalState | null>(null);
+    const [addToWatchlistModal, setAddToWatchlistModal] = useState<AddToWatchlistModalState | null>(null);
     const [watchlistNameDraft, setWatchlistNameDraft] = useState('');
     const [watchlistNameError, setWatchlistNameError] = useState<string | null>(null);
     const [watchlistSubmitting, setWatchlistSubmitting] = useState(false);
@@ -2090,10 +2108,22 @@ export default function TradingDashboard({
     }, []);
 
     const openCreateWatchlistModal = useCallback((pendingSymbol?: SymbolSearchSuggestion) => {
-        setWatchlistModal({mode: 'create', pendingSymbol});
+        const validPendingSymbol = isSymbolSearchSuggestion(pendingSymbol) ? pendingSymbol : undefined;
+        setWatchlistModal({mode: 'create', pendingSymbol: validPendingSymbol});
         setWatchlistNameDraft('');
         setWatchlistNameError(null);
     }, []);
+
+    const closeAddToWatchlistModal = useCallback(() => {
+        setAddToWatchlistModal(null);
+    }, []);
+
+    const openCreateWatchlistFromAddModal = useCallback(() => {
+        if (!addToWatchlistModal) return;
+        const symbol = addToWatchlistModal.symbol;
+        setAddToWatchlistModal(null);
+        openCreateWatchlistModal(symbol);
+    }, [addToWatchlistModal, openCreateWatchlistModal]);
 
     const openEditWatchlistModal = useCallback(
         (watchlistId: number) => {
@@ -2208,17 +2238,40 @@ export default function TradingDashboard({
         [accessToken, replaceWatchlistInState, selectedWatchlist, showWatchlistToast, watchlistBusy]
     );
 
+    const handleAddSymbolToWatchlist = useCallback(
+        async (watchlistId: number, symbol: SymbolSearchSuggestion) => {
+            if (watchlistBusy) return;
+            const targetWatchlist = watchlists.find((item) => item.id === watchlistId);
+            if (!targetWatchlist) return;
+
+            if (targetWatchlist.symbols.some((item) => item.symbolKey === symbol.key)) {
+                showWatchlistToast(`نماد ${symbol.symbol} قبلاً در دیده‌بان ${targetWatchlist.name} وجود دارد.`, 'error');
+                return;
+            }
+
+            setWatchlistBusy(true);
+            try {
+                const updated = await addSymbolToWatchlist(accessToken, watchlistId, symbol);
+                replaceWatchlistInState(updated);
+                setSelectedWatchlistId(watchlistId);
+                setAddToWatchlistModal(null);
+                showWatchlistToast(`نماد ${symbol.symbol} به دیده‌بان ${targetWatchlist.name} اضافه شد.`);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'افزودن نماد به دیده‌بان ناموفق بود.';
+                showWatchlistToast(message, 'error');
+            } finally {
+                setWatchlistBusy(false);
+            }
+        },
+        [accessToken, replaceWatchlistInState, showWatchlistToast, watchlistBusy, watchlists]
+    );
+
     const handleToggleFavorite = useCallback(async () => {
         if (watchlistBusy) return;
 
-        if (!selectedWatchlist) {
-            openCreateWatchlistModal(selectedSymbol);
-            return;
-        }
-
-        setWatchlistBusy(true);
-        try {
-            if (selectedWatchlistSymbol) {
+        if (selectedWatchlistSymbol && selectedWatchlist) {
+            setWatchlistBusy(true);
+            try {
                 const updated = await removeSymbolFromWatchlist(
                     accessToken,
                     selectedWatchlist.id,
@@ -2226,17 +2279,21 @@ export default function TradingDashboard({
                 );
                 replaceWatchlistInState(updated);
                 showWatchlistToast(`نماد ${selectedSymbol.symbol} از دیده‌بان ${selectedWatchlist.name} حذف شد.`);
-            } else {
-                const updated = await addSymbolToWatchlist(accessToken, selectedWatchlist.id, selectedSymbol);
-                replaceWatchlistInState(updated);
-                showWatchlistToast(`نماد ${selectedSymbol.symbol} به دیده‌بان ${selectedWatchlist.name} اضافه شد.`);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
+                showWatchlistToast(message, 'error');
+            } finally {
+                setWatchlistBusy(false);
             }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'به‌روزرسانی دیده‌بان ناموفق بود.';
-            showWatchlistToast(message, 'error');
-        } finally {
-            setWatchlistBusy(false);
+            return;
         }
+
+        if (watchlists.length === 0) {
+            openCreateWatchlistModal(selectedSymbol);
+            return;
+        }
+
+        setAddToWatchlistModal({symbol: selectedSymbol});
     }, [
         accessToken,
         openCreateWatchlistModal,
@@ -2246,6 +2303,7 @@ export default function TradingDashboard({
         selectedWatchlistSymbol,
         showWatchlistToast,
         watchlistBusy,
+        watchlists.length,
     ]);
 
     const {
@@ -2381,11 +2439,11 @@ export default function TradingDashboard({
         [selectedSymbol.instrumentCode, instrumentLiveChangePercents, symbolPercent]
     );
 
-    const favoriteButtonTitle = selectedWatchlist
-        ? isSymbolInSelectedWatchlist
-            ? 'حذف نماد از دیده‌بان'
-            : 'افزودن نماد به دیده‌بان'
-        : 'ابتدا دیده‌بان بسازید';
+    const favoriteButtonTitle = selectedWatchlistSymbol
+        ? 'حذف نماد از دیده‌بان'
+        : watchlists.length === 0
+            ? 'ابتدا دیده‌بان بسازید'
+            : 'افزودن نماد به دیده‌بان';
 
     const dailyMin = activeSymbolData?.allowedMinPrice ?? null;
     const dailyMax = activeSymbolData?.allowedMaxPrice ?? null;
@@ -4342,6 +4400,87 @@ export default function TradingDashboard({
                             </button>
                         </div>
                     </form>
+                </div>
+            ) : null}
+
+            {addToWatchlistModal ? (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <button
+                        type="button"
+                        onClick={closeAddToWatchlistModal}
+                        className="absolute inset-0 bg-black/45 backdrop-blur-[1px]"
+                        aria-label="close add to watchlist modal"
+                    />
+                    <div
+                        dir="rtl"
+                        className="relative w-full max-w-[360px] rounded-2xl border border-border/70 bg-surface shadow-card"
+                    >
+                        <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                            <div className="min-w-0">
+                                <h3 className="text-base font-bold text-text">افزودن به دیده‌بان</h3>
+                                <p className="mt-0.5 truncate text-xs text-muted">
+                                    نماد {addToWatchlistModal.symbol.symbol}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={closeAddToWatchlistModal}
+                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border/80 bg-surface-2 text-muted transition hover:text-text"
+                                aria-label="close add to watchlist form"
+                            >
+                                <X className="h-4 w-4"/>
+                            </button>
+                        </div>
+
+                        <div className="space-y-3 px-4 py-4">
+                            <p className="text-sm text-text">می‌خواهید این نماد را در کدام دیده‌بان اضافه کنید؟</p>
+
+                            <button
+                                type="button"
+                                onClick={openCreateWatchlistFromAddModal}
+                                disabled={watchlistBusy}
+                                className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-positive/30 bg-positive/10 text-xs font-semibold text-positive transition hover:bg-positive/15 disabled:cursor-not-allowed disabled:opacity-70"
+                            >
+                                <Plus className="h-3.5 w-3.5"/>
+                                ساخت دیده‌بان جدید
+                            </button>
+
+                            <div className="max-h-56 overflow-y-auto rounded-xl border border-border/70">
+                                {watchlists.map((watchlist) => {
+                                    const alreadyAdded = watchlist.symbols.some(
+                                        (item) => item.symbolKey === addToWatchlistModal.symbol.key
+                                    );
+                                    const isSelected = watchlist.id === selectedWatchlistId;
+
+                                    return (
+                                        <button
+                                            key={watchlist.id}
+                                            type="button"
+                                            disabled={alreadyAdded || watchlistBusy}
+                                            onClick={() => {
+                                                void handleAddSymbolToWatchlist(
+                                                    watchlist.id,
+                                                    addToWatchlistModal.symbol
+                                                );
+                                            }}
+                                            className={`flex w-full items-center justify-between border-b border-border/60 px-3 py-2.5 text-right text-sm transition last:border-b-0 disabled:cursor-not-allowed disabled:opacity-60 ${
+                                                isSelected
+                                                    ? 'bg-surface-2 text-text'
+                                                    : 'text-muted hover:bg-surface-2 hover:text-text'
+                                            }`}
+                                        >
+                                            <span className="truncate">{watchlist.name}</span>
+                                            {alreadyAdded ? (
+                                                <span className="mr-2 shrink-0 text-[11px] text-muted">اضافه شده</span>
+                                            ) : isSelected ? (
+                                                <Check className="mr-2 h-3.5 w-3.5 shrink-0 text-positive"/>
+                                            ) : null}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             ) : null}
 
