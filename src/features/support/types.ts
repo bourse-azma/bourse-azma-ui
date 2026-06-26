@@ -49,6 +49,7 @@ export type SupportTicketMessage = {
     authorUserId?: number | null;
     createdAt: string;
     editedAt: string | null;
+    seenAt?: string | null;
 };
 
 export type SupportTicketDetail = {

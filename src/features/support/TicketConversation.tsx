@@ -1,7 +1,7 @@
 import {useState} from 'react';
-import {Check, Headphones, Loader2, Pencil, UserRound, X} from 'lucide-react';
+import {Check, CheckCheck, Headphones, Loader2, Pencil, UserRound, X} from 'lucide-react';
 import {formatDateTimeFa} from '../../utils/formatDateTime';
-import {isMessageEditable, isOwnTicketMessage} from './messageUtils';
+import {isMessageEditable, isMessageSeen, isOwnTicketMessage} from './messageUtils';
 import type {SupportTicketMessage} from './types';
 
 type TicketConversationProps = {
@@ -59,7 +59,8 @@ export default function TicketConversation({messages, mode, allowEdit = true, on
                 const isAdminAuthor = item.authorRole === 'ADMIN';
                 const isFirstOfGroup = index === 0 || messages[index - 1]?.authorRole !== item.authorRole;
                 const isEditing = editingId === (item.id ?? 'initial');
-                const canEdit = allowEdit && isOwn && isMessageEditable(item.createdAt) && onEditMessage != null;
+                const canEdit = allowEdit && isOwn && isMessageEditable(item.seenAt) && onEditMessage != null;
+                const seen = isOwn && isMessageSeen(item.seenAt);
 
                 const displayName = isAdminAuthor && mode === 'user'
                     ? 'پشتیبانی'
@@ -161,6 +162,13 @@ export default function TicketConversation({messages, mode, allowEdit = true, on
                                     </p>
                                     {item.editedAt ? (
                                         <p className="text-[10px] text-muted">ویرایش شده</p>
+                                    ) : null}
+                                    {isOwn ? (
+                                        seen ? (
+                                            <CheckCheck className={`h-3.5 w-3.5 ${isOwn ? 'text-white/80' : 'text-primary'}`}/>
+                                        ) : (
+                                            <Check className={`h-3.5 w-3.5 ${isOwn ? 'text-white/60' : 'text-muted'}`}/>
+                                        )
                                     ) : null}
                                 </div>
                             </div>
