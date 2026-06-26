@@ -9,11 +9,7 @@ import {
     rateSupportTicket,
 } from './api';
 import TicketDetailView from './TicketDetailView';
-import {
-    canCloseTicket,
-    canUserReply,
-    isTicketRateable,
-} from './supportMeta';
+import {canCloseTicket, canUserReply, isTicketRateable,} from './supportMeta';
 import {useSupportTicketsAutoRefresh} from './useSupportTicketsAutoRefresh';
 import type {SupportTicket, SupportTicketDetail} from './types';
 
@@ -28,12 +24,12 @@ type TicketDetailPanelProps = {
 };
 
 export default function TicketDetailPanel({
-    accessToken,
-    ticketId,
-    enabled,
-    onBack,
-    onTicketUpdated,
-}: TicketDetailPanelProps) {
+                                              accessToken,
+                                              ticketId,
+                                              enabled,
+                                              onBack,
+                                              onTicketUpdated,
+                                          }: TicketDetailPanelProps) {
     const [detail, setDetail] = useState<SupportTicketDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

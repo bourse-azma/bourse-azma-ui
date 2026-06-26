@@ -1,3 +1,4 @@
+import {type PagedResult, withAuthRequest} from '../../lib/authRequest';
 import type {
     CreateSupportTicketRequest,
     SupportTicket,
@@ -51,14 +52,7 @@ const request = async <T>(
     fallbackError: string,
     init?: RequestInit,
 ): Promise<T> => {
-    const response = await fetch(path, {
-        ...init,
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            ...(init?.headers ?? {}),
-        },
-    });
+    const response = await fetch(path, withAuthRequest(accessToken, init));
 
     const text = await response.text();
     const data = tryParseJson(text);
@@ -81,11 +75,13 @@ const request = async <T>(
     return payload.result;
 };
 
-const buildFilterQuery = (filters?: SupportTicketFilters) => {
+const buildFilterQuery = (filters?: SupportTicketFilters, page = 0, size = 20) => {
     const params = new URLSearchParams();
     if (filters?.status) params.set('status', filters.status);
     if (filters?.category) params.set('category', filters.category);
     if (filters?.priority) params.set('priority', filters.priority);
+    params.set('page', String(page));
+    params.set('size', String(size));
     const query = params.toString();
     return query === '' ? '' : `?${query}`;
 };
@@ -119,9 +115,14 @@ export const closeSupportTicket = (accessToken: string, ticketId: number) =>
         method: 'POST',
     });
 
-export const getAdminSupportTickets = (accessToken: string, filters?: SupportTicketFilters) =>
-    request<SupportTicket[]>(
-        `/api/v1/admin/support-requests${buildFilterQuery(filters)}`,
+export const getAdminSupportTickets = (
+    accessToken: string,
+    filters?: SupportTicketFilters,
+    page = 0,
+    size = 20,
+) =>
+    request<PagedResult<SupportTicket>>(
+        `/api/v1/admin/support-requests${buildFilterQuery(filters, page, size)}`,
         accessToken,
         'دریافت تیکت‌های پشتیبانی ناموفق بود.',
     );

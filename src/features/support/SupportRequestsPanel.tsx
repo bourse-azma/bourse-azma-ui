@@ -1,20 +1,10 @@
 import {type FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-    AlertCircle,
-    Check,
-    Loader2,
-    MessageSquare,
-    Plus,
-    Send,
-} from 'lucide-react';
+import {AlertCircle, Check, Loader2, MessageSquare, Plus, Send,} from 'lucide-react';
 import {createSupportTicket, getSupportTickets} from './api';
 import TicketDetailPanel from './TicketDetailPanel';
 import TicketListItem from './TicketListItem';
 import {UserTicketStatsStrip} from './TicketStatsStrip';
-import {
-    SUPPORT_CATEGORY_OPTIONS,
-    SUPPORT_PRIORITY_OPTIONS,
-} from './supportMeta';
+import {SUPPORT_CATEGORY_OPTIONS, SUPPORT_PRIORITY_OPTIONS,} from './supportMeta';
 import {computeUserTicketStats} from './supportStats';
 import {useSupportTicketsAutoRefresh} from './useSupportTicketsAutoRefresh';
 import type {SupportRequestCategory, SupportRequestPriority, SupportTicket} from './types';
@@ -185,7 +175,8 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
                     />
 
                     {error ? (
-                        <div className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                        <div
+                            className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
                             <AlertCircle className="h-4 w-4 shrink-0"/>
                             {error}
                         </div>
@@ -203,7 +194,8 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
             ) : null}
 
             {success ? (
-                <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive sm:mx-5">
+                <div
+                    className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive sm:mx-5">
                     <Check className="h-4 w-4 shrink-0"/>
                     {success}
                 </div>
@@ -217,7 +209,8 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
                         ))}
                     </div>
                 ) : sortedTickets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-12 text-center">
+                    <div
+                        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-12 text-center">
                         <MessageSquare className="h-7 w-7 text-muted"/>
                         <p className="mt-2 text-sm font-semibold text-text">تیکتی ثبت نشده</p>
                         <button

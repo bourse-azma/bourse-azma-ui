@@ -1,4 +1,5 @@
 import {appConfig} from '../../config/appConfig';
+import {withAuthRequest} from '../../lib/authRequest';
 import type {IndustrySummary, IndustrySymbolsResult} from './types';
 
 type ApiEnvelope<T> = {
@@ -36,14 +37,13 @@ const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 const joinUrl = (baseUrl: string, path: string) => `${trimTrailingSlash(baseUrl)}${normalizePath(path)}`;
 
 const request = async <T>(path: string, accessToken: string, fallbackMessage: string, signal?: AbortSignal) => {
-    const response = await fetch(joinUrl(appConfig.symbolSearchApiBaseUrl, path), {
+    const response = await fetch(joinUrl(appConfig.symbolSearchApiBaseUrl, path), withAuthRequest(accessToken, {
         method: 'GET',
         headers: {
             accept: '*/*',
-            Authorization: `Bearer ${accessToken}`,
         },
         signal,
-    });
+    }));
 
     const rawText = await response.text();
     const data = rawText.trim() === '' ? null : JSON.parse(rawText) as unknown;

@@ -31,6 +31,7 @@ import {InfiniteScrollSentinel} from './hooks/InfiniteScrollSentinel';
 import {useInfiniteScrollLoadMore} from './hooks/useInfiniteScrollLoadMore';
 import {appConfig} from './config/appConfig';
 import {getInfiniteScrollTriggerIndex, INFINITE_SCROLL_PAGE_SIZE} from './config/scrollConfig';
+import {type PagedResult, withAuthRequest} from './lib/authRequest';
 import bourseAzmaLogo from './assets/bourse-azma-logo.png';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
 import {getCodalNotices} from './features/symbol-search/api';
@@ -936,33 +937,53 @@ function WalletReportsPanel({
 }) {
     const [txs, setTxs] = useState<WalletTx[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
     const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
     const hasLoadedOnceRef = useRef(false);
 
-    const fetchTxs = useCallback(async (silent = false) => {
-        if (!silent) {
+    const fetchTxs = useCallback(async (silent = false, pageToLoad = 0, append = false) => {
+        if (!silent && !append) {
             setLoading(true);
+            setError(null);
+        }
+        if (append) {
+            setLoadingMore(true);
         }
         try {
-            const res = await fetch('/api/v1/wallet/transactions', {
-                headers: {Authorization: `Bearer ${accessToken}`},
-            });
+            const res = await fetch(`/api/v1/wallet/transactions?page=${pageToLoad}&size=20`, withAuthRequest(accessToken, {
+                method: 'GET',
+            }));
             const data = await res.json();
-            if (res.ok && data.result) {
-                setTxs(data.result);
+            if (!res.ok) {
+                throw new Error(data?.result?.detail ?? data?.message ?? 'دریافت تراکنش‌ها ناموفق بود.');
+            }
+            if (data.result) {
+                const result = data.result as PagedResult<WalletTx>;
+                setTxs((prev) => (append ? [...prev, ...result.items] : result.items));
+                setPage(result.page);
+                setHasMore(result.hasNext);
                 hasLoadedOnceRef.current = true;
             }
         } catch (err) {
-            console.error(err);
-        } finally {
+            const message = err instanceof Error ? err.message : 'دریافت تراکنش‌ها ناموفق بود.';
             if (!silent) {
+                setError(message);
+            }
+        } finally {
+            if (!silent && !append) {
                 setLoading(false);
+            }
+            if (append) {
+                setLoadingMore(false);
             }
         }
     }, [accessToken]);
 
     useEffect(() => {
-        void fetchTxs(hasLoadedOnceRef.current);
+        void fetchTxs(hasLoadedOnceRef.current, 0, false);
     }, [fetchTxs, walletBalance]);
 
     useEffect(() => {
@@ -972,7 +993,7 @@ function WalletReportsPanel({
 
         let timer: number | undefined;
         const tick = async () => {
-            await fetchTxs(true);
+            await fetchTxs(true, 0, false);
             timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
         };
         timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
@@ -1048,6 +1069,13 @@ function WalletReportsPanel({
             </div>
 
             <div className="px-4 py-4 sm:px-5">
+                {error ? (
+                    <div
+                        className="mb-3 flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                        <AlertCircle className="h-4 w-4 shrink-0"/>
+                        {error}
+                    </div>
+                ) : null}
                 {loading && txs.length === 0 ? (
                     <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted">
                         <Loader2 className="h-3.5 w-3.5 animate-spin"/>
@@ -1151,6 +1179,17 @@ function WalletReportsPanel({
                                 </article>
                             );
                         })}
+                        {hasMore ? (
+                            <button
+                                type="button"
+                                onClick={() => void fetchTxs(false, page + 1, true)}
+                                disabled={loadingMore}
+                                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 py-2.5 text-xs font-semibold text-text transition hover:border-primary/35 disabled:opacity-70"
+                            >
+                                {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : null}
+                                نمایش تراکنش‌های بیشتر
+                            </button>
+                        ) : null}
                     </div>
                 )}
             </div>
@@ -1232,18 +1271,14 @@ function WalletTabContent({
 
         setIsSubmitting(true);
         try {
-            const res = await fetch('/api/v1/wallet/adjust', {
+            const res = await fetch('/api/v1/wallet/adjust', withAuthRequest(accessToken, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${accessToken}`,
-                },
                 body: JSON.stringify({
                     type: actionType,
                     value: parsedValue,
                     description: description.trim() || undefined,
                 }),
-            });
+            }));
             const data = await res.json();
             if (!res.ok) {
                 throw new Error(extractApiErrorMessage(data, 'خطا در انجام عملیات'));
@@ -2636,9 +2671,9 @@ export default function TradingDashboard({
         if (userProfile?.id && onProfileUpdated) {
             tasks.push(
                 (async () => {
-                    const response = await fetch(`/api/v1/users/${userProfile.id}`, {
-                        headers: {Authorization: `Bearer ${accessToken}`},
-                    });
+                    const response = await fetch(`/api/v1/users/${userProfile.id}`, withAuthRequest(accessToken, {
+                        method: 'GET',
+                    }));
                     if (!response.ok) return;
                     const data = (await response.json()) as { result?: UserProfile };
                     if (data.result) {

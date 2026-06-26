@@ -16,7 +16,7 @@ import {formatNumberFa} from '../../utils/numberFormat';
 import StarRating from './StarRating';
 import TicketConversation from './TicketConversation';
 import {getTicketLifecycle} from './supportStats';
-import {SUPPORT_CATEGORY_META, SUPPORT_PRIORITY_META, CLOSED_BY_LABELS} from './supportMeta';
+import {CLOSED_BY_LABELS, isTicketClosed, SUPPORT_CATEGORY_META, SUPPORT_PRIORITY_META} from './supportMeta';
 import type {SupportTicket, SupportTicketMessage} from './types';
 
 const cardClass = 'rounded-2xl border border-border/70 bg-surface shadow-card dark:shadow-none';
@@ -51,33 +51,33 @@ type TicketDetailViewProps = {
 };
 
 export default function TicketDetailView({
-    ticket,
-    messages,
-    mode,
-    loading = false,
-    error,
-    success,
-    onBack,
-    reply,
-    onReplyChange,
-    onSubmitReply,
-    replySubmitting,
-    showReply,
-    onClose,
-    closeSubmitting = false,
-    showClose = false,
-    rating = 0,
-    onRatingChange,
-    ratingComment = '',
-    onRatingCommentChange,
-    onSubmitRating,
-    ratingSubmitting = false,
-    ratingSuccess,
-    showRating = false,
-    replyPlaceholder = 'پیام خود را بنویسید...',
-    replyInputId = 'ticket-reply',
-    onEditMessage,
-}: TicketDetailViewProps) {
+                                             ticket,
+                                             messages,
+                                             mode,
+                                             loading = false,
+                                             error,
+                                             success,
+                                             onBack,
+                                             reply,
+                                             onReplyChange,
+                                             onSubmitReply,
+                                             replySubmitting,
+                                             showReply,
+                                             onClose,
+                                             closeSubmitting = false,
+                                             showClose = false,
+                                             rating = 0,
+                                             onRatingChange,
+                                             ratingComment = '',
+                                             onRatingCommentChange,
+                                             onSubmitRating,
+                                             ratingSubmitting = false,
+                                             ratingSuccess,
+                                             showRating = false,
+                                             replyPlaceholder = 'پیام خود را بنویسید...',
+                                             replyInputId = 'ticket-reply',
+                                             onEditMessage,
+                                         }: TicketDetailViewProps) {
     const [showUserDetails, setShowUserDetails] = useState(false);
     const lifecycle = getTicketLifecycle(ticket.status);
     const closedByLabel = ticket.status === 'CLOSED' && ticket.closedBy
@@ -136,7 +136,8 @@ export default function TicketDetailView({
                     />
                 ) : null}
                 {ratingSuccess ? (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
+                    <div
+                        className="mt-3 flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
                         <Check className="h-4 w-4"/>
                         {ratingSuccess}
                     </div>
@@ -171,7 +172,8 @@ export default function TicketDetailView({
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-sm font-black text-text sm:text-base">{ticket.subject}</h2>
-                            <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${lifecycle.className}`}>
+                            <span
+                                className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${lifecycle.className}`}>
                                 {lifecycle.label}
                             </span>
                         </div>
@@ -204,7 +206,8 @@ export default function TicketDetailView({
                                 <p className="truncate text-[10px] text-muted">@{ticket.user.username}</p>
                             </div>
                             {hasExtendedUserDetails ? (
-                                showUserDetails ? <ChevronUp className="h-3.5 w-3.5 text-muted"/> : <ChevronDown className="h-3.5 w-3.5 text-muted"/>
+                                showUserDetails ? <ChevronUp className="h-3.5 w-3.5 text-muted"/> :
+                                    <ChevronDown className="h-3.5 w-3.5 text-muted"/>
                             ) : null}
                         </button>
                     ) : null}
@@ -222,13 +225,15 @@ export default function TicketDetailView({
                             <p className="truncate text-[10px] text-muted">@{ticket.user.username}</p>
                         </div>
                         {hasExtendedUserDetails ? (
-                            showUserDetails ? <ChevronUp className="h-3.5 w-3.5 text-muted"/> : <ChevronDown className="h-3.5 w-3.5 text-muted"/>
+                            showUserDetails ? <ChevronUp className="h-3.5 w-3.5 text-muted"/> :
+                                <ChevronDown className="h-3.5 w-3.5 text-muted"/>
                         ) : null}
                     </button>
                 ) : null}
 
                 {mode === 'admin' && showUserDetails && userDetails && hasExtendedUserDetails ? (
-                    <div className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-border/60 bg-surface-2 p-3 text-xs sm:grid-cols-2">
+                    <div
+                        className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-border/60 bg-surface-2 p-3 text-xs sm:grid-cols-2">
                         {userDetails.firstName || userDetails.lastName ? (
                             <div>
                                 <p className="text-[10px] text-muted">نام و نام خانوادگی</p>
@@ -272,19 +277,26 @@ export default function TicketDetailView({
                 ) : (
                     <>
                         {error ? (
-                            <div className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
+                            <div
+                                className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
                                 <AlertCircle className="h-4 w-4 shrink-0"/>
                                 {error}
                             </div>
                         ) : null}
                         {success ? (
-                            <div className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
+                            <div
+                                className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
                                 <Check className="h-4 w-4 shrink-0"/>
                                 {success}
                             </div>
                         ) : null}
 
-                        <TicketConversation messages={messages} mode={mode} onEditMessage={onEditMessage}/>
+                        <TicketConversation
+                            messages={messages}
+                            mode={mode}
+                            allowEdit={mode === 'admin' ? true : !isTicketClosed(ticket.status)}
+                            onEditMessage={onEditMessage}
+                        />
                         {ratingSection}
                     </>
                 )}
@@ -310,7 +322,8 @@ export default function TicketDetailView({
                                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white transition hover:brightness-105 disabled:opacity-70"
                                 aria-label="ارسال"
                             >
-                                {replySubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
+                                {replySubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> :
+                                    <Send className="h-4 w-4"/>}
                             </button>
                         </form>
                     ) : null}
@@ -322,7 +335,8 @@ export default function TicketDetailView({
                             disabled={closeSubmitting}
                             className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border/80 bg-surface-2 text-sm font-semibold text-text transition hover:border-negative/30 hover:bg-negative/5 hover:text-negative disabled:opacity-70 ${showReply ? 'mt-2' : ''}`}
                         >
-                            {closeSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="h-4 w-4"/>}
+                            {closeSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> :
+                                <XCircle className="h-4 w-4"/>}
                             بستن تیکت
                         </button>
                     ) : null}

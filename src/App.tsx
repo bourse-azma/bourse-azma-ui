@@ -3,6 +3,7 @@ import AuthPage, {type AuthSession} from './AuthPage';
 import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
+import {withAuthRequest} from './lib/authRequest';
 import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from './features/symbol-search/selectedSymbolState';
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
@@ -11,6 +12,12 @@ const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
 
 type SessionState = {
     accessToken: string;
+    userId: number;
+    role: string;
+    rememberMe: boolean;
+};
+
+type PersistedSession = {
     userId: number;
     role: string;
     rememberMe: boolean;
@@ -92,38 +99,14 @@ const toApiErrorMessage = (data: unknown, fallback: string) => {
     return fallback;
 };
 
-const decodeBase64Url = (value: string) => {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    return atob(padded);
-};
-
-const tryExtractUserIdFromToken = (token: string) => {
-    try {
-        const parts = token.split('.');
-        if (parts.length < 2) return null;
-        const payloadText = decodeBase64Url(parts[1]);
-        const payload = JSON.parse(payloadText) as { sub?: string };
-        const raw = payload.sub;
-        if (!raw) return null;
-        const parsed = Number(raw);
-        if (!Number.isFinite(parsed) || parsed <= 0) return null;
-        return parsed;
-    } catch {
-        return null;
-    }
-};
-
 const getInitialSession = (): SessionState | null => {
     if (typeof window === 'undefined') return null;
 
     const parseStoredSession = (raw: string | null, rememberMe: boolean): SessionState | null => {
         if (!raw) return null;
         try {
-            const parsed = JSON.parse(raw) as SessionState;
+            const parsed = JSON.parse(raw) as PersistedSession;
             if (
-                typeof parsed.accessToken === 'string' &&
-                parsed.accessToken.trim() !== '' &&
                 typeof parsed.userId === 'number' &&
                 Number.isFinite(parsed.userId) &&
                 parsed.userId > 0 &&
@@ -131,7 +114,7 @@ const getInitialSession = (): SessionState | null => {
                 parsed.role.trim() !== ''
             ) {
                 return {
-                    accessToken: parsed.accessToken,
+                    accessToken: '',
                     userId: parsed.userId,
                     role: parsed.role,
                     rememberMe,
@@ -149,20 +132,8 @@ const getInitialSession = (): SessionState | null => {
     const localStored = parseStoredSession(window.localStorage.getItem(SESSION_STORAGE_KEY), true);
     if (localStored) return localStored;
 
-    const legacyToken = window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
-    if (!legacyToken || legacyToken.trim() === '') {
-        return null;
-    }
-    const userId = tryExtractUserIdFromToken(legacyToken);
-    if (!userId) {
-        return null;
-    }
-    return {
-        accessToken: legacyToken,
-        userId,
-        role: 'USER',
-        rememberMe: true,
-    };
+    window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
+    return null;
 };
 
 export default function App() {
@@ -206,11 +177,9 @@ export default function App() {
         setProfileLoading(true);
         setProfileError(null);
         try {
-            const response = await fetch(`/api/v1/users/${targetSession.userId}`, {
-                headers: {
-                    Authorization: `Bearer ${targetSession.accessToken}`,
-                },
-            });
+            const response = await fetch(`/api/v1/users/${targetSession.userId}`, withAuthRequest(targetSession.accessToken, {
+                method: 'GET',
+            }));
             const text = await response.text();
             const data = text ? (JSON.parse(text) as unknown) : null;
             if (!response.ok) {
@@ -240,11 +209,16 @@ export default function App() {
             return;
         }
         setAuthState('checking');
+        const persisted: PersistedSession = {
+            userId: session.userId,
+            role: session.role,
+            rememberMe: session.rememberMe,
+        };
         if (session.rememberMe) {
-            window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+            window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(persisted));
             window.sessionStorage.removeItem(SESSION_STORAGE_KEY_TEMP);
         } else {
-            window.sessionStorage.setItem(SESSION_STORAGE_KEY_TEMP, JSON.stringify(session));
+            window.sessionStorage.setItem(SESSION_STORAGE_KEY_TEMP, JSON.stringify(persisted));
             window.localStorage.removeItem(SESSION_STORAGE_KEY);
         }
         window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
@@ -261,10 +235,10 @@ export default function App() {
         const epoch = startNewLoginEpoch();
         setLoginEpoch(epoch);
         setSession({
-            accessToken: authSession.accessToken,
+            accessToken: authSession.accessToken ?? '',
             userId: authSession.userId,
             role: authSession.role,
-            rememberMe: authSession.rememberMe ?? true,
+            rememberMe: authSession.rememberMe ?? false,
         });
         setAuthState('checking');
     }, []);
@@ -273,12 +247,9 @@ export default function App() {
         const currentSession = session;
         clearSession();
         if (!currentSession) return;
-        void fetch(`${appConfig.authApiBaseUrl}/logout`, {
+        void fetch(`${appConfig.authApiBaseUrl}/logout`, withAuthRequest(currentSession.accessToken, {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${currentSession.accessToken}`,
-            },
-        }).catch(() => undefined);
+        })).catch(() => undefined);
     }, [clearSession, session]);
 
     const displayName = useMemo(() => {
@@ -331,14 +302,10 @@ export default function App() {
                 throw new Error('برای تغییر رمز عبور، رمز فعلی را وارد کنید.');
             }
 
-            const response = await fetch('/api/v1/users', {
+            const response = await fetch('/api/v1/users', withAuthRequest(session.accessToken, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session.accessToken}`,
-                },
                 body: JSON.stringify(payload),
-            });
+            }));
             const text = await response.text();
             const data = text ? (JSON.parse(text) as unknown) : null;
             if (!response.ok) {

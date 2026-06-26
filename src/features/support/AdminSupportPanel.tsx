@@ -1,9 +1,5 @@
 import {type FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-    AlertCircle,
-    Loader2,
-    MessageSquare,
-} from 'lucide-react';
+import {AlertCircle, Loader2, MessageSquare,} from 'lucide-react';
 import {
     addAdminSupportTicketMessage,
     closeAdminSupportTicket,
@@ -41,6 +37,9 @@ type AdminSupportPanelProps = {
 
 export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPanelProps) {
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
     const [detail, setDetail] = useState<SupportTicketDetail | null>(null);
     const [filters, setFilters] = useState<SupportTicketFilters>({});
@@ -53,22 +52,30 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
     const [success, setSuccess] = useState<string | null>(null);
     const hasLoadedOnceRef = useRef(false);
 
-    const fetchTickets = useCallback(async (silent = false) => {
-        if (!silent) {
+    const fetchTickets = useCallback(async (silent = false, pageToLoad = 0, append = false) => {
+        if (!silent && !append) {
             setLoading(true);
             setError(null);
         }
+        if (append) {
+            setLoadingMore(true);
+        }
         try {
-            const result = await getAdminSupportTickets(accessToken, filters);
-            setTickets(result);
+            const result = await getAdminSupportTickets(accessToken, filters, pageToLoad, 20);
+            setTickets((prev) => (append ? [...prev, ...result.items] : result.items));
+            setPage(result.page);
+            setHasMore(result.hasNext);
             hasLoadedOnceRef.current = true;
         } catch (fetchError) {
             if (!silent) {
                 setError(fetchError instanceof Error ? fetchError.message : 'دریافت تیکت‌ها ناموفق بود.');
             }
         } finally {
-            if (!silent) {
+            if (!silent && !append) {
                 setLoading(false);
+            }
+            if (append) {
+                setLoadingMore(false);
             }
         }
     }, [accessToken, filters]);
@@ -96,8 +103,8 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
         if (!enabled) {
             return;
         }
-        void fetchTickets(hasLoadedOnceRef.current);
-    }, [enabled, fetchTickets]);
+        void fetchTickets(hasLoadedOnceRef.current, 0, false);
+    }, [enabled, filters, fetchTickets]);
 
     useEffect(() => {
         if (selectedTicketId == null) {
@@ -110,10 +117,10 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
     useSupportTicketsAutoRefresh(
         useCallback(async (silent) => {
             if (selectedTicketId == null) {
-                await fetchTickets(silent);
+                await fetchTickets(silent, 0, false);
                 return;
             }
-            await Promise.all([fetchTickets(silent), loadDetail(selectedTicketId, silent)]);
+            await Promise.all([fetchTickets(silent, 0, false), loadDetail(selectedTicketId, silent)]);
         }, [fetchTickets, loadDetail, selectedTicketId]),
         enabled,
     );
@@ -265,7 +272,8 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
             </div>
 
             {error ? (
-                <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative sm:mx-5">
+                <div
+                    className="mx-4 mt-3 flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative sm:mx-5">
                     <AlertCircle className="h-4 w-4 shrink-0"/>
                     {error}
                 </div>
@@ -279,7 +287,8 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
                         ))}
                     </div>
                 ) : sortedTickets.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-12 text-center">
+                    <div
+                        className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-12 text-center">
                         <MessageSquare className="h-7 w-7 text-muted"/>
                         <p className="mt-2 text-sm font-semibold text-text">تیکتی یافت نشد</p>
                     </div>
@@ -293,6 +302,17 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
                                 onClick={() => setSelectedTicketId(item.id)}
                             />
                         ))}
+                        {hasMore ? (
+                            <button
+                                type="button"
+                                onClick={() => void fetchTickets(false, page + 1, true)}
+                                disabled={loadingMore}
+                                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 py-2.5 text-xs font-semibold text-text transition hover:border-primary/35 disabled:opacity-70"
+                            >
+                                {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : null}
+                                نمایش بیشتر
+                            </button>
+                        ) : null}
                     </div>
                 )}
             </div>

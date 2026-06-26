@@ -1,4 +1,5 @@
 import {appConfig} from '../../config/appConfig';
+import {withAuthRequest} from '../../lib/authRequest';
 import type {
     ApiResponse,
     SymbolSearchRow,
@@ -37,51 +38,6 @@ type TsetmcCodalNoticesResult = {
     notices: TsetmcCodalNotice[];
 };
 
-const SESSION_STORAGE_KEY = 'bourse-azma-session';
-const SESSION_STORAGE_KEY_TEMP = 'bourse-azma-session-temp';
-const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
-
-const readAccessTokenFromSessionPayload = (raw: string | null) => {
-    if (!raw) return null;
-    try {
-        const parsed = JSON.parse(raw) as { accessToken?: unknown };
-        if (typeof parsed.accessToken === 'string' && parsed.accessToken.trim() !== '') {
-            return parsed.accessToken.trim();
-        }
-    } catch {
-        // Ignore invalid session payload.
-    }
-    return null;
-};
-
-const getAccessToken = () => {
-    if (typeof window === 'undefined') return null;
-
-    const localSessionToken = readAccessTokenFromSessionPayload(window.localStorage.getItem(SESSION_STORAGE_KEY));
-    if (localSessionToken) return localSessionToken;
-
-    const tempSessionToken = readAccessTokenFromSessionPayload(window.sessionStorage.getItem(SESSION_STORAGE_KEY_TEMP));
-    if (tempSessionToken) return tempSessionToken;
-
-    const legacyToken = window.localStorage.getItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);
-    if (typeof legacyToken === 'string' && legacyToken.trim() !== '') {
-        return legacyToken.trim();
-    }
-
-    return null;
-};
-
-const buildHeaders = () => {
-    const headers: Record<string, string> = {
-        accept: '*/*',
-    };
-    const accessToken = getAccessToken();
-    if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
-    }
-    return headers;
-};
-
 const normalizePath = (value: string) => (value.startsWith('/') ? value : `/${value}`);
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 const joinUrl = (baseUrl: string, path: string) => `${trimTrailingSlash(baseUrl)}${normalizePath(path)}`;
@@ -94,10 +50,12 @@ const applyTemplate = (template: string, values: Record<string, string>) => {
 };
 
 const fetchApi = async <T>(url: string, signal?: AbortSignal): Promise<T> => {
-    const response = await fetch(url, {
-        headers: buildHeaders(),
+    const response = await fetch(url, withAuthRequest(null, {
+        headers: {
+            accept: '*/*',
+        },
         signal,
-    });
+    }));
 
     if (!response.ok) {
         throw new Error(`Request failed with status ${response.status}`);

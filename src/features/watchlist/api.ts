@@ -1,3 +1,4 @@
+import {withAuthRequest} from '../../lib/authRequest';
 import type {SymbolSearchSuggestion} from '../symbol-search/types';
 
 type ApiEnvelope<T> = {
@@ -60,14 +61,7 @@ const request = async <T>(
     options?: RequestInit,
     fallbackError = 'عملیات دیده‌بان با خطا مواجه شد.'
 ): Promise<T> => {
-    const response = await fetch(path, {
-        ...options,
-        headers: {
-            ...(options?.headers ?? {}),
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-        },
-    });
+    const response = await fetch(path, withAuthRequest(accessToken, options));
 
     const text = await response.text();
     const data = tryParseJson(text);

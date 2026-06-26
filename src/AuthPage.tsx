@@ -1,6 +1,7 @@
 import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
+import {withAuthRequest} from './lib/authRequest';
 
 type AuthMode = 'login' | 'register';
 
@@ -9,13 +10,13 @@ type AuthPageProps = {
 };
 
 type AuthTokenResult = {
-    accessToken: string;
+    accessToken?: string | null;
     userId: number;
     role: string;
 };
 
 export type AuthSession = {
-    accessToken: string;
+    accessToken?: string;
     userId: number;
     role: string;
     rememberMe?: boolean;
@@ -144,7 +145,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
     const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
     const [generatedPasswordConfirmed, setGeneratedPasswordConfirmed] = useState(false);
-    const [rememberMe, setRememberMe] = useState(true);
+    const [rememberMe, setRememberMe] = useState(false);
     const [username, setUsername] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
@@ -187,13 +188,10 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
     };
 
     const submitAuthRequest = async (endpoint: 'login' | 'register', payload: unknown) => {
-        const response = await fetch(`${appConfig.authApiBaseUrl}/${endpoint}`, {
+        const response = await fetch(`${appConfig.authApiBaseUrl}/${endpoint}`, withAuthRequest(null, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
             body: JSON.stringify(payload),
-        });
+        }));
 
         const text = await response.text();
         let data: unknown = null;
@@ -214,13 +212,9 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
         }
 
         const apiResponse = data as ApiResponse<AuthTokenResult>;
-        const accessToken = apiResponse.result?.accessToken;
         const userId = apiResponse.result?.userId;
         const role = apiResponse.result?.role;
 
-        if (typeof accessToken !== 'string' || accessToken.trim() === '') {
-            throw new Error('توکن ورود دریافت نشد.');
-        }
         if (typeof userId !== 'number' || !Number.isFinite(userId) || userId <= 0) {
             throw new Error('شناسه کاربر دریافت نشد.');
         }
@@ -229,7 +223,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
         }
 
         return {
-            accessToken,
+            accessToken: '',
             userId,
             role,
         } satisfies AuthSession;
@@ -246,6 +240,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 const session = await submitAuthRequest('login', {
                     identifier: identifier.trim(),
                     password: trimmedPassword,
+                    rememberMe,
                 });
                 onAuthenticated({...session, rememberMe});
                 return;
@@ -278,7 +273,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 password: trimmedPassword,
                 ...(parsedBalance !== null ? {balance: parsedBalance} : {}),
             });
-            onAuthenticated(session);
+            onAuthenticated({...session, rememberMe: false});
         } catch (requestError) {
             const message =
                 requestError instanceof Error ? requestError.message : 'خطایی در احراز هویت رخ داد.';

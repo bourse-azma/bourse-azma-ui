@@ -27,10 +27,11 @@ function StatCard({label, value, tone = 'default'}: StatCardProps) {
 
 export function UserTicketStatsStrip({stats}: { stats: UserTicketStats }) {
     return (
-        <div className="grid grid-cols-2 gap-2 border-b border-border/50 bg-surface-2/30 px-4 py-3 sm:grid-cols-4 sm:px-5">
+        <div
+            className="grid grid-cols-2 gap-2 border-b border-border/50 bg-surface-2/30 px-4 py-3 sm:grid-cols-4 sm:px-5">
             <StatCard label="کل تیکت‌ها" value={stats.total}/>
             <StatCard label="در انتظار بررسی" value={stats.awaiting} tone="primary"/>
-            <StatCard label="پاسخ داده شده" value={stats.answered} tone="warning"/>
+            <StatCard label="در حال بررسی" value={stats.inProgress} tone="warning"/>
             <StatCard label="بسته شده" value={stats.closed} tone="muted"/>
         </div>
     );
@@ -40,7 +41,7 @@ export function AdminTicketStatsStrip({stats}: { stats: AdminTicketStats }) {
     return (
         <div className="grid grid-cols-3 gap-2 border-b border-border/50 bg-surface-2/30 px-4 py-3 sm:px-5">
             <StatCard label="در انتظار بررسی" value={stats.awaiting} tone="primary"/>
-            <StatCard label="پاسخ داده شده" value={stats.answered} tone="warning"/>
+            <StatCard label="در حال بررسی" value={stats.inProgress} tone="warning"/>
             <StatCard label="بسته شده" value={stats.closed} tone="muted"/>
         </div>
     );

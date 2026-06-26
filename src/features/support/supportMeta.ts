@@ -1,4 +1,9 @@
-import type {SupportRequestCategory, SupportRequestPriority, SupportRequestStatus, SupportTicketClosedBy} from './types';
+import type {
+    SupportRequestCategory,
+    SupportRequestPriority,
+    SupportRequestStatus,
+    SupportTicketClosedBy
+} from './types';
 
 type MetaItem = {
     label: string;
@@ -13,10 +18,6 @@ export const SUPPORT_STATUS_META: Record<SupportRequestStatus, MetaItem> = {
     IN_PROGRESS: {
         label: 'در حال بررسی',
         className: 'border-primary/25 bg-primary/10 text-primary',
-    },
-    RESOLVED: {
-        label: 'پاسخ داده شده',
-        className: 'border-warning/25 bg-warning/10 text-warning',
     },
     CLOSED: {
         label: 'بسته شده',
@@ -75,7 +76,7 @@ export const canUserReply = (status: SupportRequestStatus) =>
     status === 'OPEN' || status === 'IN_PROGRESS';
 
 export const canCloseTicket = (status: SupportRequestStatus) =>
-    status === 'OPEN' || status === 'IN_PROGRESS' || status === 'RESOLVED';
+    status === 'OPEN' || status === 'IN_PROGRESS';
 
 export const CLOSED_BY_LABELS: Record<SupportTicketClosedBy, string> = {
     USER: 'توسط کاربر',

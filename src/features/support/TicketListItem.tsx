@@ -1,7 +1,7 @@
 import {ChevronLeft, Clock3, Star} from 'lucide-react';
 import {formatDateTimeFa} from '../../utils/formatDateTime';
 import {formatNumberFa} from '../../utils/numberFormat';
-import {SUPPORT_CATEGORY_META, SUPPORT_PRIORITY_META, CLOSED_BY_LABELS} from './supportMeta';
+import {CLOSED_BY_LABELS, SUPPORT_CATEGORY_META, SUPPORT_PRIORITY_META} from './supportMeta';
 import {getTicketLifecycle} from './supportStats';
 import type {SupportTicket} from './types';
 
@@ -31,7 +31,8 @@ export default function TicketListItem({ticket, onClick, showUser = false}: Tick
                     <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-sm font-bold leading-6 text-text">{ticket.subject}</h4>
                         {needsRating ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                            <span
+                                className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[10px] font-semibold text-warning">
                                 <Star className="h-3 w-3"/>
                                 امتیاز
                             </span>
@@ -68,13 +69,15 @@ export default function TicketListItem({ticket, onClick, showUser = false}: Tick
                 </div>
 
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${lifecycle.className}`}>
+                    <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${lifecycle.className}`}>
                         {lifecycle.label}
                     </span>
                     {closedByLabel ? (
                         <span className="text-[10px] text-muted">{closedByLabel}</span>
                     ) : null}
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityMeta.className}`}>
+                    <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${priorityMeta.className}`}>
                         {priorityMeta.label}
                     </span>
                     <ChevronLeft className="h-4 w-4 text-muted transition group-hover:text-primary"/>

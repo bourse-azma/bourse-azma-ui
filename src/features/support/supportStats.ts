@@ -1,6 +1,6 @@
 import type {SupportRequestStatus, SupportTicket} from './types';
 
-export type TicketLifecycleKey = 'awaiting' | 'answered' | 'closed';
+export type TicketLifecycleKey = 'awaiting' | 'inProgress' | 'closed';
 
 export type TicketLifecycleMeta = {
     key: TicketLifecycleKey;
@@ -14,9 +14,9 @@ export const TICKET_LIFECYCLE_META: Record<TicketLifecycleKey, TicketLifecycleMe
         label: 'در انتظار بررسی',
         className: 'border-primary/25 bg-primary/10 text-primary',
     },
-    answered: {
-        key: 'answered',
-        label: 'پاسخ داده شده',
+    inProgress: {
+        key: 'inProgress',
+        label: 'در حال بررسی',
         className: 'border-warning/25 bg-warning/10 text-warning',
     },
     closed: {
@@ -27,11 +27,11 @@ export const TICKET_LIFECYCLE_META: Record<TicketLifecycleKey, TicketLifecycleMe
 };
 
 export const getTicketLifecycle = (status: SupportRequestStatus): TicketLifecycleMeta => {
-    if (status === 'RESOLVED') {
-        return TICKET_LIFECYCLE_META.answered;
-    }
     if (status === 'CLOSED') {
         return TICKET_LIFECYCLE_META.closed;
+    }
+    if (status === 'IN_PROGRESS') {
+        return TICKET_LIFECYCLE_META.inProgress;
     }
     return TICKET_LIFECYCLE_META.awaiting;
 };
@@ -39,25 +39,25 @@ export const getTicketLifecycle = (status: SupportRequestStatus): TicketLifecycl
 export type UserTicketStats = {
     total: number;
     awaiting: number;
-    answered: number;
+    inProgress: number;
     closed: number;
 };
 
 export type AdminTicketStats = {
     awaiting: number;
-    answered: number;
+    inProgress: number;
     closed: number;
 };
 
 export const computeUserTicketStats = (tickets: SupportTicket[]): UserTicketStats => ({
     total: tickets.length,
-    awaiting: tickets.filter((item) => item.status === 'OPEN' || item.status === 'IN_PROGRESS').length,
-    answered: tickets.filter((item) => item.status === 'RESOLVED').length,
+    awaiting: tickets.filter((item) => item.status === 'OPEN').length,
+    inProgress: tickets.filter((item) => item.status === 'IN_PROGRESS').length,
     closed: tickets.filter((item) => item.status === 'CLOSED').length,
 });
 
 export const computeAdminTicketStats = (tickets: SupportTicket[]): AdminTicketStats => ({
-    awaiting: tickets.filter((item) => item.status === 'OPEN' || item.status === 'IN_PROGRESS').length,
-    answered: tickets.filter((item) => item.status === 'RESOLVED').length,
+    awaiting: tickets.filter((item) => item.status === 'OPEN').length,
+    inProgress: tickets.filter((item) => item.status === 'IN_PROGRESS').length,
     closed: tickets.filter((item) => item.status === 'CLOSED').length,
 });

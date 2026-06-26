@@ -1,3 +1,5 @@
+import {withAuthRequest} from '../../lib/authRequest';
+
 type ApiEnvelope<T> = {
     message?: string;
     result?: T;
@@ -128,14 +130,7 @@ const request = async <T>(
     fallbackError: string,
     init?: RequestInit
 ): Promise<T> => {
-    const response = await fetch(path, {
-        ...init,
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            ...(init?.headers ?? {}),
-        },
-    });
+    const response = await fetch(path, withAuthRequest(accessToken, init));
 
     const text = await response.text();
     const data = tryParseJson(text);

@@ -1,4 +1,4 @@
-export type SupportRequestStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type SupportRequestStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
 export type SupportTicketClosedBy = 'USER' | 'ADMIN';
 
@@ -46,7 +46,7 @@ export type SupportTicketMessage = {
     message: string;
     authorRole: 'USER' | 'ADMIN';
     authorName: string;
-    authorUserId: number;
+    authorUserId?: number | null;
     createdAt: string;
     editedAt: string | null;
 };
