@@ -1,7 +1,6 @@
 import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
-import {formatNumberFa} from './utils/numberFormat';
 
 type AuthMode = 'login' | 'register';
 
@@ -398,10 +397,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                             </div>
                             <div>
                                 <FieldLabel title="موجودی اولیه کیف پول (ریال)"/>
-                                <p className="mb-2 text-[11px] leading-6 text-muted">
-                                    اختیاری — می‌توانید مبلغ دلخواه وارد کنید، یکی از گزینه‌ها را انتخاب کنید، یا خالی بگذارید.
-                                </p>
-                                <div className="mb-2 flex flex-wrap gap-2">
+                                <div className="mb-2 grid grid-cols-3 gap-1.5">
                                     {INITIAL_BALANCE_PRESETS.map((preset) => {
                                         const isSelected = selectedBalancePreset === preset.value;
                                         return (
@@ -413,16 +409,13 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                                     setSelectedBalancePreset(preset.value);
                                                     setError(null);
                                                 }}
-                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                                                className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
                                                     isSelected
                                                         ? 'border-primary/40 bg-primary/10 text-primary'
                                                         : 'border-border bg-surface-2 text-text hover:border-primary/30'
                                                 }`}
                                             >
                                                 {preset.label}
-                                                <span className="mr-1 text-[10px] font-normal text-muted" dir="ltr">
-                                                    ({formatNumberFa(preset.value)})
-                                                </span>
                                             </button>
                                         );
                                     })}
@@ -441,7 +434,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                                 : null,
                                         );
                                     }}
-                                    placeholder="مبلغ به ریال (اختیاری)"
+                                    placeholder="مبلغ به ریال"
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                 />
                             </div>
