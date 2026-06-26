@@ -1,6 +1,7 @@
 import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
+import {formatNumberFa} from './utils/numberFormat';
 
 type AuthMode = 'login' | 'register';
 
@@ -103,6 +104,23 @@ const toApiErrorMessage = (data: unknown, fallback: string) => {
 const loginDescription = 'با نام کاربری یا ایمیل وارد شوید.';
 const registerDescription = 'حساب جدید بسازید و مستقیم وارد داشبورد شوید.';
 
+const INITIAL_BALANCE_PRESETS = [
+    {value: 10_000_000, label: '۱۰ میلیون'},
+    {value: 50_000_000, label: '۵۰ میلیون'},
+    {value: 100_000_000, label: '۱۰۰ میلیون'},
+] as const;
+
+const parseInitialBalanceInput = (raw: string): number | null => {
+    const normalized = toEnglishDigits(raw).replace(/[,\s]/g, '').trim();
+    if (normalized === '') {
+        return null;
+    }
+    if (!/^\d+$/.test(normalized)) {
+        return Number.NaN;
+    }
+    return Number(normalized);
+};
+
 type FieldLabelProps = {
     title: string;
     required?: boolean;
@@ -134,6 +152,8 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
     const [nationalCode, setNationalCode] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
+    const [initialBalance, setInitialBalance] = useState('');
+    const [selectedBalancePreset, setSelectedBalancePreset] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -149,6 +169,8 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
         setError(null);
         setGeneratedPassword(null);
         setGeneratedPasswordConfirmed(false);
+        setInitialBalance('');
+        setSelectedBalancePreset(null);
     };
 
     const applyGeneratedPassword = () => {
@@ -242,6 +264,11 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 throw new Error('برای استفاده از رمز پیشنهادی، ابتدا تأیید کنید که آن را در جای امن نگه داشته‌اید.');
             }
 
+            const parsedBalance = parseInitialBalanceInput(initialBalance);
+            if (parsedBalance !== null && (!Number.isFinite(parsedBalance) || parsedBalance < 0)) {
+                throw new Error('موجودی اولیه باید عددی معتبر و بزرگ‌تر یا مساوی صفر باشد.');
+            }
+
             const session = await submitAuthRequest('register', {
                 username: username.trim().toLowerCase(),
                 firstName: firstName.trim(),
@@ -250,6 +277,7 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 phoneNumber: normalizePhoneNumber(phoneNumber),
                 email: toEnglishDigits(email).trim().toLowerCase(),
                 password: trimmedPassword,
+                ...(parsedBalance !== null ? {balance: parsedBalance} : {}),
             });
             onAuthenticated(session);
         } catch (requestError) {
@@ -368,9 +396,55 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                 />
                             </div>
-                            <p className="rounded-xl border border-border/70 bg-surface-2/60 px-3 py-2 text-xs text-muted">
-                                موجودی اولیه کیف پول پس از ثبت‌نام به‌صورت خودکار توسط سیستم تنظیم می‌شود.
-                            </p>
+                            <div>
+                                <FieldLabel title="موجودی اولیه کیف پول (ریال)"/>
+                                <p className="mb-2 text-[11px] leading-6 text-muted">
+                                    اختیاری — می‌توانید مبلغ دلخواه وارد کنید، یکی از گزینه‌ها را انتخاب کنید، یا خالی بگذارید.
+                                </p>
+                                <div className="mb-2 flex flex-wrap gap-2">
+                                    {INITIAL_BALANCE_PRESETS.map((preset) => {
+                                        const isSelected = selectedBalancePreset === preset.value;
+                                        return (
+                                            <button
+                                                key={preset.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    setInitialBalance(String(preset.value));
+                                                    setSelectedBalancePreset(preset.value);
+                                                    setError(null);
+                                                }}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                                                    isSelected
+                                                        ? 'border-primary/40 bg-primary/10 text-primary'
+                                                        : 'border-border bg-surface-2 text-text hover:border-primary/30'
+                                                }`}
+                                            >
+                                                {preset.label}
+                                                <span className="mr-1 text-[10px] font-normal text-muted" dir="ltr">
+                                                    ({formatNumberFa(preset.value)})
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <input
+                                    name="initial-balance"
+                                    inputMode="numeric"
+                                    value={initialBalance}
+                                    onChange={(event) => {
+                                        const nextValue = event.target.value;
+                                        setInitialBalance(nextValue);
+                                        const parsed = parseInitialBalanceInput(nextValue);
+                                        setSelectedBalancePreset(
+                                            parsed !== null && INITIAL_BALANCE_PRESETS.some((item) => item.value === parsed)
+                                                ? parsed
+                                                : null,
+                                        );
+                                    }}
+                                    placeholder="مبلغ به ریال (اختیاری)"
+                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
+                                />
+                            </div>
                         </>
                     ) : (
                         <div>

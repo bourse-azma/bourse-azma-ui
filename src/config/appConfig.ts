@@ -29,6 +29,7 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
     | 'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
     | 'VITE_TRADING_ORDERS_REFRESH_MS'
+    | 'VITE_SUPPORT_TICKETS_REFRESH_MS'
     | 'VITE_API_ERROR_RETRY_MS';
 
 const getRequiredEnv = (key: RequiredEnvKey) => {
@@ -102,6 +103,10 @@ export const appConfig = Object.freeze({
     tradingOrdersRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_TRADING_ORDERS_REFRESH_MS'),
         'VITE_TRADING_ORDERS_REFRESH_MS'
+    ),
+    supportTicketsRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_SUPPORT_TICKETS_REFRESH_MS'),
+        'VITE_SUPPORT_TICKETS_REFRESH_MS'
     ),
     marketOverviewRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_MARKET_OVERVIEW_REFRESH_MS'),

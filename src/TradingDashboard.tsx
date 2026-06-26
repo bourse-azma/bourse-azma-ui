@@ -1,4 +1,4 @@
-import {type FormEvent, Fragment, useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {Fragment, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
     AlertCircle,
     ArrowDownLeft,
@@ -15,12 +15,9 @@ import {
     Filter,
     Flame,
     Loader2,
-    MessageSquare,
     Moon,
     Pencil,
     Plus,
-    RefreshCw,
-    Send,
     Star,
     Sun,
     Trash2,
@@ -95,9 +92,16 @@ import {
     updateWatchlist,
     type Watchlist,
 } from './features/watchlist/api';
+import SupportRequestsPanel from './features/support/SupportRequestsPanel';
+import AdminSupportPanel from './features/support/AdminSupportPanel';
+import {
+    MAIN_NAV_TABS,
+    type MainNavTab,
+    persistMainNavTabToUrl,
+    readMainNavTabFromUrl,
+} from './features/navigation/mainNavTabState';
 
 type SidebarTab = 'watchlist' | 'popular' | 'industries' | 'wallet';
-type MainNavTab = 'بازار' | 'درخواست‌ها' | 'گزارشات';
 type SymbolTab = 'notices' | 'details';
 type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'partial' | 'done' | 'cancelled' | 'failed' | 'all';
@@ -904,28 +908,6 @@ function getWalletTransactionMeta(tx: WalletTx) {
     return {isIncrease, balanceBefore, title, isAutoDescription};
 }
 
-function getSupportRequestStatusMeta(status: string) {
-    switch (status.toUpperCase()) {
-        case 'CLOSED':
-        case 'RESOLVED':
-            return {
-                label: 'پاسخ داده شده',
-                className: 'border-border/70 bg-surface-2 text-muted',
-            };
-        case 'IN_PROGRESS':
-            return {
-                label: 'در حال بررسی',
-                className: 'border-primary/25 bg-primary/10 text-primary',
-            };
-        case 'OPEN':
-        default:
-            return {
-                label: 'در انتظار پاسخ',
-                className: 'border-positive/25 bg-positive/10 text-positive',
-            };
-    }
-}
-
 function WalletReportsPanel({
                                 accessToken,
                                 walletBalance,
@@ -1154,278 +1136,6 @@ function WalletReportsPanel({
                         })}
                     </div>
                 )}
-            </div>
-        </section>
-    );
-}
-
-type SupportRequest = {
-    id: number;
-    subject: string;
-    message: string;
-    status: string;
-    createdAt: string;
-};
-
-function SupportRequestsPanel({accessToken, profileDisplayName}: { accessToken: string; profileDisplayName: string }) {
-    const [requests, setRequests] = useState<SupportRequest[]>([]);
-    const [subject, setSubject] = useState('');
-    const [message, setMessage] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
-
-    const fetchRequests = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const res = await fetch('/api/v1/support-requests', {
-                headers: {Authorization: `Bearer ${accessToken}`},
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data?.result?.detail || data?.message || 'دریافت درخواست‌ها ناموفق بود.');
-            }
-            setRequests(Array.isArray(data.result) ? data.result : []);
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'دریافت درخواست‌ها ناموفق بود.');
-        } finally {
-            setLoading(false);
-        }
-    }, [accessToken]);
-
-    useEffect(() => {
-        void fetchRequests();
-    }, [fetchRequests]);
-
-    const submitRequest = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const normalizedSubject = subject.trim().replace(/\s+/g, ' ');
-        const normalizedMessage = message.trim().replace(/\s+/g, ' ');
-        if (!normalizedSubject || !normalizedMessage) {
-            setError('موضوع و متن پیام را کامل وارد کنید.');
-            return;
-        }
-
-        setSubmitting(true);
-        setError(null);
-        setSuccess(null);
-        try {
-            const res = await fetch('/api/v1/support-requests', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    subject: normalizedSubject,
-                    message: normalizedMessage,
-                }),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data?.result?.detail || data?.message || 'ارسال پیام ناموفق بود.');
-            }
-            setRequests((prev) => [data.result, ...prev]);
-            setSubject('');
-            setMessage('');
-            setSuccess('پیام شما برای تیم پشتیبانی ثبت شد.');
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'ارسال پیام ناموفق بود.');
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    const sortedRequests = useMemo(
-        () => [...requests].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-        [requests],
-    );
-    const openCount = sortedRequests.filter((item) => item.status.toUpperCase() === 'OPEN').length;
-
-    return (
-        <section dir="rtl" className={`${cardClass} overflow-hidden`}>
-            <div className="flex items-center justify-between gap-3 border-b border-border/50 px-4 py-3 sm:px-5">
-                <div className="flex min-w-0 items-center gap-2.5">
-                    <div
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <MessageSquare className="h-4 w-4"/>
-                    </div>
-                    <div className="min-w-0">
-                        <h2 className="text-sm font-bold text-text">درخواست‌های پشتیبانی</h2>
-                        <p className="text-[11px] text-muted">ارسال پیام و پیگیری وضعیت</p>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => void fetchRequests()}
-                    disabled={loading}
-                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border/70 bg-surface px-2.5 text-[11px] font-medium text-muted transition hover:border-primary/30 hover:text-text disabled:opacity-60"
-                >
-                    {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> :
-                        <RefreshCw className="h-3.5 w-3.5"/>}
-                    بروزرسانی
-                </button>
-            </div>
-
-            {sortedRequests.length > 0 ? (
-                <div
-                    className="grid grid-cols-2 gap-2 border-b border-border/50 bg-surface-2/40 px-4 py-3 sm:grid-cols-3 sm:px-5">
-                    <div className="rounded-xl border border-border/60 bg-surface px-3 py-2.5">
-                        <p className="text-[10px] text-muted">کل درخواست‌ها</p>
-                        <p className="mt-0.5 text-sm font-bold tabular-nums text-text">{formatNumberFa(sortedRequests.length)}</p>
-                    </div>
-                    <div className="rounded-xl border border-positive/20 bg-positive/5 px-3 py-2.5">
-                        <p className="text-[10px] text-positive/80">در انتظار پاسخ</p>
-                        <p className="mt-0.5 text-sm font-bold tabular-nums text-positive">{formatNumberFa(openCount)}</p>
-                    </div>
-                    <div className="col-span-2 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:col-span-1">
-                        <p className="text-[10px] text-muted">آخرین درخواست</p>
-                        <p className="mt-0.5 truncate text-xs font-semibold tabular-nums text-text" dir="ltr">
-                            {formatDateTimeFa(sortedRequests[0].createdAt)}
-                        </p>
-                    </div>
-                </div>
-            ) : null}
-
-            <div className="space-y-4 p-4 sm:px-5">
-                <form onSubmit={submitRequest} className="rounded-xl border border-border/60 bg-surface-2/50 p-4">
-                    <h3 className="text-sm font-bold text-text">ارسال درخواست جدید</h3>
-                    <p className="mt-1 text-[11px] leading-5 text-muted">
-                        سوال، مشکل یا پیشنهاد خود را برای تیم پشتیبانی بنویسید.
-                    </p>
-
-                    <div className="mt-4 space-y-3">
-                        <div>
-                            <label htmlFor="support-subject"
-                                   className="mb-1.5 block text-[11px] font-semibold text-text">
-                                موضوع
-                            </label>
-                            <input
-                                id="support-subject"
-                                value={subject}
-                                onChange={(event) => {
-                                    setSubject(event.target.value);
-                                    setError(null);
-                                    setSuccess(null);
-                                }}
-                                maxLength={120}
-                                placeholder="مثلا مشکل در ثبت سفارش"
-                                className="h-10 w-full rounded-xl border border-border/80 bg-surface px-3 text-sm text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
-                            />
-                        </div>
-
-                        <div>
-                            <div className="mb-1.5 flex items-center justify-between gap-2">
-                                <label htmlFor="support-message" className="text-[11px] font-semibold text-text">
-                                    متن پیام
-                                </label>
-                                <span className="text-[10px] tabular-nums text-muted">
-                                    {formatNumberFa(message.length)}/{formatNumberFa(2000)}
-                                </span>
-                            </div>
-                            <textarea
-                                id="support-message"
-                                value={message}
-                                onChange={(event) => {
-                                    setMessage(event.target.value);
-                                    setError(null);
-                                    setSuccess(null);
-                                }}
-                                maxLength={2000}
-                                rows={5}
-                                placeholder={`${profileDisplayName} عزیز، پیام خود را بنویسید...`}
-                                className="w-full resize-none rounded-xl border border-border/80 bg-surface px-3 py-3 text-sm leading-7 text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
-                            />
-                        </div>
-
-                        {error ? (
-                            <div
-                                className="flex items-center gap-2 rounded-xl border border-negative/30 bg-negative/10 px-3 py-2 text-xs text-negative">
-                                <AlertCircle className="h-4 w-4 shrink-0"/>
-                                {error}
-                            </div>
-                        ) : null}
-                        {success ? (
-                            <div
-                                className="flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
-                                <Check className="h-4 w-4 shrink-0"/>
-                                {success}
-                            </div>
-                        ) : null}
-
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
-                        >
-                            {submitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Send className="h-4 w-4"/>}
-                            ارسال درخواست
-                        </button>
-                    </div>
-                </form>
-
-                <div>
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                        <h3 className="text-sm font-bold text-text">تاریخچه درخواست‌ها</h3>
-                        <span className="text-[11px] tabular-nums text-muted">
-                            {formatNumberFa(sortedRequests.length)} مورد
-                        </span>
-                    </div>
-
-                    {loading && sortedRequests.length === 0 ? (
-                        <div className="space-y-2">
-                            {Array.from({length: 3}, (_, index) => (
-                                <div key={index} className="h-24 animate-pulse rounded-xl bg-surface-2"/>
-                            ))}
-                        </div>
-                    ) : sortedRequests.length === 0 ? (
-                        <div
-                            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border/70 bg-surface-2/60 px-5 py-10 text-center">
-                            <MessageSquare className="h-6 w-6 text-muted"/>
-                            <p className="mt-2 text-sm font-semibold text-text">هنوز درخواستی ثبت نشده</p>
-                            <p className="mt-1 max-w-sm text-[11px] leading-5 text-muted">
-                                اولین پیام خود را از فرم بالا برای تیم پشتیبانی ارسال کنید.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="thin-scrollbar max-h-[480px] space-y-2 overflow-y-auto pl-1">
-                            {sortedRequests.map((item) => {
-                                const statusMeta = getSupportRequestStatusMeta(item.status);
-
-                                return (
-                                    <article
-                                        key={item.id}
-                                        className="rounded-xl border border-border/60 bg-surface px-3.5 py-3 sm:px-4"
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0 flex-1">
-                                                <h4 className="text-sm font-bold leading-6 text-text">{item.subject}</h4>
-                                                <p
-                                                    className="mt-1 inline-flex items-center gap-1 text-[10px] tabular-nums text-muted"
-                                                    dir="ltr"
-                                                >
-                                                    <Clock3 className="h-3 w-3 shrink-0"/>
-                                                    {formatDateTimeFa(item.createdAt)}
-                                                </p>
-                                            </div>
-                                            <span
-                                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusMeta.className}`}
-                                            >
-                                                {statusMeta.label}
-                                            </span>
-                                        </div>
-
-                                        <div className="mt-2.5 border-t border-border/50 pt-2.5">
-                                            <p className="text-[11px] leading-6 text-text">{item.message}</p>
-                                        </div>
-                                    </article>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
             </div>
         </section>
     );
@@ -2207,7 +1917,24 @@ export default function TradingDashboard({
     const [sidebarTab, setSidebarTab] = useState<SidebarTab>('watchlist');
     const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
     const [bottomPanelTab, setBottomPanelTab] = useState<BottomPanelTab>('orders');
-    const [mainNavTab, setMainNavTab] = useState<MainNavTab>('بازار');
+    const [mainNavTab, setMainNavTabState] = useState<MainNavTab>(() => readMainNavTabFromUrl() ?? 'بازار');
+
+    const setMainNavTab = useCallback((tab: MainNavTab) => {
+        setMainNavTabState(tab);
+        persistMainNavTabToUrl(tab);
+    }, []);
+
+    useEffect(() => {
+        const syncTabFromUrl = () => {
+            setMainNavTabState(readMainNavTabFromUrl() ?? 'بازار');
+        };
+        window.addEventListener('popstate', syncTabFromUrl);
+        return () => window.removeEventListener('popstate', syncTabFromUrl);
+    }, []);
+
+    const isAdmin = userProfile?.role === 'ADMIN';
+    const mainNavTabs = MAIN_NAV_TABS;
+    const isSupportTabActive = mainNavTab === 'درخواست‌ها';
 
     const isMarketViewActive = mainNavTab === 'بازار';
 
@@ -3463,7 +3190,7 @@ export default function TradingDashboard({
                             <div className="flex min-w-0 items-center gap-2">
                                 <nav
                                     className="hidden items-center rounded-full border border-border/80 bg-surface-2 p-1 text-xs xl:inline-flex">
-                                    {(['بازار', 'درخواست‌ها', 'گزارشات'] as const).map((item) => (
+                                    {mainNavTabs.map((item) => (
                                         <button
                                             key={item}
                                             type="button"
@@ -3587,6 +3314,28 @@ export default function TradingDashboard({
                 </section>
             </div>
 
+            <nav
+                dir="rtl"
+                className="sticky top-0 z-30 border-b border-border/50 bg-bg/95 px-3 py-2 backdrop-blur xl:hidden"
+            >
+                <div className="mx-auto flex max-w-[1800px] items-center gap-1 overflow-x-auto">
+                    {mainNavTabs.map((item) => (
+                        <button
+                            key={item}
+                            type="button"
+                            onClick={() => setMainNavTab(item)}
+                            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                                mainNavTab === item
+                                    ? 'border-primary/30 bg-primary/10 text-primary'
+                                    : 'border-border/70 bg-surface text-muted'
+                            }`}
+                        >
+                            {item}
+                        </button>
+                    ))}
+                </div>
+            </nav>
+
             <main className="mx-auto w-full max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
                 {mainNavTab === 'گزارشات' ? (
                     <WalletReportsPanel
@@ -3594,8 +3343,10 @@ export default function TradingDashboard({
                         walletBalance={userProfile?.balance ?? 0}
                         enabled={mainNavTab === 'گزارشات'}
                     />
-                ) : mainNavTab === 'درخواست‌ها' ? (
-                    <SupportRequestsPanel accessToken={accessToken} profileDisplayName={profileDisplayName}/>
+                ) : isSupportTabActive && isAdmin ? (
+                    <AdminSupportPanel accessToken={accessToken} enabled={isSupportTabActive}/>
+                ) : isSupportTabActive ? (
+                    <SupportRequestsPanel accessToken={accessToken} enabled={isSupportTabActive}/>
                 ) : (
                     <>
                         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
