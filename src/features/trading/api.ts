@@ -153,8 +153,33 @@ const request = async <T>(
     return payload.result;
 };
 
-export const getTradingOrders = (accessToken: string) =>
-    request<TradingOrder[]>('/api/v1/trading/orders', accessToken, 'دریافت سفارشات ناموفق بود.', {method: 'GET'});
+export type PagedResult<T> = {
+    items: T[];
+    page: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+    hasNext: boolean;
+};
+
+export const getTradingOrders = (
+    accessToken: string,
+    page = 0,
+    size = 20,
+    statuses?: OrderStatusType[]
+) => {
+    const params = new URLSearchParams({
+        page: String(page),
+        size: String(size),
+    });
+    statuses?.forEach((status) => params.append('statuses', status));
+    return request<PagedResult<TradingOrder>>(
+        `/api/v1/trading/orders?${params.toString()}`,
+        accessToken,
+        'دریافت سفارشات ناموفق بود.',
+        {method: 'GET'}
+    );
+};
 
 export const getPortfolioHoldings = (accessToken: string) =>
     request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.', {method: 'GET'});

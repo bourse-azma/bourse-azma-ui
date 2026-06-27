@@ -4,6 +4,7 @@ import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
 import {withAuthRequest} from './lib/authRequest';
+import {validatePassword, validateUsername, USERNAME_VALIDATION_MESSAGE, PASSWORD_VALIDATION_MESSAGE} from './lib/authValidation';
 import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from './features/symbol-search/selectedSymbolState';
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
@@ -298,6 +299,16 @@ export default function App() {
             if (!isPersianName(payload.firstName) || !isPersianName(payload.lastName)) {
                 throw new Error('نام و نام خانوادگی باید فقط با حروف فارسی وارد شوند.');
             }
+            const usernameError = validateUsername(payload.username);
+            if (usernameError) {
+                throw new Error(usernameError);
+            }
+            if (newPassword !== '') {
+                const passwordError = validatePassword(newPassword);
+                if (passwordError) {
+                    throw new Error(passwordError);
+                }
+            }
             if (newPassword !== '' && payload.currentPassword === '') {
                 throw new Error('برای تغییر رمز عبور، رمز فعلی را وارد کنید.');
             }
@@ -383,6 +394,10 @@ export default function App() {
                                             value={editUsername}
                                             onChange={(event) => setEditUsername(event.target.value)}
                                             disabled={!profileEditMode}
+                                            minLength={3}
+                                            maxLength={50}
+                                            pattern="[A-Za-z0-9._-]{3,50}"
+                                            title={USERNAME_VALIDATION_MESSAGE}
                                             className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
                                             placeholder="نام کاربری"
                                         />
@@ -475,6 +490,10 @@ export default function App() {
                                                 value={editPassword}
                                                 onChange={(event) => setEditPassword(event.target.value)}
                                                 type="password"
+                                                minLength={8}
+                                                maxLength={24}
+                                                pattern="^(?=.*[A-Za-z])(?=.*\d).+$"
+                                                title={PASSWORD_VALIDATION_MESSAGE}
                                                 className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                                 placeholder="رمز جدید (در صورت نیاز وارد کنید)"
                                             />

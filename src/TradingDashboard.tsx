@@ -109,6 +109,10 @@ type OrderbookTab = 'peers' | 'info' | 'technical';
 type OrderFilter = 'open' | 'partial' | 'done' | 'cancelled' | 'failed' | 'all';
 type BottomPanelTab = 'orders' | 'portfolio';
 
+const ACTIVE_ORDER_STATUSES: OrderStatusType[] = ['REQUESTED', 'PARTIALLY_FILLED', 'TRIGGER_PENDING'];
+const ORDERS_PAGE_SIZE = 20;
+const WATCHLIST_NAME_MAX_LENGTH = 80;
+
 const collectLivePriceInstrumentCodes = ({
                                              portfolioHoldings,
                                              tradingOrders,
@@ -1198,28 +1202,19 @@ function WalletReportsPanel({
     );
 }
 
-type WalletActionType = 'ADD' | 'SUBTRACT' | 'SET' | 'PERCENT_ADD' | 'PERCENT_SUBTRACT';
+type WalletActionType = 'ADD' | 'SUBTRACT';
 
 const WALLET_ACTIONS: { type: WalletActionType; label: string; hint: string }[] = [
     {type: 'ADD', label: 'افزایش', hint: 'واریز به کیف پول'},
     {type: 'SUBTRACT', label: 'کاهش', hint: 'برداشت از کیف پول'},
-    {type: 'SET', label: 'تنظیم', hint: 'تعیین موجودی دقیق'},
-    {type: 'PERCENT_ADD', label: '+ درصد', hint: 'افزایش درصدی'},
-    {type: 'PERCENT_SUBTRACT', label: '- درصد', hint: 'کاهش درصدی'},
 ];
 
 const computeProjectedBalance = (currentBalance: number, actionType: WalletActionType, rawValue: number) => {
     switch (actionType) {
-        case 'SET':
-            return rawValue;
         case 'ADD':
             return currentBalance + rawValue;
         case 'SUBTRACT':
             return currentBalance - rawValue;
-        case 'PERCENT_ADD':
-            return currentBalance + Math.round((currentBalance * rawValue) / 100);
-        case 'PERCENT_SUBTRACT':
-            return currentBalance - Math.round((currentBalance * rawValue) / 100);
         default:
             return currentBalance;
     }
@@ -1250,7 +1245,6 @@ function WalletTabContent({
         parsedValue !== null && Number.isFinite(parsedValue)
             ? computeProjectedBalance(currentBalance, actionType, parsedValue)
             : null;
-    const isPercentAction = actionType.startsWith('PERCENT');
 
     const handleAdjust = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -1259,10 +1253,6 @@ function WalletTabContent({
         if (!value || parsedValue === null || !Number.isFinite(parsedValue)) return;
         if (parsedValue < 0) {
             setError('مقدار واردشده نمی‌تواند منفی باشد.');
-            return;
-        }
-        if (isPercentAction && parsedValue > 100) {
-            setError('درصد نمی‌تواند بیشتر از 100 باشد.');
             return;
         }
         if (projectedBalance !== null && projectedBalance < 0) {
@@ -1363,16 +1353,16 @@ function WalletTabContent({
                 <div className="flex items-center justify-between gap-2">
                     <div>
                         <h4 className="text-sm font-bold text-text">مدیریت موجودی</h4>
-                        <p className="mt-1 text-[11px] text-muted">تنظیم دقیق، واریز، برداشت و عملیات درصدی</p>
+                        <p className="mt-1 text-[11px] text-muted">واریز یا برداشت از کیف پول</p>
                     </div>
                     <span
                         className="rounded-full border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-muted">ریال</span>
                 </div>
 
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-1.5">
                     {WALLET_ACTIONS.map((action) => {
                         const active = actionType === action.type;
-                        const isNegativeAction = action.type === 'SUBTRACT' || action.type === 'PERCENT_SUBTRACT';
+                        const isNegativeAction = action.type === 'SUBTRACT';
                         return (
                             <button
                                 key={action.type}
@@ -1398,57 +1388,40 @@ function WalletTabContent({
                 </div>
 
                 <div>
-                    <label className="mb-1 block text-[10px] text-muted">
-                        {isPercentAction ? 'درصد' : 'مبلغ (ریال)'}
-                    </label>
+                    <label className="mb-1 block text-[10px] text-muted">مبلغ (ریال)</label>
                     <input
                         type="number"
                         min="0"
-                        step={isPercentAction ? '0.1' : '1'}
+                        step="1"
                         value={value}
                         onChange={(e) => {
                             setValue(e.target.value);
                             setError(null);
                             setSuccess(null);
                         }}
-                        placeholder={isPercentAction ? 'مثلا 10' : 'مثلا 20000000'}
+                        placeholder="مثلا 20000000"
                         required
                         className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-text tabular-nums focus:border-primary/45"
                     />
-                    {!isPercentAction && parsedValue !== null && Number.isFinite(parsedValue) ? (
+                    {parsedValue !== null && Number.isFinite(parsedValue) ? (
                         <div className="mt-1.5 text-[10px] text-muted">
                             معادل تومان: {(parsedValue / 10).toLocaleString('en-US')}
                         </div>
                     ) : null}
                 </div>
 
-                {isPercentAction ? (
-                    <div className="flex flex-wrap gap-1.5">
-                        {[5, 10, 20, 50, 100].map((pct) => (
-                            <button
-                                key={pct}
-                                type="button"
-                                onClick={() => setValue(pct.toString())}
-                                className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
-                            >
-                                {pct}%
-                            </button>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                        {[1_000_000, 10_000_000, 100_000_000, 1_000_000_000].map((preset) => (
-                            <button
-                                key={preset}
-                                type="button"
-                                onClick={() => setValue(String(preset))}
-                                className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
-                            >
-                                {formatNumberFa(preset)}
-                            </button>
-                        ))}
-                    </div>
-                )}
+                <div className="flex flex-wrap gap-1.5">
+                    {[1_000_000, 10_000_000, 100_000_000, 1_000_000_000].map((preset) => (
+                        <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setValue(String(preset))}
+                            className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
+                        >
+                            {formatNumberFa(preset)}
+                        </button>
+                    ))}
+                </div>
 
                 {projectedBalance !== null ? (
                     <div
@@ -2023,6 +1996,10 @@ export default function TradingDashboard({
     const marketStateKnown =
         bourseOverview?.marketStateTitle ?? farabourseOverview?.marketStateTitle ?? null;
     const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
+    const [activeOrdersForSummary, setActiveOrdersForSummary] = useState<TradingOrder[]>([]);
+    const [ordersHasMore, setOrdersHasMore] = useState(false);
+    const [ordersLoadingMore, setOrdersLoadingMore] = useState(false);
+    const ordersPageRef = useRef(0);
     const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
     const [tradingAccountLoading, setTradingAccountLoading] = useState(true);
     const [tradingAccountError, setTradingAccountError] = useState<string | null>(null);
@@ -2059,31 +2036,55 @@ export default function TradingDashboard({
         setWatchlistToast({id: Date.now() + Math.floor(Math.random() * 1000), title, message, tone});
     }, []);
 
-    const loadTradingAccount = useCallback(async (silent = false) => {
-        if (!silent) {
+    const loadTradingAccount = useCallback(async (silent = false, appendOrders = false) => {
+        if (!silent && !appendOrders) {
             setTradingAccountLoading(true);
             setTradingAccountError(null);
         }
+        const pageToLoad = appendOrders ? ordersPageRef.current + 1 : 0;
         try {
-            const [orders, holdings] = await Promise.all([
-                getTradingOrders(accessToken),
+            const [ordersResult, activeOrdersResult, holdings] = await Promise.all([
+                getTradingOrders(accessToken, pageToLoad, ORDERS_PAGE_SIZE),
+                appendOrders
+                    ? Promise.resolve(null)
+                    : getTradingOrders(accessToken, 0, 100, ACTIVE_ORDER_STATUSES),
                 getPortfolioHoldings(accessToken),
             ]);
-            setTradingOrders(orders);
+            setTradingOrders((prev) => (appendOrders ? [...prev, ...ordersResult.items] : ordersResult.items));
+            ordersPageRef.current = ordersResult.page;
+            setOrdersHasMore(ordersResult.hasNext);
+            if (!appendOrders && activeOrdersResult) {
+                setActiveOrdersForSummary(activeOrdersResult.items);
+            }
             setPortfolioHoldings(holdings);
             setTradingAccountError(null);
         } catch (error) {
-            if (!silent) {
+            if (!silent && !appendOrders) {
                 setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
                 setTradingOrders([]);
+                setActiveOrdersForSummary([]);
                 setPortfolioHoldings([]);
+                setOrdersHasMore(false);
+                ordersPageRef.current = 0;
             }
         } finally {
-            if (!silent) {
+            if (!silent && !appendOrders) {
                 setTradingAccountLoading(false);
             }
         }
     }, [accessToken]);
+
+    const loadMoreOrders = useCallback(async () => {
+        if (ordersLoadingMore || !ordersHasMore) {
+            return;
+        }
+        setOrdersLoadingMore(true);
+        try {
+            await loadTradingAccount(true, true);
+        } finally {
+            setOrdersLoadingMore(false);
+        }
+    }, [loadTradingAccount, ordersHasMore, ordersLoadingMore]);
 
     useEffect(() => {
         void loadTradingAccount();
@@ -2187,6 +2188,10 @@ export default function TradingDashboard({
         const normalizedName = watchlistNameDraft.trim().replace(/\s+/g, ' ');
         if (normalizedName === '') {
             setWatchlistNameError('نمی‌تواند خالی باشد.');
+            return;
+        }
+        if (normalizedName.length > WATCHLIST_NAME_MAX_LENGTH) {
+            setWatchlistNameError(`نام دیده‌بان حداکثر ${WATCHLIST_NAME_MAX_LENGTH} کاراکتر است.`);
             return;
         }
 
@@ -2663,8 +2668,8 @@ export default function TradingDashboard({
             };
         });
 
-        return computeAccountSummary(userProfile?.balance ?? 0, holdings, tradingOrders);
-    }, [portfolioHoldings, resolveDisplayLivePrice, tradingOrders, userProfile?.balance]);
+        return computeAccountSummary(userProfile?.balance ?? 0, holdings, activeOrdersForSummary);
+    }, [activeOrdersForSummary, portfolioHoldings, resolveDisplayLivePrice, userProfile?.balance]);
 
     const refreshAccountStatus = useCallback(async () => {
         const tasks: Promise<void>[] = [loadTradingAccount(true)];
@@ -2719,7 +2724,7 @@ export default function TradingDashboard({
         const held = portfolioHoldings
             .filter((holding) => holding.instrumentCode === activeInstrumentCode)
             .reduce((sum, holding) => sum + holding.quantity, 0);
-        const reserved = tradingOrders
+        const reserved = activeOrdersForSummary
             .filter(
                 (order) =>
                     order.instrumentCode === activeInstrumentCode &&
@@ -2728,7 +2733,7 @@ export default function TradingDashboard({
             )
             .reduce((sum, order) => sum + order.remainingQuantity, 0);
         return Math.max(held - reserved, 0);
-    }, [activeInstrumentCode, portfolioHoldings, tradingAccountError, tradingOrders]);
+    }, [activeInstrumentCode, activeOrdersForSummary, portfolioHoldings, tradingAccountError]);
 
     const orderSymbolContext = useMemo<OrderSymbolContext>(
         () => ({
@@ -4003,6 +4008,7 @@ export default function TradingDashboard({
                                             سبد سهام شما خالی است.
                                         </div>
                                     ) : bottomPanelTab === 'orders' ? (
+                                        <>
                                         <table className="w-full min-w-[1020px] border-collapse text-right text-xs">
                                             <thead>
                                             <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
@@ -4091,6 +4097,20 @@ export default function TradingDashboard({
                                             })}
                                             </tbody>
                                         </table>
+                                        {ordersHasMore ? (
+                                            <div className="border-t border-border/60 px-3 py-3">
+                                                <button
+                                                    type="button"
+                                                    disabled={ordersLoadingMore}
+                                                    onClick={() => void loadMoreOrders()}
+                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 py-2 text-xs font-semibold text-text transition hover:border-primary/35 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {ordersLoadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : null}
+                                                    نمایش سفارش‌های بیشتر
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                        </>
                                     ) : (
                                         <table className="w-full min-w-[760px] border-collapse text-right text-xs">
                                             <thead>
@@ -4399,6 +4419,7 @@ export default function TradingDashboard({
                                 id="watchlist-name"
                                 value={watchlistNameDraft}
                                 autoFocus
+                                maxLength={WATCHLIST_NAME_MAX_LENGTH}
                                 onChange={(event) => {
                                     setWatchlistNameDraft(event.target.value);
                                     setWatchlistNameError(null);

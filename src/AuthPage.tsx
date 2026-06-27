@@ -2,6 +2,7 @@ import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
 import {withAuthRequest} from './lib/authRequest';
+import {validatePassword, validateUsername, USERNAME_VALIDATION_MESSAGE} from './lib/authValidation';
 
 type AuthMode = 'login' | 'register';
 
@@ -250,6 +251,16 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                 throw new Error('نام و نام خانوادگی باید فقط با حروف فارسی وارد شوند.');
             }
 
+            const usernameError = validateUsername(username);
+            if (usernameError) {
+                throw new Error(usernameError);
+            }
+
+            const passwordError = validatePassword(trimmedPassword);
+            if (passwordError) {
+                throw new Error(passwordError);
+            }
+
             if (trimmedPassword !== passwordConfirmation.trim()) {
                 throw new Error('رمز عبور و تکرار آن یکسان نیستند.');
             }
@@ -324,6 +335,10 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                     onChange={(event) => setUsername(event.target.value)}
                                     placeholder="نام کاربری (انگلیسی)"
                                     required
+                                    minLength={3}
+                                    maxLength={50}
+                                    pattern="[A-Za-z0-9._-]{3,50}"
+                                    title={USERNAME_VALIDATION_MESSAGE}
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                                 />
                             </div>
@@ -467,6 +482,8 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
                                 required
                                 minLength={8}
                                 maxLength={24}
+                                pattern={mode === 'register' ? '^(?=.*[A-Za-z])(?=.*\\d).+$' : undefined}
+                                title={mode === 'register' ? 'رمز عبور باید بین ۸ تا ۲۴ کاراکتر و حداقل شامل یک حرف و یک عدد باشد.' : undefined}
                                 className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
                             />
                             {mode === 'register' ? (
