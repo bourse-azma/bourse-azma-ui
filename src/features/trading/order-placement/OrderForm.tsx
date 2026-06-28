@@ -16,7 +16,7 @@ type OrderFormProps = {
 
 const VALIDITY_DAYS: Record<OrderValidity, number> = {
     TODAY: 0,
-    DAY: 1,
+    DAY: 0,
     DAYS_30: 30,
     DAYS_90: 90,
 };

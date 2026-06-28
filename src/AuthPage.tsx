@@ -57,20 +57,23 @@ const generateStrongPassword = () => {
     const symbols = '!@#$%^&*_-+=?';
     const groups = [upper, lower, digits, symbols];
     const all = groups.join('');
-    const randomInt = (max: number) => {
+    const randomIndex = (max: number) => {
+        const maxUnbiased = Math.floor(0x1_0000_0000 / max) * max;
         const buffer = new Uint32Array(1);
-        crypto.getRandomValues(buffer);
+        do {
+            crypto.getRandomValues(buffer);
+        } while (buffer[0] >= maxUnbiased);
         return buffer[0] % max;
     };
-    const chars = groups.map((group) => group[randomInt(group.length)]);
+    const chars = groups.map((group) => group[randomIndex(group.length)]);
     while (chars.length < 16) {
-        chars.push(all[randomInt(all.length)]);
+        chars.push(all[randomIndex(all.length)]);
     }
-    return chars
-        .map((char) => ({char, sort: randomInt(10_000)}))
-        .sort((a, b) => a.sort - b.sort)
-        .map(({char}) => char)
-        .join('');
+    for (let i = chars.length - 1; i > 0; i--) {
+        const j = randomIndex(i + 1);
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.join('');
 };
 
 const firstErrorMessage = (errors?: Record<string, string>) => {

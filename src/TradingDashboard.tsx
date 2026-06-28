@@ -1037,11 +1037,11 @@ function WalletReportsPanel({
         };
     }, [enabled, fetchSummary, fetchTxs]);
 
-    const currentBalance = txs[0]?.balanceAfter ?? walletBalance;
     const sortedTxs = useMemo(
         () => [...txs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
         [txs],
     );
+    const currentBalance = sortedTxs[0]?.balanceAfter ?? walletBalance;
     const totalCount = summary?.totalCount ?? 0;
     const totalNet = summary?.totalNet ?? 0;
     const inflowCount = summary?.inflowCount ?? 0;
@@ -1236,6 +1236,18 @@ const WALLET_ACTIONS: { type: WalletActionType; label: string; hint: string }[] 
     {type: 'SUBTRACT', label: 'کاهش', hint: 'برداشت از کیف پول'},
 ];
 
+const parseWalletAmount = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (trimmed === '' || !/^\d+$/.test(trimmed)) {
+        return null;
+    }
+    const value = Number(trimmed);
+    if (!Number.isSafeInteger(value) || value <= 0) {
+        return null;
+    }
+    return value;
+};
+
 const computeProjectedBalance = (currentBalance: number, actionType: WalletActionType, rawValue: number) => {
     switch (actionType) {
         case 'ADD':
@@ -1267,9 +1279,9 @@ function WalletTabContent({
 
     const currentBalance = accountSummary.customerBalance;
     const {buyingPower, blockedAmount} = accountSummary;
-    const parsedValue = value.trim() === '' ? null : Number.parseFloat(value);
+    const parsedValue = parseWalletAmount(value);
     const projectedBalance =
-        parsedValue !== null && Number.isFinite(parsedValue)
+        parsedValue !== null
             ? computeProjectedBalance(currentBalance, actionType, parsedValue)
             : null;
 
@@ -1277,9 +1289,12 @@ function WalletTabContent({
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        if (!value || parsedValue === null || !Number.isFinite(parsedValue)) return;
-        if (parsedValue < 0) {
-            setError('مقدار واردشده نمی‌تواند منفی باشد.');
+        if (!value || parsedValue === null) {
+            setError('مبلغ باید عدد صحیح مثبت باشد.');
+            return;
+        }
+        if (actionType === 'SUBTRACT' && parsedValue > buyingPower) {
+            setError('مبلغ برداشت از قدرت خرید شما بیشتر است. بخشی از موجودی در سفارش‌های باز بلوکه شده است.');
             return;
         }
         if (projectedBalance !== null && projectedBalance < 0) {
@@ -1430,7 +1445,7 @@ function WalletTabContent({
                         required
                         className="w-full rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs text-text tabular-nums focus:border-primary/45"
                     />
-                    {parsedValue !== null && Number.isFinite(parsedValue) ? (
+                    {parsedValue !== null ? (
                         <div className="mt-1.5 text-[10px] text-muted">
                             معادل تومان: {(parsedValue / 10).toLocaleString('en-US')}
                         </div>
@@ -2018,10 +2033,11 @@ export default function TradingDashboard({
     const farabourseIndex = farabourseOverview?.indexValue ?? null;
     const farabourseDelta = farabourseOverview?.indexChange ?? null;
 
-    const isMarketOpen =
-        bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز';
     const marketStateKnown =
-        bourseOverview?.marketStateTitle ?? farabourseOverview?.marketStateTitle ?? null;
+        bourseOverview?.marketStateTitle != null || farabourseOverview?.marketStateTitle != null;
+    const isMarketOpen = marketStateKnown
+        ? bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز'
+        : null;
     const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
     const [activeOrdersForSummary, setActiveOrdersForSummary] = useState<TradingOrder[]>([]);
     const [ordersHasMore, setOrdersHasMore] = useState(false);
@@ -2783,7 +2799,7 @@ export default function TradingDashboard({
             buyingPower: accountSummary.buyingPower,
             bidPriceRange: orderBookBidPriceRange,
             askPriceRange: orderBookAskPriceRange,
-            marketOpen: isMarketOpen,
+            marketOpen: isMarketOpen !== false,
         }),
         [accountSummary.buyingPower, availableToSell, isMarketOpen, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
     );

@@ -54,7 +54,7 @@ export type OrderValidationResult = {
 
 export const VALIDITY_LABELS: Record<OrderValidity, string> = {
     TODAY: 'امروز',
-    DAY: 'فردا',
+    DAY: 'روز',
     DAYS_30: '30 روز',
     DAYS_90: '90 روز',
 };
