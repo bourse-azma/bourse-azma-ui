@@ -19,6 +19,9 @@ export const ORDER_BOOK_UNAVAILABLE_ERROR =
 export const MARKET_CLOSED_ERROR =
     'بازار در حال حاضر بسته است؛ تا زمان بازگشایی امکان ثبت سفارش وجود ندارد.';
 
+export const MARKET_STATE_LOADING_ERROR =
+    'در حال دریافت وضعیت بازار...';
+
 const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
 
@@ -99,6 +102,17 @@ export const validateOrder = (
     context: OrderValidationContext
 ): OrderValidationResult => {
     const errors: OrderFieldErrors = {};
+
+    if (context.marketOpen === null) {
+        errors.general = MARKET_STATE_LOADING_ERROR;
+        return {
+            errors,
+            isValid: false,
+            quantity: null,
+            effectivePrice: null,
+            orderValue: null,
+        };
+    }
 
     if (!context.marketOpen) {
         errors.general = MARKET_CLOSED_ERROR;

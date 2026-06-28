@@ -64,7 +64,12 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
 
     return (
         <div dir="rtl" className="flex h-full flex-col gap-4">
-            {!context.marketOpen ? (
+            {context.marketOpen === null ? (
+                <div className="space-y-2 rounded-2xl border border-border/70 bg-surface-2/60 p-4">
+                    <div className="h-4 w-32 animate-pulse rounded-full bg-surface-2"/>
+                    <div className="h-3 w-full animate-pulse rounded-full bg-surface-2"/>
+                </div>
+            ) : !context.marketOpen ? (
                 <div
                     role="alert"
                     className="flex items-start gap-2.5 rounded-2xl border border-warning/45 bg-warning/10 px-4 py-3 text-sm leading-7 text-warning"

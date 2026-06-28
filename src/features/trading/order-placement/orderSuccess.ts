@@ -35,7 +35,11 @@ export const buildOrderSuccessDetails = (
         message = `${sideLabel} ${formatNumber(executedQuantity)} سهم از نماد ${symbol} انجام شد.`;
     } else if (order.status === 'PARTIALLY_FILLED') {
         title = 'سفارش بخشی اجرا شد';
-        message = `${formatNumber(executedQuantity)} سهم اجرا شد و ${formatNumber(order.remainingQuantity)} سهم در صف باقی ماند.`;
+        if (order.remainingQuantity > 0) {
+            message = `${formatNumber(executedQuantity)} سهم اجرا شد و ${formatNumber(order.remainingQuantity)} سهم در صف باقی ماند.`;
+        } else {
+            message = `${formatNumber(executedQuantity)} سهم از ${formatNumber(quantity)} سهم اجرا شد و باقیمانده سفارش بازار لغو شد.`;
+        }
     } else if (order.status === 'TRIGGER_PENDING') {
         title = 'سفارش شرطی ثبت شد';
         message = `سفارش ${sideLabel} نماد ${symbol} پس از برقراری شرط فعال می‌شود.`;

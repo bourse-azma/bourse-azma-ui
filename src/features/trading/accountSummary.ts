@@ -25,7 +25,12 @@ const toNumber = (value: unknown) => {
 const isActiveBuyOrder = (order: OrderInput) => {
     const side = String(order.side).toUpperCase();
     const status = String(order.status).toUpperCase();
-    return side === 'BUY' && (status === 'REQUESTED' || status === 'PARTIALLY_FILLED' || status === 'TRIGGER_PENDING');
+    const remaining = toNumber(order.remainingQuantity);
+    return (
+        remaining > 0
+        && side === 'BUY'
+        && (status === 'REQUESTED' || status === 'PARTIALLY_FILLED' || status === 'TRIGGER_PENDING')
+    );
 };
 
 const orderCommittedAmount = (order: OrderInput) => {

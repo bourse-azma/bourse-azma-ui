@@ -18,12 +18,10 @@ const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
 
 type SessionState = {
     accessToken: string;
-    userId: number;
     rememberMe: boolean;
 };
 
 type PersistedSession = {
-    userId: number;
     rememberMe: boolean;
 };
 
@@ -109,16 +107,14 @@ const getInitialSession = (): SessionState | null => {
     const parseStoredSession = (raw: string | null, rememberMe: boolean): SessionState | null => {
         if (!raw) return null;
         try {
-            const parsed = JSON.parse(raw) as Partial<PersistedSession> & { role?: string };
-            if (
-                typeof parsed.userId === 'number' &&
-                Number.isFinite(parsed.userId) &&
-                parsed.userId > 0
-            ) {
+            const parsed = JSON.parse(raw) as Partial<PersistedSession> & { userId?: number };
+            const resolvedRememberMe =
+                typeof parsed.rememberMe === 'boolean' ? parsed.rememberMe : rememberMe;
+            // Accept legacy sessions that only stored userId as a sign-in marker.
+            if (typeof parsed.userId === 'number' || typeof parsed.rememberMe === 'boolean') {
                 return {
                     accessToken: '',
-                    userId: parsed.userId,
-                    rememberMe,
+                    rememberMe: resolvedRememberMe,
                 };
             }
         } catch {
@@ -178,15 +174,13 @@ export default function App() {
         setProfileLoading(true);
         setProfileError(null);
         try {
-            const response = await fetch(`/api/v1/users/${targetSession.userId}`, withAuthRequest(targetSession.accessToken, {
+            const response = await fetch('/api/v1/users/me', withAuthRequest(targetSession.accessToken, {
                 method: 'GET',
             }));
             const text = await response.text();
             const data = text ? (JSON.parse(text) as unknown) : null;
             if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    clearSession();
-                }
+                clearSession();
                 throw new Error(toApiErrorMessage(data, 'دریافت اطلاعات پروفایل ناموفق بود.'));
             }
             const api = data as ApiResponse<UserProfile>;
@@ -211,7 +205,6 @@ export default function App() {
         }
         setAuthState('checking');
         const persisted: PersistedSession = {
-            userId: session.userId,
             rememberMe: session.rememberMe,
         };
         if (session.rememberMe) {
@@ -236,7 +229,6 @@ export default function App() {
         setLoginEpoch(epoch);
         setSession({
             accessToken: authSession.accessToken ?? '',
-            userId: authSession.userId,
             rememberMe: authSession.rememberMe ?? false,
         });
         setAuthState('checking');
@@ -282,7 +274,6 @@ export default function App() {
 
         const newPassword = editPassword.trim();
         const payload = {
-            id: profile.id,
             username: editUsername.trim().toLowerCase(),
             firstName: editFirstName.trim(),
             lastName: editLastName.trim(),
@@ -311,7 +302,7 @@ export default function App() {
                 throw new Error('برای تغییر رمز عبور، رمز فعلی را وارد کنید.');
             }
 
-            const response = await fetch('/api/v1/users', withAuthRequest(session.accessToken, {
+            const response = await fetch('/api/v1/users/me', withAuthRequest(session.accessToken, {
                 method: 'PUT',
                 body: JSON.stringify(payload),
             }));

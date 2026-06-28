@@ -36,8 +36,8 @@ export type OrderValidationContext = {
     bidPriceRange: OrderBookPriceRange | null;
     /** Min/max ask prices (sell queue) from the order book; null when unavailable. */
     askPriceRange: OrderBookPriceRange | null;
-    /** Whether at least one exchange market (بورس/فرابورس) is currently open. */
-    marketOpen: boolean;
+    /** Whether at least one exchange market (بورس/فرابورس) is currently open; null while loading. */
+    marketOpen: boolean | null;
 };
 
 export type OrderFieldErrors = Partial<

@@ -641,14 +641,17 @@ export function useClock() {
 
 function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
     const [data, setData] = useState<MarketOverviewResult | null>(null);
+    const [loading, setLoading] = useState(enabled);
 
     useEffect(() => {
         if (!enabled) {
+            setLoading(false);
             return;
         }
 
         let timer = 0;
         let active = true;
+        setLoading(true);
 
         const fetchOverview = async () => {
             try {
@@ -674,6 +677,10 @@ function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
                 });
             } catch {
                 // Keep previously rendered data on transient network failures.
+            } finally {
+                if (active) {
+                    setLoading(false);
+                }
             }
         };
 
@@ -691,7 +698,7 @@ function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
         };
     }, [enabled, marketId]);
 
-    return data;
+    return {data, loading: enabled && loading};
 }
 
 function useCodalNotices(
@@ -2028,15 +2035,16 @@ export default function TradingDashboard({
     const bourseOverview = useMarketOverview('1', isMarketViewActive);
     const farabourseOverview = useMarketOverview('2', isMarketViewActive);
 
-    const marketIndex = bourseOverview?.indexValue ?? null;
-    const marketDelta = bourseOverview?.indexChange ?? null;
-    const farabourseIndex = farabourseOverview?.indexValue ?? null;
-    const farabourseDelta = farabourseOverview?.indexChange ?? null;
+    const marketIndex = bourseOverview.data?.indexValue ?? null;
+    const marketDelta = bourseOverview.data?.indexChange ?? null;
+    const farabourseIndex = farabourseOverview.data?.indexValue ?? null;
+    const farabourseDelta = farabourseOverview.data?.indexChange ?? null;
 
+    const marketStateLoading = bourseOverview.loading || farabourseOverview.loading;
     const marketStateKnown =
-        bourseOverview?.marketStateTitle != null || farabourseOverview?.marketStateTitle != null;
+        bourseOverview.data?.marketStateTitle != null || farabourseOverview.data?.marketStateTitle != null;
     const isMarketOpen = marketStateKnown
-        ? bourseOverview?.marketStateTitle === 'باز' || farabourseOverview?.marketStateTitle === 'باز'
+        ? bourseOverview.data?.marketStateTitle === 'باز' || farabourseOverview.data?.marketStateTitle === 'باز'
         : null;
     const [tradingOrders, setTradingOrders] = useState<TradingOrder[]>([]);
     const [activeOrdersForSummary, setActiveOrdersForSummary] = useState<TradingOrder[]>([]);
@@ -2097,7 +2105,9 @@ export default function TradingDashboard({
             ordersPageRef.current = ordersResult.page;
             setOrdersHasMore(ordersResult.hasNext);
             if (!appendOrders && activeOrdersResult) {
-                setActiveOrdersForSummary(activeOrdersResult.items);
+                setActiveOrdersForSummary(
+                    activeOrdersResult.items.filter((order) => order.remainingQuantity > 0)
+                );
             }
             setPortfolioHoldings(holdings);
             setTradingAccountError(null);
@@ -2650,9 +2660,9 @@ export default function TradingDashboard({
                 indexValue: marketIndex,
                 deltaValue: marketDelta,
                 percentValue: marketPercent,
-                totalTrades: bourseOverview?.totalTrades ?? null,
-                tradeValue: bourseOverview?.totalTradeValue ?? null,
-                tradeVolume: bourseOverview?.totalTradeVolume ?? null,
+                totalTrades: bourseOverview.data?.totalTrades ?? null,
+                tradeValue: bourseOverview.data?.totalTradeValue ?? null,
+                tradeVolume: bourseOverview.data?.totalTradeVolume ?? null,
                 positive: marketPositive,
             },
             {
@@ -2661,23 +2671,23 @@ export default function TradingDashboard({
                 indexValue: farabourseIndex,
                 deltaValue: farabourseDelta,
                 percentValue: faraboursePercent,
-                totalTrades: farabourseOverview?.totalTrades ?? null,
-                tradeValue: farabourseOverview?.totalTradeValue ?? null,
-                tradeVolume: farabourseOverview?.totalTradeVolume ?? null,
+                totalTrades: farabourseOverview.data?.totalTrades ?? null,
+                tradeValue: farabourseOverview.data?.totalTradeValue ?? null,
+                tradeVolume: farabourseOverview.data?.totalTradeVolume ?? null,
                 positive: faraboursePositive,
             },
         ],
         [
-            bourseOverview?.totalTrades,
-            bourseOverview?.totalTradeValue,
-            bourseOverview?.totalTradeVolume,
+            bourseOverview.data?.totalTrades,
+            bourseOverview.data?.totalTradeValue,
+            bourseOverview.data?.totalTradeVolume,
             farabourseDelta,
             farabourseIndex,
             faraboursePercent,
             faraboursePositive,
-            farabourseOverview?.totalTrades,
-            farabourseOverview?.totalTradeValue,
-            farabourseOverview?.totalTradeVolume,
+            farabourseOverview.data?.totalTrades,
+            farabourseOverview.data?.totalTradeValue,
+            farabourseOverview.data?.totalTradeVolume,
             marketDelta,
             marketIndex,
             marketPercent,
@@ -2717,10 +2727,10 @@ export default function TradingDashboard({
     const refreshAccountStatus = useCallback(async () => {
         const tasks: Promise<void>[] = [loadTradingAccount(true)];
 
-        if (userProfile?.id && onProfileUpdated) {
+        if (onProfileUpdated) {
             tasks.push(
                 (async () => {
-                    const response = await fetch(`/api/v1/users/${userProfile.id}`, withAuthRequest(accessToken, {
+                    const response = await fetch('/api/v1/users/me', withAuthRequest(accessToken, {
                         method: 'GET',
                     }));
                     if (!response.ok) return;
@@ -2733,7 +2743,7 @@ export default function TradingDashboard({
         }
 
         await Promise.all(tasks);
-    }, [accessToken, loadTradingAccount, onProfileUpdated, userProfile?.id]);
+    }, [accessToken, loadTradingAccount, onProfileUpdated]);
 
     useEffect(() => {
         if (!isMarketViewActive) {
@@ -2772,6 +2782,7 @@ export default function TradingDashboard({
                 (order) =>
                     order.instrumentCode === activeInstrumentCode &&
                     order.side === 'SELL' &&
+                    order.remainingQuantity > 0 &&
                     (order.status === 'REQUESTED' || order.status === 'PARTIALLY_FILLED' || order.status === 'TRIGGER_PENDING')
             )
             .reduce((sum, order) => sum + order.remainingQuantity, 0);
@@ -2799,7 +2810,7 @@ export default function TradingDashboard({
             buyingPower: accountSummary.buyingPower,
             bidPriceRange: orderBookBidPriceRange,
             askPriceRange: orderBookAskPriceRange,
-            marketOpen: isMarketOpen !== false,
+            marketOpen: isMarketOpen,
         }),
         [accountSummary.buyingPower, availableToSell, isMarketOpen, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
     );
@@ -3140,7 +3151,15 @@ export default function TradingDashboard({
                                     <Clock3 className="h-3.5 w-3.5"/>
                                     <span className="tabular-nums">{clockValue}</span>
                                 </div>
-                                {marketStateKnown ? (
+                                {marketStateLoading ? (
+                                    <>
+                                        <span className="h-3 w-px bg-border/70"/>
+                                        <span className="inline-flex items-center gap-1.5">
+                                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted/60"/>
+                                            <span className="h-3 w-16 animate-pulse rounded-full bg-surface-2"/>
+                                        </span>
+                                    </>
+                                ) : marketStateKnown ? (
                                     <>
                                         <span className="h-3 w-px bg-border/70"/>
                                         <span
