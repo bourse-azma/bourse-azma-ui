@@ -165,7 +165,8 @@ export default function TicketConversation({messages, mode, allowEdit = true, on
                                     ) : null}
                                     {isOwn ? (
                                         seen ? (
-                                            <CheckCheck className={`h-3.5 w-3.5 ${isOwn ? 'text-white/80' : 'text-primary'}`}/>
+                                            <CheckCheck
+                                                className={`h-3.5 w-3.5 ${isOwn ? 'text-white/80' : 'text-primary'}`}/>
                                         ) : (
                                             <Check className={`h-3.5 w-3.5 ${isOwn ? 'text-white/60' : 'text-muted'}`}/>
                                         )

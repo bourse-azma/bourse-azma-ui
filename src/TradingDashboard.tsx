@@ -4009,42 +4009,42 @@ export default function TradingDashboard({
                                         </div>
                                     ) : bottomPanelTab === 'orders' ? (
                                         <>
-                                        <table className="w-full min-w-[1020px] border-collapse text-right text-xs">
-                                            <thead>
-                                            <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
-                                                <th className="px-3 py-3">نوع</th>
-                                                <th className="px-3 py-3">نماد</th>
-                                                <th className="px-3 py-3">تعداد کل</th>
-                                                <th className="px-3 py-3">اجرا شده</th>
-                                                <th className="px-3 py-3">باقیمانده</th>
-                                                <th className="px-3 py-3">قیمت سفارش</th>
-                                                <th className="px-3 py-3">میانگین اجرا</th>
-                                                <th className="px-3 py-3">زمان</th>
-                                                <th className="px-3 py-3">وضعیت</th>
-                                                <th className="px-3 py-3">عملیات</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            {filteredOrders.map((order) => {
-                                                const isBuy = order.type === 'buy';
-                                                const statusClass =
-                                                    order.status === 'COMPLETED'
-                                                        ? 'border-positive/35 bg-positive/10 text-positive'
-                                                        : order.status === 'FAILED'
-                                                            ? 'border-negative/35 bg-negative/10 text-negative'
-                                                            : order.status === 'CANCELLED'
-                                                                ? 'border-warning/35 bg-warning/10 text-warning'
-                                                                : order.status === 'PARTIALLY_FILLED'
-                                                                    ? 'border-amber-400/35 bg-amber-400/10 text-amber-600 dark:text-amber-400'
-                                                                    : 'border-primary/35 bg-primary/10 text-primary';
-                                                const isCancelling = cancellingOrderId === order.id;
+                                            <table className="w-full min-w-[1020px] border-collapse text-right text-xs">
+                                                <thead>
+                                                <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                                    <th className="px-3 py-3">نوع</th>
+                                                    <th className="px-3 py-3">نماد</th>
+                                                    <th className="px-3 py-3">تعداد کل</th>
+                                                    <th className="px-3 py-3">اجرا شده</th>
+                                                    <th className="px-3 py-3">باقیمانده</th>
+                                                    <th className="px-3 py-3">قیمت سفارش</th>
+                                                    <th className="px-3 py-3">میانگین اجرا</th>
+                                                    <th className="px-3 py-3">زمان</th>
+                                                    <th className="px-3 py-3">وضعیت</th>
+                                                    <th className="px-3 py-3">عملیات</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                {filteredOrders.map((order) => {
+                                                    const isBuy = order.type === 'buy';
+                                                    const statusClass =
+                                                        order.status === 'COMPLETED'
+                                                            ? 'border-positive/35 bg-positive/10 text-positive'
+                                                            : order.status === 'FAILED'
+                                                                ? 'border-negative/35 bg-negative/10 text-negative'
+                                                                : order.status === 'CANCELLED'
+                                                                    ? 'border-warning/35 bg-warning/10 text-warning'
+                                                                    : order.status === 'PARTIALLY_FILLED'
+                                                                        ? 'border-amber-400/35 bg-amber-400/10 text-amber-600 dark:text-amber-400'
+                                                                        : 'border-primary/35 bg-primary/10 text-primary';
+                                                    const isCancelling = cancellingOrderId === order.id;
 
-                                                return (
-                                                    <tr
-                                                        key={order.id}
-                                                        className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
-                                                    >
-                                                        <td className="px-3 py-3">
+                                                    return (
+                                                        <tr
+                                                            key={order.id}
+                                                            className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                                        >
+                                                            <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex min-w-14 items-center justify-center rounded-full border px-2.5 py-1 text-[11px] font-bold ${
                                                             isBuy
@@ -4054,62 +4054,63 @@ export default function TradingDashboard({
                                                     >
                                                         {isBuy ? 'خرید' : 'فروش'}
                                                     </span>
-                                                        </td>
-                                                        <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-text">{order.averageExecutedPrice ? formatNumberFa(order.averageExecutedPrice) : '—'}</td>
-                                                        <td className="px-3 py-3 tabular-nums text-muted"
-                                                            dir="ltr">{order.time}</td>
-                                                        <td className="px-3 py-3">
+                                                            </td>
+                                                            <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.orderPrice)}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-text">{order.averageExecutedPrice ? formatNumberFa(order.averageExecutedPrice) : '—'}</td>
+                                                            <td className="px-3 py-3 tabular-nums text-muted"
+                                                                dir="ltr">{order.time}</td>
+                                                            <td className="px-3 py-3">
                                                     <span
                                                         className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass}`}>
                                                         {order.statusLabel}
                                                     </span>
-                                                        </td>
-                                                        <td className="px-3 py-3">
-                                                            {order.cancellable ? (
-                                                                <button
-                                                                    type="button"
-                                                                    disabled={isCancelling}
-                                                                    onClick={() => {
-                                                                        if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
-                                                                            void handleCancelOrder(order.id);
-                                                                        }
-                                                                    }}
-                                                                    className="inline-flex items-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                                                >
-                                                                    {isCancelling ? (
-                                                                        <Loader2 className="h-3 w-3 animate-spin"/>
-                                                                    ) : (
-                                                                        <X className="h-3 w-3"/>
-                                                                    )}
-                                                                    لغو
-                                                                </button>
-                                                            ) : (
-                                                                <span className="text-[11px] text-muted">—</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                            </tbody>
-                                        </table>
-                                        {ordersHasMore ? (
-                                            <div className="border-t border-border/60 px-3 py-3">
-                                                <button
-                                                    type="button"
-                                                    disabled={ordersLoadingMore}
-                                                    onClick={() => void loadMoreOrders()}
-                                                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 py-2 text-xs font-semibold text-text transition hover:border-primary/35 disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {ordersLoadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : null}
-                                                    نمایش سفارش‌های بیشتر
-                                                </button>
-                                            </div>
-                                        ) : null}
+                                                            </td>
+                                                            <td className="px-3 py-3">
+                                                                {order.cancellable ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={isCancelling}
+                                                                        onClick={() => {
+                                                                            if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
+                                                                                void handleCancelOrder(order.id);
+                                                                            }
+                                                                        }}
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                    >
+                                                                        {isCancelling ? (
+                                                                            <Loader2 className="h-3 w-3 animate-spin"/>
+                                                                        ) : (
+                                                                            <X className="h-3 w-3"/>
+                                                                        )}
+                                                                        لغو
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-[11px] text-muted">—</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                                </tbody>
+                                            </table>
+                                            {ordersHasMore ? (
+                                                <div className="border-t border-border/60 px-3 py-3">
+                                                    <button
+                                                        type="button"
+                                                        disabled={ordersLoadingMore}
+                                                        onClick={() => void loadMoreOrders()}
+                                                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border/70 bg-surface-2 px-3 py-2 text-xs font-semibold text-text transition hover:border-primary/35 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        {ordersLoadingMore ?
+                                                            <Loader2 className="h-3.5 w-3.5 animate-spin"/> : null}
+                                                        نمایش سفارش‌های بیشتر
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                         </>
                                     ) : (
                                         <table className="w-full min-w-[760px] border-collapse text-right text-xs">

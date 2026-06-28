@@ -4,7 +4,12 @@ import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
 import {withAuthRequest} from './lib/authRequest';
-import {validatePassword, validateUsername, USERNAME_VALIDATION_MESSAGE, PASSWORD_VALIDATION_MESSAGE} from './lib/authValidation';
+import {
+    PASSWORD_VALIDATION_MESSAGE,
+    USERNAME_VALIDATION_MESSAGE,
+    validatePassword,
+    validateUsername
+} from './lib/authValidation';
 import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from './features/symbol-search/selectedSymbolState';
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';

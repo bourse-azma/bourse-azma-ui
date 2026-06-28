@@ -2,7 +2,7 @@ import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
 import {withAuthRequest} from './lib/authRequest';
-import {validatePassword, validateUsername, USERNAME_VALIDATION_MESSAGE} from './lib/authValidation';
+import {USERNAME_VALIDATION_MESSAGE, validatePassword, validateUsername} from './lib/authValidation';
 
 type AuthMode = 'login' | 'register';
 
