@@ -10,6 +10,9 @@ import {isOrderBookReady, type OrderBookPriceRange} from '../../symbol-search/or
 export const ORDER_BOOK_PRICE_ERROR =
     'این سایت در حالت دمو است؛ قیمت سفارش باید در محدوده صف خرید یا فروش باشد و ثبت قیمت خارج از این بازه امکان‌پذیر نیست.';
 
+export const CONDITIONAL_TRIGGER_PRICE_ERROR =
+    'قیمت شرط باید خارج از محدوده فعلی صف خرید یا فروش باشد.';
+
 export const ORDER_BOOK_UNAVAILABLE_ERROR =
     'اطلاعات صف خرید و فروش در دسترس نیست؛ امکان ثبت سفارش وجود ندارد.';
 
@@ -75,6 +78,22 @@ const validateQueuePrice = (
     }
 };
 
+const validateConditionalTriggerPrice = (
+    triggerPrice: number,
+    side: OrderSide,
+    context: OrderValidationContext,
+    errors: OrderFieldErrors
+) => {
+    const range = queuePriceRangeForSide(side, context);
+    if (range === null) {
+        errors.triggerPrice = ORDER_BOOK_UNAVAILABLE_ERROR;
+        return;
+    }
+    if (isPriceWithinQueueRange(triggerPrice, range)) {
+        errors.triggerPrice = CONDITIONAL_TRIGGER_PRICE_ERROR;
+    }
+};
+
 export const validateOrder = (
     values: OrderFormValues,
     context: OrderValidationContext
@@ -121,7 +140,7 @@ export const validateOrder = (
             errors.triggerPrice = 'قیمت شرط باید بزرگ‌تر از صفر باشد.';
         } else {
             effectivePrice = triggerPrice;
-            validateQueuePrice(triggerPrice, values.side, context, errors, 'triggerPrice');
+            validateConditionalTriggerPrice(triggerPrice, values.side, context, errors);
         }
     } else if (values.priceType === 'MARKET') {
         effectivePrice = isPositive(context.livePrice) ? context.livePrice : null;

@@ -19,13 +19,11 @@ const LEGACY_ACCESS_TOKEN_STORAGE_KEY = 'bourse-azma-access-token';
 type SessionState = {
     accessToken: string;
     userId: number;
-    role: string;
     rememberMe: boolean;
 };
 
 type PersistedSession = {
     userId: number;
-    role: string;
     rememberMe: boolean;
 };
 
@@ -111,18 +109,15 @@ const getInitialSession = (): SessionState | null => {
     const parseStoredSession = (raw: string | null, rememberMe: boolean): SessionState | null => {
         if (!raw) return null;
         try {
-            const parsed = JSON.parse(raw) as PersistedSession;
+            const parsed = JSON.parse(raw) as Partial<PersistedSession> & { role?: string };
             if (
                 typeof parsed.userId === 'number' &&
                 Number.isFinite(parsed.userId) &&
-                parsed.userId > 0 &&
-                typeof parsed.role === 'string' &&
-                parsed.role.trim() !== ''
+                parsed.userId > 0
             ) {
                 return {
                     accessToken: '',
                     userId: parsed.userId,
-                    role: parsed.role,
                     rememberMe,
                 };
             }
@@ -217,7 +212,6 @@ export default function App() {
         setAuthState('checking');
         const persisted: PersistedSession = {
             userId: session.userId,
-            role: session.role,
             rememberMe: session.rememberMe,
         };
         if (session.rememberMe) {
@@ -243,7 +237,6 @@ export default function App() {
         setSession({
             accessToken: authSession.accessToken ?? '',
             userId: authSession.userId,
-            role: authSession.role,
             rememberMe: authSession.rememberMe ?? false,
         });
         setAuthState('checking');

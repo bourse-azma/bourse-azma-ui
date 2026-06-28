@@ -1,6 +1,6 @@
 export type SupportRequestStatus = 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
 
-export type SupportTicketClosedBy = 'USER' | 'ADMIN';
+export type SupportTicketClosedBy = 'USER' | 'ADMIN' | 'SYSTEM';
 
 export type SupportRequestCategory =
     | 'TECHNICAL'

@@ -921,6 +921,13 @@ type WalletTx = {
     createdAt: string;
 };
 
+type WalletTxSummary = {
+    totalCount: number;
+    totalNet: number;
+    inflowCount: number;
+    outflowCount: number;
+};
+
 function getWalletTransactionMeta(tx: WalletTx) {
     const isIncrease = tx.amount > 0;
     const balanceBefore = tx.balanceAfter - tx.amount;
@@ -941,6 +948,7 @@ function WalletReportsPanel({
     enabled: boolean;
 }) {
     const [txs, setTxs] = useState<WalletTx[]>([]);
+    const [summary, setSummary] = useState<WalletTxSummary | null>(null);
     const [loading, setLoading] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -948,6 +956,23 @@ function WalletReportsPanel({
     const [hasMore, setHasMore] = useState(false);
     const [expandedTxId, setExpandedTxId] = useState<number | null>(null);
     const hasLoadedOnceRef = useRef(false);
+
+    const fetchSummary = useCallback(async () => {
+        try {
+            const res = await fetch('/api/v1/wallet/transactions/summary', withAuthRequest(accessToken, {
+                method: 'GET',
+            }));
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data?.result?.detail ?? data?.message ?? 'دریافت خلاصه تراکنش‌ها ناموفق بود.');
+            }
+            if (data.result) {
+                setSummary(data.result as WalletTxSummary);
+            }
+        } catch {
+            // Summary is supplementary; keep the transaction list usable if this call fails.
+        }
+    }, [accessToken]);
 
     const fetchTxs = useCallback(async (silent = false, pageToLoad = 0, append = false) => {
         if (!silent && !append) {
@@ -989,7 +1014,8 @@ function WalletReportsPanel({
 
     useEffect(() => {
         void fetchTxs(hasLoadedOnceRef.current, 0, false);
-    }, [fetchTxs, walletBalance]);
+        void fetchSummary();
+    }, [fetchSummary, fetchTxs, walletBalance]);
 
     useEffect(() => {
         if (!enabled) {
@@ -999,6 +1025,7 @@ function WalletReportsPanel({
         let timer: number | undefined;
         const tick = async () => {
             await fetchTxs(true, 0, false);
+            await fetchSummary();
             timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
         };
         timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
@@ -1008,17 +1035,17 @@ function WalletReportsPanel({
                 window.clearTimeout(timer);
             }
         };
-    }, [enabled, fetchTxs]);
+    }, [enabled, fetchSummary, fetchTxs]);
 
     const currentBalance = txs[0]?.balanceAfter ?? walletBalance;
     const sortedTxs = useMemo(
         () => [...txs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
         [txs],
     );
-    const totalCount = sortedTxs.length;
-    const totalNet = sortedTxs.reduce((sum, tx) => sum + tx.amount, 0);
-    const inflowCount = sortedTxs.filter((tx) => tx.amount > 0).length;
-    const outflowCount = sortedTxs.filter((tx) => tx.amount < 0).length;
+    const totalCount = summary?.totalCount ?? 0;
+    const totalNet = summary?.totalNet ?? 0;
+    const inflowCount = summary?.inflowCount ?? 0;
+    const outflowCount = summary?.outflowCount ?? 0;
 
     return (
         <section dir="rtl" className={`${cardClass} overflow-hidden`}>

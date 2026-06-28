@@ -81,4 +81,5 @@ export const canCloseTicket = (status: SupportRequestStatus) =>
 export const CLOSED_BY_LABELS: Record<SupportTicketClosedBy, string> = {
     USER: 'توسط کاربر',
     ADMIN: 'توسط پشتیبانی',
+    SYSTEM: 'بسته‌شدن خودکار',
 };
