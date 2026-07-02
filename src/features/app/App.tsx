@@ -1,10 +1,20 @@
-import AuthPage from '../auth/AuthPage';
-import LandingPage from '../landing/LandingPage';
-import TradingDashboard from '../../TradingDashboard';
+import {lazy, Suspense} from 'react';
 import {useTheme} from '../../hooks/useTheme';
 import {ProfileModal} from './components/ProfileModal';
 import {useAppAuth} from './hooks/useAppAuth';
 import {useProfileEditor} from './hooks/useProfileEditor';
+
+const AuthPage = lazy(() => import('../auth/AuthPage'));
+const LandingPage = lazy(() => import('../landing/LandingPage'));
+const TradingDashboard = lazy(() => import('../../TradingDashboard'));
+
+function RouteFallback() {
+    return (
+        <div className="flex min-h-screen items-center justify-center">
+            <p className="text-sm text-muted">در حال بارگذاری...</p>
+        </div>
+    );
+}
 
 export default function App() {
     const {theme, toggleTheme} = useTheme();
@@ -18,29 +28,35 @@ export default function App() {
                     <p className="text-sm text-muted">در حال بررسی ورود...</p>
                 </div>
             ) : auth.authState === 'authenticated' && auth.session && auth.loginEpoch ? (
-                <TradingDashboard
-                    key={auth.loginEpoch}
-                    loginEpoch={auth.loginEpoch}
-                    theme={theme}
-                    accessToken={auth.session.accessToken}
-                    onToggleTheme={toggleTheme}
-                    profileDisplayName={auth.displayName}
-                    onOpenProfile={profileEditor.openProfileModal}
-                    onLogout={auth.handleLogout}
-                    userProfile={auth.profile || undefined}
-                    onProfileUpdated={auth.setProfile}
-                />
+                <Suspense fallback={<RouteFallback/>}>
+                    <TradingDashboard
+                        key={auth.loginEpoch}
+                        loginEpoch={auth.loginEpoch}
+                        theme={theme}
+                        accessToken={auth.session.accessToken}
+                        onToggleTheme={toggleTheme}
+                        profileDisplayName={auth.displayName}
+                        onOpenProfile={profileEditor.openProfileModal}
+                        onLogout={auth.handleLogout}
+                        userProfile={auth.profile || undefined}
+                        onProfileUpdated={auth.setProfile}
+                    />
+                </Suspense>
             ) : auth.publicView === 'auth' ? (
-                <AuthPage
-                    onAuthenticated={auth.handleAuthenticated}
-                    initialMode={auth.authInitialMode}
-                    onBackToLanding={auth.openLanding}
-                />
+                <Suspense fallback={<RouteFallback/>}>
+                    <AuthPage
+                        onAuthenticated={auth.handleAuthenticated}
+                        initialMode={auth.authInitialMode}
+                        onBackToLanding={auth.openLanding}
+                    />
+                </Suspense>
             ) : (
-                <LandingPage
-                    onLogin={() => auth.openAuth('login')}
-                    onRegister={() => auth.openAuth('register')}
-                />
+                <Suspense fallback={<RouteFallback/>}>
+                    <LandingPage
+                        onLogin={() => auth.openAuth('login')}
+                        onRegister={() => auth.openAuth('register')}
+                    />
+                </Suspense>
             )}
 
             <ProfileModal

@@ -16,6 +16,22 @@ export default defineConfig(({mode}) => {
 
     return {
         plugins: [react()],
+        build: {
+            target: 'es2020',
+            minify: 'esbuild',
+            cssMinify: true,
+            sourcemap: false,
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        vendor: ['react', 'react-dom'],
+                        charts: ['lightweight-charts', 'lightweight-charts-drawing'],
+                        icons: ['lucide-react'],
+                    },
+                },
+            },
+            chunkSizeWarningLimit: 600,
+        },
         server: {
             proxy: {
                 '/api/tsetmc': {

@@ -1,4 +1,5 @@
 FROM node:22-alpine AS build
+ARG NODE_BUILD_HEAP_MB=256
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -6,8 +7,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
 COPY . .
-ENV NODE_OPTIONS="--max-old-space-size=512"
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}" npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine-slim
 WORKDIR /usr/share/nginx/html
