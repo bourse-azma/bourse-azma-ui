@@ -1,20 +1,10 @@
-import {type FormEvent, type KeyboardEvent, type ReactNode, useState} from 'react';
-import {
-    AlertCircle,
-    ArrowRight,
-    Check,
-    ChevronDown,
-    ChevronUp,
-    Loader2,
-    Send,
-    Star,
-    UserRound,
-    XCircle,
-} from 'lucide-react';
+import {type FormEvent, type KeyboardEvent, useState} from 'react';
+import {AlertCircle, ArrowRight, Check, ChevronDown, ChevronUp, Loader2, Send, UserRound, XCircle,} from 'lucide-react';
 import {formatDateTimeFa} from '../../utils/formatDateTime';
 import {formatNumberFa} from '../../utils/numberFormat';
-import StarRating from './StarRating';
+import TicketRatingSection from './TicketRatingSection';
 import TicketConversation from './TicketConversation';
+import TicketUserDetails from './TicketUserDetails';
 import {getTicketLifecycle} from './supportStats';
 import {CLOSED_BY_LABELS, isTicketClosed, SUPPORT_CATEGORY_META, SUPPORT_PRIORITY_META} from './supportMeta';
 import type {SupportTicket, SupportTicketMessage} from './types';
@@ -104,58 +94,6 @@ export default function TicketDetailView({
         || userDetails?.email,
     );
 
-    let ratingSection: ReactNode = null;
-    if (ticket.rating) {
-        ratingSection = (
-            <div className="rounded-xl border border-warning/20 bg-warning/8 p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-text">
-                    <Star className="h-4 w-4 text-warning"/>
-                    امتیاز کاربر
-                </div>
-                <StarRating value={ticket.rating} disabled size="md"/>
-                {ticket.ratingComment ? (
-                    <p className="mt-2 text-xs leading-6 text-muted">{ticket.ratingComment}</p>
-                ) : null}
-            </div>
-        );
-    } else if (showRating && onRatingChange && onSubmitRating) {
-        ratingSection = (
-            <div className="rounded-xl border border-border/60 bg-surface p-4">
-                <p className="text-sm font-bold text-text">امتیاز به پشتیبانی</p>
-                <div className="mt-3">
-                    <StarRating value={rating} onChange={onRatingChange}/>
-                </div>
-                {onRatingCommentChange ? (
-                    <textarea
-                        value={ratingComment}
-                        onChange={(event) => onRatingCommentChange(event.target.value)}
-                        rows={2}
-                        maxLength={500}
-                        placeholder="نظر شما (اختیاری)"
-                        className="mt-3 w-full resize-none rounded-xl border border-border/80 bg-surface-2 px-3 py-2.5 text-sm leading-7 text-text outline-none transition placeholder:text-muted focus:border-primary/45 focus:ring-2 focus:ring-primary/25"
-                    />
-                ) : null}
-                {ratingSuccess ? (
-                    <div
-                        className="mt-3 flex items-center gap-2 rounded-xl border border-positive/30 bg-positive/10 px-3 py-2 text-xs text-positive">
-                        <Check className="h-4 w-4"/>
-                        {ratingSuccess}
-                    </div>
-                ) : (
-                    <button
-                        type="button"
-                        onClick={onSubmitRating}
-                        disabled={ratingSubmitting}
-                        className="mt-3 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition hover:brightness-105 disabled:opacity-70"
-                    >
-                        {ratingSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Star className="h-4 w-4"/>}
-                        ثبت امتیاز
-                    </button>
-                )}
-            </div>
-        );
-    }
-
     return (
         <section dir="rtl" className={`${cardClass} flex max-h-[min(88vh,760px)] flex-col overflow-hidden`}>
             <header className="shrink-0 border-b border-border/50 px-4 py-3 sm:px-5">
@@ -232,39 +170,7 @@ export default function TicketDetailView({
                 ) : null}
 
                 {mode === 'admin' && showUserDetails && userDetails && hasExtendedUserDetails ? (
-                    <div
-                        className="mt-2 grid grid-cols-1 gap-2 rounded-xl border border-border/60 bg-surface-2 p-3 text-xs sm:grid-cols-2">
-                        {userDetails.firstName || userDetails.lastName ? (
-                            <div>
-                                <p className="text-[10px] text-muted">نام و نام خانوادگی</p>
-                                <p className="mt-0.5 font-semibold text-text">
-                                    {[userDetails.firstName, userDetails.lastName].filter(Boolean).join(' ')}
-                                </p>
-                            </div>
-                        ) : null}
-                        <div>
-                            <p className="text-[10px] text-muted">نام کاربری</p>
-                            <p className="mt-0.5 font-semibold text-text" dir="ltr">@{userDetails.username}</p>
-                        </div>
-                        {userDetails.nationalCode ? (
-                            <div>
-                                <p className="text-[10px] text-muted">کد ملی</p>
-                                <p className="mt-0.5 font-semibold text-text" dir="ltr">{userDetails.nationalCode}</p>
-                            </div>
-                        ) : null}
-                        {userDetails.phoneNumber ? (
-                            <div>
-                                <p className="text-[10px] text-muted">شماره تماس</p>
-                                <p className="mt-0.5 font-semibold text-text" dir="ltr">{userDetails.phoneNumber}</p>
-                            </div>
-                        ) : null}
-                        {userDetails.email ? (
-                            <div className="sm:col-span-2">
-                                <p className="text-[10px] text-muted">ایمیل</p>
-                                <p className="mt-0.5 font-semibold text-text" dir="ltr">{userDetails.email}</p>
-                            </div>
-                        ) : null}
-                    </div>
+                    <TicketUserDetails userDetails={userDetails}/>
                 ) : null}
             </header>
 
@@ -297,7 +203,18 @@ export default function TicketDetailView({
                             allowEdit={mode === 'admin' ? true : !isTicketClosed(ticket.status)}
                             onEditMessage={onEditMessage}
                         />
-                        {ratingSection}
+                        <TicketRatingSection
+                            ticketRating={ticket.rating}
+                            ticketRatingComment={ticket.ratingComment}
+                            rating={rating}
+                            onRatingChange={onRatingChange}
+                            ratingComment={ratingComment}
+                            onRatingCommentChange={onRatingCommentChange}
+                            onSubmitRating={onSubmitRating}
+                            ratingSubmitting={ratingSubmitting}
+                            ratingSuccess={ratingSuccess}
+                            showRating={showRating}
+                        />
                     </>
                 )}
             </div>

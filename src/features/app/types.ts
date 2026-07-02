@@ -1,0 +1,33 @@
+import type {AuthMode} from '../auth/types';
+
+export type SessionState = {
+    accessToken: string;
+    rememberMe: boolean;
+};
+
+export type PersistedSession = {
+    rememberMe: boolean;
+};
+
+export type AuthState = 'checking' | 'authenticated' | 'unauthenticated';
+
+export type UserProfile = {
+    id: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+    nationalCode: string;
+    phoneNumber: string;
+    email: string;
+    role: string;
+    balance?: number;
+};
+
+export type ApiResponse<T> = {
+    message?: string;
+    result?: T;
+};
+
+export type PublicView = 'landing' | 'auth';
+
+export type OpenAuthFn = (mode: AuthMode) => void;

@@ -1,11 +1,6 @@
 import {Activity, BarChart3, BellRing, CircleDollarSign, Flame, Sparkles, TrendingDown, TrendingUp} from 'lucide-react';
 import {useMemo, useState} from 'react';
-import {
-    formatCompactAmountFa,
-    formatNumberFa,
-    formatPercentFa,
-    ltrNumericClassName,
-} from '../../utils/numberFormat';
+import {formatCompactAmountFa, formatNumberFa, formatPercentFa, ltrNumericClassName,} from '../../utils/numberFormat';
 import type {MarketId, MarketSymbolQuote, SelectedIndex} from './types';
 import type {LandingMarketData} from './useLandingMarketData';
 

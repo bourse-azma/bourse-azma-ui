@@ -2,7 +2,8 @@ import {type RefObject, useEffect, useRef} from 'react';
 import {scrollConfig} from '../config/scrollConfig';
 
 type UseInfiniteScrollLoadMoreOptions = {
-    rootRef: RefObject<HTMLElement | null>;
+    /** Scroll container; omit for viewport (window) scroll. */
+    rootRef?: RefObject<HTMLElement | null>;
     sentinelRef: RefObject<HTMLElement | null>;
     enabled: boolean;
     onLoadMore: () => void;
@@ -41,13 +42,15 @@ export function useInfiniteScrollLoadMore({
     }, [isFetching]);
 
     useEffect(() => {
-        const root = rootRef.current;
+        const root = rootRef?.current ?? null;
         const sentinel = sentinelRef.current;
-        if (!root || !sentinel || !enabled) {
+        if (!sentinel || !enabled) {
             return;
         }
 
         let observer: IntersectionObserver | null = null;
+
+        const resolveRootHeight = () => root?.clientHeight ?? window.innerHeight;
 
         const observe = () => {
             observer?.disconnect();
@@ -66,7 +69,7 @@ export function useInfiniteScrollLoadMore({
                 },
                 {
                     root,
-                    rootMargin: resolvePrefetchMargin(root.clientHeight, prefetchRatio, minPrefetchPx),
+                    rootMargin: resolvePrefetchMargin(resolveRootHeight(), prefetchRatio, minPrefetchPx),
                     threshold: 0,
                 },
             );
@@ -76,14 +79,26 @@ export function useInfiniteScrollLoadMore({
 
         observe();
 
-        const resizeObserver = new ResizeObserver(() => {
+        if (root) {
+            const resizeObserver = new ResizeObserver(() => {
+                observe();
+            });
+            resizeObserver.observe(root);
+
+            return () => {
+                observer?.disconnect();
+                resizeObserver.disconnect();
+            };
+        }
+
+        const handleWindowResize = () => {
             observe();
-        });
-        resizeObserver.observe(root);
+        };
+        window.addEventListener('resize', handleWindowResize);
 
         return () => {
             observer?.disconnect();
-            resizeObserver.disconnect();
+            window.removeEventListener('resize', handleWindowResize);
         };
     }, [
         enabled,
