@@ -31,6 +31,7 @@ import {InfiniteScrollSentinel} from './hooks/InfiniteScrollSentinel';
 import {useInfiniteScrollLoadMore} from './hooks/useInfiniteScrollLoadMore';
 import {appConfig} from './config/appConfig';
 import {getInfiniteScrollTriggerIndex, INFINITE_SCROLL_PAGE_SIZE} from './config/scrollConfig';
+import {toApiErrorMessage} from './lib/apiError';
 import {type PagedResult, withAuthRequest} from './lib/authRequest';
 import bourseAzmaLogo from './assets/bourse-azma-logo.png';
 import SymbolSearchCombobox from './features/symbol-search/SymbolSearchCombobox';
@@ -424,16 +425,6 @@ const formatCompactAmountFa = (value: number | null | undefined) => {
 const formatNumberWithUnit = (value: number | null | undefined, unit: string, digits = 0) => {
     const formatted = formatNumberOrDash(value, digits);
     return formatted === 'ناموجود' ? formatted : `${formatted} ${unit}`;
-};
-
-const extractApiErrorMessage = (data: unknown, fallback: string) => {
-    if (!data || typeof data !== 'object') return fallback;
-    const response = data as { message?: string; result?: { detail?: string; errors?: Record<string, string> } };
-    const fieldError = response.result?.errors ? Object.values(response.result.errors)[0] : null;
-    if (typeof fieldError === 'string' && fieldError.trim() !== '') return fieldError;
-    if (typeof response.result?.detail === 'string' && response.result.detail.trim() !== '') return response.result.detail;
-    if (typeof response.message === 'string' && response.message.trim() !== '') return response.message;
-    return fallback;
 };
 
 const formatFaInteger = (value: number) => new Intl.NumberFormat('en-US').format(value);
@@ -1321,7 +1312,7 @@ function WalletTabContent({
             }));
             const data = await res.json();
             if (!res.ok) {
-                throw new Error(extractApiErrorMessage(data, 'خطا در انجام عملیات'));
+                throw new Error(toApiErrorMessage(data, 'خطا در انجام عملیات'));
             }
             if (data.result && onProfileUpdated) {
                 onProfileUpdated(data.result);

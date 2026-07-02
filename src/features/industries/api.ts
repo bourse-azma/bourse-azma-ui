@@ -1,4 +1,5 @@
 import {appConfig} from '../../config/appConfig';
+import {toApiErrorMessage} from '../../lib/apiError';
 import {withAuthRequest} from '../../lib/authRequest';
 import type {IndustrySummary, IndustrySymbolsResult} from './types';
 
@@ -6,30 +7,6 @@ type ApiEnvelope<T> = {
     message?: string;
     result?: T;
     code?: number;
-};
-
-type ApiErrorResult = {
-    detail?: string;
-    errors?: Record<string, string>;
-};
-
-const firstFieldError = (errors?: Record<string, string>) => {
-    if (!errors) return null;
-    const firstKey = Object.keys(errors)[0];
-    if (!firstKey) return null;
-    const message = errors[firstKey];
-    return typeof message === 'string' && message.trim() !== '' ? message : null;
-};
-
-const toApiErrorMessage = (data: unknown, fallback: string) => {
-    if (!data || typeof data !== 'object') return fallback;
-    const response = data as ApiEnvelope<ApiErrorResult>;
-    const detail = response.result?.detail;
-    if (typeof detail === 'string' && detail.trim() !== '') return detail;
-    const fieldError = firstFieldError(response.result?.errors);
-    if (fieldError) return fieldError;
-    if (typeof response.message === 'string' && response.message.trim() !== '') return response.message;
-    return fallback;
 };
 
 const normalizePath = (value: string) => (value.startsWith('/') ? value : `/${value}`);

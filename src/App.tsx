@@ -2,8 +2,10 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import AuthPage, {type AuthMode, type AuthSession} from './AuthPage';
 import LandingPage from './LandingPage';
 import TradingDashboard from './TradingDashboard';
+import FieldLabel from './components/ui/FieldLabel';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
+import {toApiErrorMessage} from './lib/apiError';
 import {withAuthRequest} from './lib/authRequest';
 import {
     PASSWORD_VALIDATION_MESSAGE,
@@ -11,6 +13,7 @@ import {
     validatePassword,
     validateUsername
 } from './lib/authValidation';
+import {isPersianName, normalizePhoneNumber, toEnglishDigits} from './lib/stringUtils';
 import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from './features/symbol-search/selectedSymbolState';
 
 const SESSION_STORAGE_KEY = 'bourse-azma-session';
@@ -43,63 +46,6 @@ type UserProfile = {
 type ApiResponse<T> = {
     message?: string;
     result?: T;
-};
-
-type ApiErrorResult = {
-    detail?: string;
-    errors?: Record<string, string>;
-};
-
-type FieldLabelProps = {
-    title: string;
-    required?: boolean;
-};
-
-function FieldLabel({title, required = false}: FieldLabelProps) {
-    return (
-        <div className="mb-1.5">
-      <span className="text-xs font-semibold text-text">
-        {title}
-          {required ? <span className="mr-1 text-negative">*</span> : null}
-      </span>
-        </div>
-    );
-}
-
-const toEnglishDigits = (value: string) =>
-    value
-        .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
-        .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
-
-const normalizePhoneNumber = (raw: string) => {
-    const value = toEnglishDigits(raw).replace(/\s+/g, '');
-    if (value.startsWith('+98')) return value;
-    if (value.startsWith('98')) return `+${value}`;
-    if (value.startsWith('09') && value.length === 11) return `+98${value.slice(1)}`;
-    return value;
-};
-
-const persianNamePattern = /^[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+$/;
-
-const isPersianName = (value: string) => persianNamePattern.test(value.trim());
-
-const firstErrorMessage = (errors?: Record<string, string>) => {
-    if (!errors) return null;
-    const firstKey = Object.keys(errors)[0];
-    if (!firstKey) return null;
-    const message = errors[firstKey];
-    return typeof message === 'string' && message.trim() !== '' ? message : null;
-};
-
-const toApiErrorMessage = (data: unknown, fallback: string) => {
-    if (!data || typeof data !== 'object') return fallback;
-    const response = data as ApiResponse<ApiErrorResult>;
-    const detail = response.result?.detail;
-    if (typeof detail === 'string' && detail.trim() !== '') return detail;
-    const firstFieldError = firstErrorMessage(response.result?.errors);
-    if (firstFieldError) return firstFieldError;
-    if (typeof response.message === 'string' && response.message.trim() !== '') return response.message;
-    return fallback;
 };
 
 const getInitialSession = (): SessionState | null => {

@@ -1,13 +1,9 @@
-const PERSIAN_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
-const ARABIC_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+import {toEnglishDigits} from '../lib/stringUtils';
+
+export {toEnglishDigits};
 
 const JALALI_DATETIME_PATTERN =
     /^(\d{4})\/(\d{1,2})\/(\d{1,2})(?:[,\u060c\s]+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/;
-
-export const toEnglishDigits = (value: string): string =>
-    value
-        .replace(/[۰-۹]/g, (digit) => String(PERSIAN_DIGITS.indexOf(digit)))
-        .replace(/[٠-٩]/g, (digit) => String(ARABIC_DIGITS.indexOf(digit)));
 
 const pad2 = (value: number | string) => String(value).padStart(2, '0');
 

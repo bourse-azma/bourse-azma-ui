@@ -2,8 +2,10 @@ import {ArrowRight, Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import BourseAzmaLogo from './components/BourseAzmaLogo';
 import {appConfig} from './config/appConfig';
+import {toApiErrorMessage} from './lib/apiError';
 import {withAuthRequest} from './lib/authRequest';
 import {USERNAME_VALIDATION_MESSAGE, validatePassword, validateUsername} from './lib/authValidation';
+import {isPersianName, normalizePhoneNumber, toEnglishDigits} from './lib/stringUtils';
 
 export type AuthMode = 'login' | 'register';
 
@@ -26,32 +28,10 @@ export type AuthSession = {
     rememberMe?: boolean;
 };
 
-type ApiErrorResult = {
-    detail?: string;
-    errors?: Record<string, string>;
-};
-
 type ApiResponse<T> = {
     message?: string;
     result?: T;
 };
-
-const toEnglishDigits = (value: string) =>
-    value
-        .replace(/[۰-۹]/g, (digit) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(digit)))
-        .replace(/[٠-٩]/g, (digit) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(digit)));
-
-const normalizePhoneNumber = (raw: string) => {
-    const value = toEnglishDigits(raw).replace(/\s+/g, '');
-    if (value.startsWith('+98')) return value;
-    if (value.startsWith('98')) return `+${value}`;
-    if (value.startsWith('09') && value.length === 11) return `+98${value.slice(1)}`;
-    return value;
-};
-
-const persianNamePattern = /^[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+$/;
-
-const isPersianName = (value: string) => persianNamePattern.test(value.trim());
 
 const generateStrongPassword = () => {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -77,35 +57,6 @@ const generateStrongPassword = () => {
         [chars[i], chars[j]] = [chars[j], chars[i]];
     }
     return chars.join('');
-};
-
-const firstErrorMessage = (errors?: Record<string, string>) => {
-    if (!errors) return null;
-    const firstKey = Object.keys(errors)[0];
-    if (!firstKey) return null;
-    const message = errors[firstKey];
-    return typeof message === 'string' && message.trim() !== '' ? message : null;
-};
-
-const toApiErrorMessage = (data: unknown, fallback: string) => {
-    if (!data || typeof data !== 'object') return fallback;
-
-    const response = data as ApiResponse<ApiErrorResult>;
-    const detail = response.result?.detail;
-    if (typeof detail === 'string' && detail.trim() !== '') {
-        return detail;
-    }
-
-    const firstFieldError = firstErrorMessage(response.result?.errors);
-    if (firstFieldError) {
-        return firstFieldError;
-    }
-
-    if (typeof response.message === 'string' && response.message.trim() !== '') {
-        return response.message;
-    }
-
-    return fallback;
 };
 
 const authInputClassName = 'landing-input w-full rounded-xl px-3 py-2.5 text-sm';
