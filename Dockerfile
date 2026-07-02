@@ -6,6 +6,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund
 
 COPY . .
+ENV NODE_OPTIONS="--max-old-space-size=512"
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine-slim
