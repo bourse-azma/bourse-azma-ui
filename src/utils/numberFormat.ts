@@ -58,6 +58,28 @@ export const formatPriceWithPercent = (
         `${formatEnNumber(price, priceDigits)} (${formatSignedCore(percent, percentDigits)}%)`,
     );
 
+export const formatCompactAmountFa = (
+    value: number | null | undefined,
+    dash = '—',
+): string => {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return dash;
+    }
+
+    const absolute = Math.abs(value);
+    if (absolute >= 1_000_000_000_000) {
+        return toLtrIsolated(`${formatEnNumber(value / 1_000_000_000_000, 1)} همت`);
+    }
+    if (absolute >= 1_000_000_000) {
+        return toLtrIsolated(`${formatEnNumber(value / 1_000_000_000, 1)} میلیارد`);
+    }
+    if (absolute >= 1_000_000) {
+        return toLtrIsolated(`${formatEnNumber(value / 1_000_000, 0)} میلیون`);
+    }
+
+    return formatNumberFa(value, 0);
+};
+
 export const formatPriceWithPercentOrDash = (
     price: number | null | undefined,
     percent: number | null | undefined,

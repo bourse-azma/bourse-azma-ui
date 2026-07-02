@@ -1,6 +1,11 @@
-import {BellRing, Flame, Sparkles, TrendingDown, TrendingUp} from 'lucide-react';
+import {Activity, BarChart3, BellRing, CircleDollarSign, Flame, Sparkles, TrendingDown, TrendingUp} from 'lucide-react';
 import {useMemo, useState} from 'react';
-import {formatNumberFa, formatPercentFa, ltrNumericClassName} from '../../utils/numberFormat';
+import {
+    formatCompactAmountFa,
+    formatNumberFa,
+    formatPercentFa,
+    ltrNumericClassName,
+} from '../../utils/numberFormat';
 import type {MarketId, MarketSymbolQuote, SelectedIndex} from './types';
 import type {LandingMarketData} from './useLandingMarketData';
 
@@ -13,19 +18,43 @@ const changeTone = (value: number) => value > 0
     ? 'text-[#21E6B7]'
     : value < 0 ? 'text-[#FF667A]' : 'text-[#94A3B8]';
 
+const heroChangeClass = (value: number) => value > 0
+    ? 'market-board-hero-change market-board-hero-change-positive'
+    : value < 0
+        ? 'market-board-hero-change market-board-hero-change-negative'
+        : 'market-board-hero-change market-board-hero-change-neutral';
+
+const marketStatusClass = (state?: string | null) => state === 'باز'
+    ? 'market-status-open'
+    : 'market-status-closed';
+
 function IndexCard({index}: { index: SelectedIndex }) {
     return (
-        <article
-            className="grid items-center gap-3 border-b border-white/8 px-3 py-4 last:border-b-0 sm:grid-cols-[1.3fr_0.8fr_0.55fr_0.7fr_0.7fr]">
-            <p className="min-w-0 text-sm font-black text-white">{index.indexName}</p>
-            <p className={`text-sm font-black text-white ${ltrNumericClassName}`}>{formatNumberFa(index.currentValue, 0)}</p>
-            <span
-                className={`text-xs font-black ${changeTone(index.changePercent)} ${ltrNumericClassName}`}>{formatPercentFa(index.changePercent, 2)}</span>
-            <div className="text-xs"><span className="ml-2 text-white/40 sm:hidden">تغییر</span><strong
-                className={`${changeTone(index.changeValue)} ${ltrNumericClassName}`}>{formatNumberFa(index.changeValue, 0)}</strong>
+        <article className="market-index-row">
+            <p className="market-index-name">{index.indexName}</p>
+            <div className="market-index-cell">
+                <span className="market-index-cell-label">مقدار</span>
+                <span className={`market-index-cell-value text-white ${ltrNumericClassName}`}>
+                    {formatNumberFa(index.currentValue, 0)}
+                </span>
             </div>
-            <div className="text-xs"><span className="ml-2 text-white/40 sm:hidden">بیشترین</span><strong
-                className={`text-white/75 ${ltrNumericClassName}`}>{formatNumberFa(index.dayHighValue, 0)}</strong>
+            <div className="market-index-cell">
+                <span className="market-index-cell-label">درصد</span>
+                <span className={`market-index-cell-value ${changeTone(index.changePercent)} ${ltrNumericClassName}`}>
+                    {formatPercentFa(index.changePercent, 2)}
+                </span>
+            </div>
+            <div className="market-index-cell">
+                <span className="market-index-cell-label">تغییر</span>
+                <span className={`market-index-cell-value ${changeTone(index.changeValue)} ${ltrNumericClassName}`}>
+                    {formatNumberFa(index.changeValue, 0)}
+                </span>
+            </div>
+            <div className="market-index-cell">
+                <span className="market-index-cell-label">بیشترین</span>
+                <span className={`market-index-cell-value text-white/75 ${ltrNumericClassName}`}>
+                    {formatNumberFa(index.dayHighValue, 0)}
+                </span>
             </div>
         </article>
     );
@@ -71,6 +100,26 @@ export default function MarketOverviewSection({data, onLogin, onRegister}: Props
     const indexPercent = overview?.totalIndexValue ? (overview.totalIndexChange / overview.totalIndexValue) * 100 : 0;
     const boursePopular = data.popularSymbols.filter((s) => s.marketId === 1).slice(0, 9);
     const faraboursePopular = data.popularSymbols.filter((s) => s.marketId === 2).slice(0, 9);
+    const summaryStats = [
+        {
+            label: 'معاملات',
+            value: overview?.totalTradeCount,
+            icon: BarChart3,
+            compact: false,
+        },
+        {
+            label: 'ارزش معاملات',
+            value: overview?.totalTradeValue,
+            icon: CircleDollarSign,
+            compact: true,
+        },
+        {
+            label: 'حجم معاملات',
+            value: overview?.totalTradeVolume,
+            icon: Activity,
+            compact: true,
+        },
+    ] as const;
 
     return <section id="market"
                     className="market-overview-section landing-section border-y border-white/8 py-16 sm:py-20">
@@ -82,34 +131,75 @@ export default function MarketOverviewSection({data, onLogin, onRegister}: Props
                 <p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-[#AFC1D8]">از شاخص‌های اصلی تا نمادهای
                     پرتحرک و تازه‌ترین پیام‌های ناظر؛ همه‌چیز برای یک تصمیم آگاهانه، یک‌جا و به‌روز.</p></div>
 
-            <div className="mt-7 flex gap-2">{([1, 2] as MarketTab[]).map((id) => <button key={id}
-                                                                                          onClick={() => setMarketTab(id)}
-                                                                                          className={`rounded-lg px-5 py-2.5 text-sm font-black transition ${marketTab === id ? 'bg-[#00E5C9] text-[#061221]' : 'border border-white/12 bg-white/5 text-white/70'}`}>{MARKET_LABELS[id]}</button>)}</div>
+            <div className="market-overview-board mt-7 overflow-hidden rounded-2xl border border-white/10 bg-[#0B172B]">
+                <div className="market-board-header">
+                    <p className="text-sm font-black text-white/55">نمای کلی بازار</p>
+                    <div className="market-board-tabs">
+                        {([1, 2] as MarketTab[]).map((id) => (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => setMarketTab(id)}
+                                className={`market-board-tab ${marketTab === id ? 'market-board-tab-active' : 'market-board-tab-inactive'}`}
+                            >
+                                {MARKET_LABELS[id]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
 
-            <div className="market-overview-board mt-5 overflow-hidden rounded-2xl border border-white/10 bg-[#0B172B]">
-                <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-                    <div className="min-w-[250px] p-5">
-                        <div className="flex items-center gap-2"><p className="text-sm font-black text-white/65">شاخص
-                            کل {MARKET_LABELS[marketTab]}</p><span
-                            className={`rounded-full px-2.5 py-1 text-[11px] font-black ${overview?.marketStateTitle === 'باز' ? 'bg-[#21E6B7]/12 text-[#21E6B7]' : 'bg-[#FF667A]/12 text-[#FF667A]'}`}>{overview?.marketStateTitle || 'نامشخص'}</span>
+                <div className="market-board-summary">
+                    <div className="market-board-hero">
+                        <div className="market-board-hero-label">
+                            <span>شاخص کل {MARKET_LABELS[marketTab]}</span>
+                            <span className={marketStatusClass(overview?.marketStateTitle)}>
+                                {overview?.marketStateTitle || 'نامشخص'}
+                            </span>
                         </div>
-                        <div className="mt-3 flex items-baseline gap-3" dir="ltr"><p
-                            className={`text-3xl font-black text-white ${ltrNumericClassName}`}>{overview ? formatNumberFa(overview.totalIndexValue, 0) : '—'}</p>
-                            <p className={`text-sm font-black ${changeTone(indexPercent)} ${ltrNumericClassName}`}>{overview ? formatPercentFa(indexPercent, 2) : '—'}</p>
+                        <div className="market-board-hero-value" dir="ltr">
+                            <span className={`market-board-hero-number ${ltrNumericClassName}`}>
+                                {overview ? formatNumberFa(overview.totalIndexValue, 0) : '—'}
+                            </span>
+                            <span className={`${heroChangeClass(indexPercent)} ${ltrNumericClassName}`}>
+                                {overview ? formatPercentFa(indexPercent, 2) : '—'}
+                            </span>
                         </div>
                     </div>
-                    <div
-                        className="grid flex-1 border-t border-white/8 sm:grid-cols-3 lg:border-r lg:border-t-0">{[['معاملات', overview?.totalTradeCount], ['ارزش معاملات', overview?.totalTradeValue], ['حجم معاملات', overview?.totalTradeVolume]].map(([label, value]) =>
-                        <div key={String(label)}
-                             className="border-b border-white/8 p-4 last:border-b-0 sm:border-b-0 sm:border-l sm:last:border-l-0">
-                            <span className="text-xs font-semibold text-white/40">{label}</span><strong
-                            className={`mt-2 block text-sm text-white ${ltrNumericClassName}`}>{typeof value === 'number' ? formatNumberFa(value, 0) : '—'}</strong>
-                        </div>)}</div>
+
+                    <div className="market-board-stats">
+                        {summaryStats.map(({label, value, icon: Icon, compact}) => (
+                            <div key={label} className="market-board-stat">
+                                <span className="market-board-stat-label">
+                                    <span className="market-board-stat-icon">
+                                        <Icon className="h-3.5 w-3.5" aria-hidden="true"/>
+                                    </span>
+                                    {label}
+                                </span>
+                                <strong
+                                    className={`market-board-stat-value ${ltrNumericClassName}`}
+                                    title={typeof value === 'number' ? formatNumberFa(value, 0) : undefined}
+                                >
+                                    {typeof value === 'number'
+                                        ? compact
+                                            ? formatCompactAmountFa(value)
+                                            : formatNumberFa(value, 0)
+                                        : '—'}
+                                </strong>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div
-                    className="hidden grid-cols-[1.3fr_0.8fr_0.55fr_0.7fr_0.7fr] border-y border-white/8 bg-white/[0.025] px-3 py-2 text-[11px] font-semibold text-white/35 sm:grid">
-                    <span>شاخص</span><span>مقدار</span><span>درصد</span><span>تغییر</span><span>بیشترین</span></div>
-                <div>{indexes.slice(0, 6).map((index) => <IndexCard key={index.indexCode} index={index}/>)}</div>
+
+                <div className="market-board-table-head">
+                    <span>شاخص</span>
+                    <span>مقدار</span>
+                    <span>درصد</span>
+                    <span>تغییر</span>
+                    <span>بیشترین</span>
+                </div>
+                <div>
+                    {indexes.slice(0, 6).map((index) => <IndexCard key={index.indexCode} index={index}/>)}
+                </div>
             </div>
 
             <div className="mt-6 grid items-start gap-5 lg:grid-cols-2">
