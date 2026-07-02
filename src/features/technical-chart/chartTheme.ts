@@ -38,6 +38,7 @@ export const buildLightweightChartOptions = (
             background: {type: ColorType.Solid, color: colors.background},
             textColor: colors.text,
             fontFamily: 'Vazirmatn, sans-serif',
+            attributionLogo: false,
         },
         grid: {
             vertLines: {color: colors.grid},

@@ -6,6 +6,7 @@ import {
     ChevronLeft,
     Github,
     GraduationCap,
+    type LucideIcon,
     Mail,
     MapPinned,
     Menu,
@@ -16,12 +17,14 @@ import {
     Sparkles,
     Trophy,
     UserPlus,
-    WalletCards,
     X,
-    type LucideIcon,
 } from 'lucide-react';
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useState} from 'react';
 import heroImage from './assets/boors-azma-hero-fintech.png';
+import BourseAzmaLogo from './components/BourseAzmaLogo';
+import MarketOverviewSection from './features/market-overview/MarketOverviewSection';
+import MarketTickerStrip from './features/market-overview/MarketTickerStrip';
+import {buildTickerItems, useLandingMarketData} from './features/market-overview/useLandingMarketData';
 
 type LandingPageProps = {
     onLogin: () => void;
@@ -37,17 +40,12 @@ type Feature = {
 
 const navItems = [
     {label: 'صفحه اصلی', href: '#home'},
+    {label: 'نمای بازار', href: '#market'},
     {label: 'معرفی', href: '#about'},
     {label: 'ارتباط با ما', href: '#contact'},
 ];
 
-const headerIcons = [
-    {label: 'نمودار کندل', icon: ChartCandlestick},
-    {label: 'کیف پول دمو', icon: WalletCards},
-    {label: 'امنیت حساب', icon: ShieldCheck},
-];
-
-const trustSignals = ['رایگان', 'بدون ریسک واقعی', 'شبیه‌سازی ۱۰۰٪ واقعی'];
+const trustSignals = ['داده‌های زنده بازار', 'سرمایه دمو قابل تنظیم', 'تمرین روی نمادهای واقعی'];
 
 const features: Feature[] = [
     {
@@ -75,83 +73,27 @@ const features: Feature[] = [
         accent: 'gold',
     },
     {
-        title: 'امنیت بالا و محیط بدون ریسک',
-        description: 'تمرکز کامل روی یادگیری و آزمون استراتژی‌ها، بدون فشار روانی زیان مالی و با تجربه کاربری امن.',
+        title: 'تمرکز روی یادگیری و آزمون استراتژی',
+        description: 'فضایی برای تمرین سناریوهای معاملاتی، مقایسه تصمیم‌ها و ساخت عادت‌های بهتر قبل از ورود جدی به بازار.',
         icon: ShieldCheck,
         accent: 'teal',
     },
 ];
 
-const tickerItems = [
-    'شاخص کل ۲,۱۸۴,۹۲۰  +۱.۲۴٪',
-    'فولاد  ۷,۸۴۰  +۰.۸٪',
-    'شستا  ۱,۲۹۰  -۰.۳٪',
-    'خودرو  ۳,۴۲۰  +۲.۱٪',
-    'وبملت  ۶,۱۱۰  +۱.۶٪',
-    'رمپنا  ۱۲,۷۰۰  +۰.۹٪',
-];
-
 const teamMembers = [
     {
-        name: 'مهندس عرفان داوودی‌نصر',
+        name: 'عرفان داوودی نصر',
         email: 'davoodinasr.erfan@gmail.com',
         github: 'ErfanDavoodiNasr',
         icon: Activity,
     },
     {
-        name: 'مهندس محسن جلیلی',
+        name: 'محسن جلیلی',
         email: 'mohsenjalili@ut.ac.ir',
         github: 'reallermaker',
         icon: Radar,
     },
 ];
-
-function BoorsAzmaLogo({compact = false}: { compact?: boolean }) {
-    return (
-        <div className="flex items-center gap-3">
-            <svg
-                viewBox="0 0 64 64"
-                aria-hidden="true"
-                className={`${compact ? 'h-10 w-10' : 'h-12 w-12'} shrink-0 drop-shadow-[0_0_22px_rgba(0,229,201,0.38)]`}
-            >
-                <defs>
-                    <linearGradient id="logoStroke" x1="10" x2="56" y1="56" y2="8" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#00E5C9"/>
-                        <stop offset="1" stopColor="#FFB300"/>
-                    </linearGradient>
-                    <linearGradient id="logoBg" x1="8" x2="56" y1="8" y2="56" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#10203D"/>
-                        <stop offset="1" stopColor="#081225"/>
-                    </linearGradient>
-                </defs>
-                <rect x="5" y="5" width="54" height="54" rx="8" fill="url(#logoBg)" stroke="#1F3B5C"/>
-                <path
-                    d="M17 38c0 8 6.2 12 18.7 12H47"
-                    fill="none"
-                    stroke="url(#logoStroke)"
-                    strokeLinecap="round"
-                    strokeWidth="6"
-                />
-                <circle cx="27" cy="53" r="3.3" fill="#FFB300"/>
-                <path
-                    d="M19 31l8-7 7 5 12-15"
-                    fill="none"
-                    stroke="#00E5C9"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="3"
-                />
-                <path d="M46 14v11h-10" fill="none" stroke="#FFB300" strokeLinecap="round" strokeWidth="3"/>
-            </svg>
-            {!compact ? (
-                <div>
-                    <p className="text-lg font-black leading-5 text-white">بورس‌آزما</p>
-                    <p className="mt-1 text-[11px] font-semibold text-[#00E5C9]">Boors Azma</p>
-                </div>
-            ) : null}
-        </div>
-    );
-}
 
 function IconBadge({icon: Icon, accent = 'teal'}: { icon: LucideIcon; accent?: 'teal' | 'gold' }) {
     return (
@@ -167,24 +109,11 @@ function IconBadge({icon: Icon, accent = 'teal'}: { icon: LucideIcon; accent?: '
     );
 }
 
-function TickerStrip() {
-    const ticker = [...tickerItems, ...tickerItems];
-    return (
-        <div className="landing-ticker" dir="ltr" aria-label="نمای زنده بازار">
-            <div className="landing-ticker-track">
-                {ticker.map((item, index) => (
-                    <span key={`${item}-${index}`} className="landing-ticker-item">
-                        {item}
-                    </span>
-                ))}
-            </div>
-        </div>
-    );
-}
-
 export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const marketData = useLandingMarketData(true);
+    const tickerItems = useMemo(() => buildTickerItems(marketData), [marketData]);
 
     useEffect(() => {
         const updateHeader = () => setIsScrolled(window.scrollY > 18);
@@ -202,16 +131,35 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
 
     const closeMenu = () => setMenuOpen(false);
 
+    const [contactStatus, setContactStatus] = useState<'idle' | 'sent'>('idle');
+
     const submitContact = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+        const name = String(formData.get('name') ?? '').trim();
+        const email = String(formData.get('email') ?? '').trim();
+        const subject = String(formData.get('subject') ?? '').trim();
+        const message = String(formData.get('message') ?? '').trim();
+
+        const body = [
+            name ? `نام: ${name}` : '',
+            email ? `ایمیل: ${email}` : '',
+            '',
+            message,
+        ].filter((line, index, lines) => line !== '' || (index > 0 && lines[index - 1] !== '')).join('\n');
+
+        const mailto = `mailto:info@bourseazma.ir?subject=${encodeURIComponent(subject || 'پیام از وب‌سایت بورس‌آزما')}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailto;
+        setContactStatus('sent');
     };
 
     return (
         <div className="landing-shell bg-[#0A1428] text-white" dir="rtl">
             <header className={`landing-header ${isScrolled ? 'landing-header-solid' : ''}`}>
                 <div className="mx-auto flex h-20 w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4">
-                    <a href="#home" className="shrink-0" aria-label="بورس‌آزما">
-                        <BoorsAzmaLogo/>
+                    <a href="#home" className="shrink-0" aria-label="بورس آزما">
+                        <BourseAzmaLogo/>
                     </a>
 
                     <nav className="hidden items-center gap-2 lg:flex" aria-label="ناوبری اصلی">
@@ -225,18 +173,6 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                             </a>
                         ))}
                     </nav>
-
-                    <div className="hidden items-center gap-2 xl:flex" aria-label="ابزارهای معاملاتی">
-                        {headerIcons.map(({label, icon: Icon}) => (
-                            <span
-                                key={label}
-                                title={label}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/6 text-[#00E5C9]"
-                            >
-                                <Icon className="h-5 w-5" strokeWidth={1.7}/>
-                            </span>
-                        ))}
-                    </div>
 
                     <div className="hidden items-center gap-2 lg:flex">
                         <button
@@ -267,7 +203,8 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                 </div>
 
                 {menuOpen ? (
-                    <div className="mx-auto mb-4 w-[min(1180px,calc(100%-32px))] rounded-lg border border-white/12 bg-[#0B172D]/95 p-3 shadow-2xl lg:hidden">
+                    <div
+                        className="mx-auto mb-4 w-[min(1180px,calc(100%-32px))] rounded-lg border border-white/12 bg-[#0B172D]/95 p-3 shadow-2xl lg:hidden">
                         <div className="grid gap-2">
                             {navItems.map((item) => (
                                 <a
@@ -307,7 +244,8 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
             </header>
 
             <main>
-                <section id="home" className="landing-hero relative flex min-h-[92svh] items-center overflow-hidden pt-24">
+                <section id="home"
+                         className="landing-hero relative flex min-h-[92svh] items-center overflow-hidden pt-24">
                     <div
                         className="landing-hero-image"
                         style={{backgroundImage: `url(${heroImage})`}}
@@ -316,17 +254,19 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                     <div className="landing-data-grid" aria-hidden="true"/>
                     <div className="landing-scanline" aria-hidden="true"/>
 
-                    <div className="relative z-10 mx-auto flex w-[min(1180px,calc(100%-32px))] flex-col gap-10 py-16 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="relative z-10 mx-auto w-[min(1180px,calc(100%-32px))] py-16">
                         <div className="max-w-3xl">
-                            <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#00E5C9]/24 bg-[#00E5C9]/8 px-3 py-2 text-xs font-bold text-[#BFFFF7]">
+                            <div
+                                className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#00E5C9]/24 bg-[#00E5C9]/8 px-3 py-2 text-xs font-bold text-[#BFFFF7]">
                                 <Sparkles className="h-4 w-4 text-[#FFB300]"/>
-                                شبیه‌سازی حرفه‌ای معاملات بورس ایران
+                                تمرین حرفه‌ای معاملات بورس ایران
                             </div>
                             <h1 className="max-w-4xl text-4xl font-black leading-[1.35] text-white sm:text-5xl lg:text-7xl">
-                                آینده ترید را همین امروز تجربه کن
+                                بازار را قبل از معامله واقعی تجربه کن
                             </h1>
                             <p className="mt-6 max-w-2xl text-base font-medium leading-8 text-[#D8E6F7] sm:text-lg">
-                                بورس‌آزما — پلتفرم دمو و شبیه‌سازی حرفه‌ای معاملات بورس با محیط واقعی
+                                بورس آزما محیطی برای تمرین تصمیم‌گیری، مدیریت سرمایه و تحلیل نمادهای بازار سرمایه ایران
+                                است.
                             </p>
 
                             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -335,7 +275,7 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                                     onClick={onRegister}
                                     className="landing-glow-button inline-flex items-center justify-center gap-2 rounded-lg bg-[#00E5C9] px-6 py-3.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8]"
                                 >
-                                    همین حالا ثبت‌نام کن
+                                    شروع تمرین معامله‌گری
                                     <ArrowLeft className="h-4 w-4"/>
                                 </button>
                                 <button
@@ -360,88 +300,12 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                                 ))}
                             </div>
                         </div>
-
-                        <div className="landing-market-panel w-full max-w-[460px]">
-                            <div className="mb-5 flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs font-bold text-white/54">نمای دمو بازار</p>
-                                    <p className="mt-1 text-2xl font-black text-white">پرتفوی آزمون</p>
-                                </div>
-                                <span className="rounded-lg border border-[#00E5C9]/25 bg-[#00E5C9]/10 px-3 py-2 text-xs font-black text-[#00E5C9]">
-                                    زنده
-                                </span>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="landing-metric">
-                                    <span>بازده امروز</span>
-                                    <strong className="text-[#00E5C9]">+۳.۸۴٪</strong>
-                                </div>
-                                <div className="landing-metric">
-                                    <span>ریسک واقعی</span>
-                                    <strong className="text-[#FFB300]">۰ ریال</strong>
-                                </div>
-                            </div>
-
-                            <div className="mt-5 h-36 rounded-lg border border-white/10 bg-[#071225]/78 p-4">
-                                <svg viewBox="0 0 360 120" className="h-full w-full" aria-hidden="true">
-                                    <path
-                                        d="M8 92C35 84 48 49 76 58C102 67 104 93 132 79C160 65 164 26 192 34C222 43 219 70 249 58C279 46 297 20 352 26"
-                                        fill="none"
-                                        stroke="#00E5C9"
-                                        strokeLinecap="round"
-                                        strokeWidth="4"
-                                    />
-                                    <path
-                                        d="M8 101C56 93 77 87 111 88C151 89 168 70 202 74C239 78 254 63 292 58C318 55 334 49 352 41"
-                                        fill="none"
-                                        stroke="#FFB300"
-                                        strokeDasharray="7 8"
-                                        strokeLinecap="round"
-                                        strokeWidth="3"
-                                    />
-                                    {[38, 80, 126, 174, 220, 272, 326].map((x, index) => (
-                                        <g key={x}>
-                                            <line
-                                                x1={x}
-                                                x2={x}
-                                                y1={24 + (index % 3) * 9}
-                                                y2={92 - (index % 2) * 12}
-                                                stroke={index % 2 === 0 ? '#00E5C9' : '#FFB300'}
-                                                strokeLinecap="round"
-                                                strokeWidth="3"
-                                            />
-                                            <rect
-                                                x={x - 6}
-                                                y={45 + (index % 4) * 8}
-                                                width="12"
-                                                height="26"
-                                                rx="2"
-                                                fill={index % 2 === 0 ? '#00E5C9' : '#FFB300'}
-                                                opacity="0.88"
-                                            />
-                                        </g>
-                                    ))}
-                                </svg>
-                            </div>
-
-                            <div className="mt-4 space-y-2">
-                                {[
-                                    ['فولاد', '+۲.۴٪', '#00E5C9'],
-                                    ['وبملت', '+۱.۷٪', '#00E5C9'],
-                                    ['خودرو', '-۰.۶٪', '#FFB300'],
-                                ].map(([symbol, value, color]) => (
-                                    <div key={symbol} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                                        <span className="text-sm font-bold text-white/78">{symbol}</span>
-                                        <span className="text-sm font-black" style={{color}}>{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
                     </div>
                 </section>
 
-                <TickerStrip/>
+                <MarketTickerStrip items={tickerItems}/>
+
+                <MarketOverviewSection data={marketData} onLogin={onLogin} onRegister={onRegister}/>
 
                 <section id="features" className="landing-section py-20 sm:py-24">
                     <div className="mx-auto w-[min(1180px,calc(100%-32px))]">
@@ -465,39 +329,35 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                 </section>
 
                 <section id="about" className="landing-section border-y border-white/8 bg-white/[0.025] py-20 sm:py-24">
-                    <div className="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+                    <div
+                        className="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
                         <div>
                             <span className="text-sm font-black text-[#FFB300]">معرفی</span>
-                            <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">درباره بورس‌آزما</h2>
+                            <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">درباره
+                                بورس‌آزما</h2>
                             <p className="mt-6 text-base font-medium leading-9 text-[#D8E6F7]">
-                                بورس‌آزما یک پلتفرم شبیه‌سازی و آموزش معاملات بورس است که توسط دو مهندس با تجربه توسعه یافته. هدف ما فراهم کردن محیطی امن و واقعی برای تمرین ترید بدون ریسک مالی است.
+                                بورس‌آزما پلتفرمی برای تمرین معامله‌گری روی داده‌های واقعی بازار سرمایه ایران است.
+                                اینجا می‌توانید بدون ریسک سرمایه واقعی، استراتژی بسازید، سفارش ثبت کنید و عملکرد خود را
+                                بسنجید.
                             </p>
-                            <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                                {[
-                                    ['سرمایه دمو', 'قابل تنظیم'],
-                                    ['تمرکز', 'بورس ایران'],
-                                    ['تجربه', 'بدون ریسک'],
-                                ].map(([title, value]) => (
-                                    <div key={title} className="rounded-lg border border-white/10 bg-white/6 p-4">
-                                        <p className="text-xs font-bold text-white/52">{title}</p>
-                                        <p className="mt-2 text-lg font-black text-white">{value}</p>
-                                    </div>
-                                ))}
-                            </div>
+                            <p className="mt-4 text-sm font-medium leading-8 text-[#AFC1D8]">
+                                تمرکز ما روی تجربه‌ای نزدیک به بازار واقعی، ابزارهای تحلیلی کاربردی و محیطی است که
+                                یادگیری و تمرین را جدی بگیرد.
+                            </p>
                         </div>
 
-                        <div className="grid gap-4">
+                        <div className="grid gap-3">
                             {teamMembers.map(({name, email, github, icon: Icon}) => (
                                 <article key={email} className="landing-team-card">
-                                    <div className="flex items-start gap-4">
+                                    <div className="flex items-start gap-3">
                                         <span className="landing-team-avatar">
-                                            <Icon className="h-7 w-7"/>
+                                            <Icon className="h-5 w-5"/>
                                         </span>
                                         <div className="min-w-0 flex-1">
-                                            <h3 className="text-lg font-black text-white">{name}</h3>
+                                            <h3 className="text-base font-semibold text-white">{name}</h3>
                                             <a
                                                 href={`mailto:${email}`}
-                                                className="mt-2 block break-all text-sm font-semibold text-[#B7C9DE] transition hover:text-[#00E5C9]"
+                                                className="mt-1.5 block break-all text-sm text-[#9FB4CD] transition hover:text-[#00E5C9]"
                                             >
                                                 {email}
                                             </a>
@@ -505,10 +365,10 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                                                 href={`https://github.com/${github}`}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/12 bg-white/6 px-3 py-2 text-xs font-black text-white transition hover:border-[#00E5C9]/45 hover:text-[#00E5C9]"
+                                                className="mt-2 inline-flex items-center gap-1.5 text-xs text-white/55 transition hover:text-[#00E5C9]"
                                             >
-                                                <Github className="h-4 w-4"/>
-                                                GitHub: {github}
+                                                <Github className="h-3.5 w-3.5"/>
+                                                {github}
                                             </a>
                                         </div>
                                     </div>
@@ -523,61 +383,57 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                         <div>
                             <span className="text-sm font-black text-[#00E5C9]">ارتباط با ما</span>
                             <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">
-                                برای همکاری، بازخورد یا توسعه نسخه بعدی در تماس باشید
+                                همکاری، دمو و ارتباط با ما
                             </h2>
+                            <p className="mt-4 text-sm font-medium leading-8 text-[#AFC1D8]">
+                                برای همکاری، دریافت دمو یا طرح پرسش، از طریق فرم یا ایمیل با ما در تماس باشید.
+                            </p>
                             <div className="mt-8 space-y-3">
                                 <a
-                                    href="mailto:mohsenjalili@ut.ac.ir"
+                                    href="mailto:info@bourseazma.ir"
                                     className="landing-contact-link"
                                 >
                                     <Mail className="h-5 w-5 text-[#00E5C9]"/>
-                                    mohsenjalili@ut.ac.ir
+                                    info@bourseazma.ir
                                 </a>
                                 <a
-                                    href="mailto:davoodinasr.erfan@gmail.com"
-                                    className="landing-contact-link"
-                                >
-                                    <Mail className="h-5 w-5 text-[#FFB300]"/>
-                                    davoodinasr.erfan@gmail.com
-                                </a>
-                                <a
-                                    href="https://github.com/reallermaker"
+                                    href="https://github.com/bourse-azma"
                                     target="_blank"
                                     rel="noreferrer"
                                     className="landing-contact-link"
                                 >
-                                    <Github className="h-5 w-5 text-[#00E5C9]"/>
-                                    github.com/reallermaker
+                                    <Github className="h-5 w-5 text-[#FFB300]"/>
+                                    github.com/bourse-azma
                                 </a>
                             </div>
 
                             <div className="landing-map mt-8">
                                 <MapPinned className="h-6 w-6 text-[#FFB300]"/>
-                                <div>
-                                    <p className="text-sm font-black text-white">طراحی و توسعه در ایران</p>
-                                    <p className="mt-1 text-xs font-semibold text-[#9FB4CD]">فین‌تک فارسی، تمرکز بر تجربه بورس ایران</p>
-                                </div>
+                                <p className="text-sm font-semibold text-white">تهران، مرکزی</p>
                             </div>
                         </div>
 
                         <form className="landing-contact-form" onSubmit={submitContact}>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <label className="block">
-                                    <span className="mb-2 block text-xs font-bold text-white/68">نام و نام خانوادگی</span>
-                                    <input className="landing-input" placeholder="نام شما"/>
+                                    <span
+                                        className="mb-2 block text-xs font-bold text-white/68">نام و نام خانوادگی</span>
+                                    <input className="landing-input" name="name" placeholder="نام شما"/>
                                 </label>
                                 <label className="block">
                                     <span className="mb-2 block text-xs font-bold text-white/68">ایمیل</span>
-                                    <input className="landing-input" type="email" placeholder="email@example.com" dir="ltr"/>
+                                    <input className="landing-input" name="email" type="email"
+                                           placeholder="email@example.com" dir="ltr"/>
                                 </label>
                             </div>
                             <label className="mt-4 block">
                                 <span className="mb-2 block text-xs font-bold text-white/68">موضوع</span>
-                                <input className="landing-input" placeholder="موضوع پیام"/>
+                                <input className="landing-input" name="subject" placeholder="موضوع پیام"/>
                             </label>
                             <label className="mt-4 block">
                                 <span className="mb-2 block text-xs font-bold text-white/68">پیام</span>
-                                <textarea className="landing-input min-h-32 resize-y" placeholder="پیام خود را بنویسید"/>
+                                <textarea className="landing-input min-h-32 resize-y" name="message"
+                                          placeholder="پیام خود را بنویسید"/>
                             </label>
                             <button
                                 type="submit"
@@ -586,16 +442,22 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                                 <Send className="h-4 w-4"/>
                                 ارسال پیام
                             </button>
+                            {contactStatus === 'sent' ? (
+                                <p className="mt-3 text-xs font-semibold text-[#00E5C9]">
+                                    برنامه ایمیل شما باز می‌شود. پیام را از آنجا ارسال کنید.
+                                </p>
+                            ) : null}
                         </form>
                     </div>
                 </section>
             </main>
 
-            <footer className="landing-section border-t border-white/8 py-10">
-                <div className="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-8 lg:grid-cols-[1.3fr_0.7fr_0.7fr]">
+            <footer className="landing-footer landing-section border-t border-white/8 pt-12 text-right" dir="rtl">
+                <div
+                    className="mx-auto grid w-[min(1180px,calc(100%-32px))] items-start gap-10 md:grid-cols-[1.35fr_0.65fr_0.8fr]">
                     <div>
-                        <BoorsAzmaLogo compact/>
-                        <p className="mt-4 max-w-md text-sm font-medium leading-7 text-[#AFC1D8]">
+                        <BourseAzmaLogo/>
+                        <p className="max-w-md text-sm font-medium leading-7 text-[#AFC1D8]">
                             بورس‌آزما فضای حرفه‌ای تمرین، آموزش و رقابت معامله‌گران بازار سرمایه ایران است.
                         </p>
                     </div>
@@ -603,33 +465,32 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                         <h3 className="text-sm font-black text-white">لینک‌های سریع</h3>
                         <div className="mt-3 grid gap-2">
                             {navItems.map((item) => (
-                                <a key={item.href} href={item.href} className="text-sm font-semibold text-[#AFC1D8] hover:text-[#00E5C9]">
+                                <a key={item.href} href={item.href}
+                                   className="text-sm font-semibold text-[#AFC1D8] hover:text-[#00E5C9]">
                                     {item.label}
                                 </a>
                             ))}
                         </div>
                     </div>
                     <div>
-                        <h3 className="text-sm font-black text-white">شبکه‌ها</h3>
-                        <div className="mt-3 flex gap-2">
-                            {['reallermaker', 'ErfanDavoodiNasr'].map((github) => (
-                                <a
-                                    key={github}
-                                    href={`https://github.com/${github}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/12 bg-white/6 text-white transition hover:border-[#00E5C9]/45 hover:text-[#00E5C9]"
-                                    aria-label={`GitHub ${github}`}
-                                >
-                                    <Github className="h-5 w-5"/>
-                                </a>
-                            ))}
+                        <h3 className="text-sm font-black text-white">اطلاعات تماس</h3>
+                        <div className="mt-4 grid gap-3 text-sm font-semibold text-[#AFC1D8]">
+                            <a href="mailto:info@bourseazma.ir"
+                               className="inline-flex items-center justify-start gap-2 text-right transition hover:text-[#00E5C9]">
+                                <Mail className="h-4 w-4 shrink-0"/> <span dir="ltr">info@bourseazma.ir</span>
+                            </a>
+                            <span className="inline-flex items-center gap-2"><MapPinned
+                                className="h-4 w-4 text-[#FFB300]"/> تهران، مرکزی</span>
+                            <a href="https://github.com/bourse-azma" target="_blank" rel="noreferrer"
+                               className="inline-flex items-center gap-2 transition hover:text-[#00E5C9]">
+                                <Github className="h-4 w-4"/> گیت‌هاب بورس‌آزما
+                            </a>
                         </div>
                     </div>
                 </div>
-                <div className="mx-auto mt-8 flex w-[min(1180px,calc(100%-32px))] flex-col gap-2 border-t border-white/8 pt-6 text-xs font-semibold text-[#8EA6C4] sm:flex-row sm:items-center sm:justify-between">
+                <div
+                    className="mx-auto mt-10 flex w-[min(1180px,calc(100%-32px))] justify-center py-6 text-center text-xs font-semibold text-[#8EA6C4]">
                     <span>© ۲۰۲۶ بورس‌آزما. همه حقوق محفوظ است.</span>
-                    <span>ساخته شده با ❤️ در ایران</span>
                 </div>
             </footer>
         </div>

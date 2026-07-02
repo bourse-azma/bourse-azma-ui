@@ -9,9 +9,12 @@ type RequiredEnvKey =
     | 'VITE_TSETMC_BEST_LIMITS_API_PATH'
     | 'VITE_TSETMC_CLIENT_TYPE_API_PATH'
     | 'VITE_TSETMC_CODAL_NOTICES_API_PATH'
+    | 'VITE_TSETMC_LATEST_CODAL_NOTICES_API_PATH'
     | 'VITE_TSETMC_ETF_INFO_API_PATH'
     | 'VITE_TSETMC_RELATED_COMPANIES_API_PATH'
     | 'VITE_TSETMC_MOST_VISITED_API_PATH'
+    | 'VITE_TSETMC_SELECTED_INDEXES_API_PATH'
+    | 'VITE_TSETMC_INSTRUMENT_EFFECTS_API_PATH'
     | 'VITE_SYMBOL_SEARCH_API_BASE_URL'
     | 'VITE_SYMBOL_SEARCH_API_PATH'
     | 'VITE_CODAL_API_BASE_URL'
@@ -19,6 +22,8 @@ type RequiredEnvKey =
     | 'VITE_AUTH_API_BASE_URL'
     | 'VITE_SYMBOL_SEARCH_DEBOUNCE_MS'
     | 'VITE_MARKET_OVERVIEW_REFRESH_MS'
+    | 'VITE_LANDING_MARKET_REFRESH_MS'
+    | 'VITE_LANDING_CODAL_REFRESH_MS'
     | 'VITE_CODAL_NOTICES_REFRESH_MS'
     | 'VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'
     | 'VITE_TSETMC_CHART_REFRESH_MS'
@@ -59,9 +64,12 @@ export const appConfig = Object.freeze({
     tsetmcBestLimitsApiPath: getRequiredEnv('VITE_TSETMC_BEST_LIMITS_API_PATH'),
     tsetmcClientTypeApiPath: getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_API_PATH'),
     tsetmcCodalNoticesApiPath: getRequiredEnv('VITE_TSETMC_CODAL_NOTICES_API_PATH'),
+    tsetmcLatestCodalNoticesApiPath: getRequiredEnv('VITE_TSETMC_LATEST_CODAL_NOTICES_API_PATH'),
     tsetmcEtfInfoApiPath: getRequiredEnv('VITE_TSETMC_ETF_INFO_API_PATH'),
     tsetmcRelatedCompaniesApiPath: getRequiredEnv('VITE_TSETMC_RELATED_COMPANIES_API_PATH'),
     tsetmcMostVisitedApiPath: getRequiredEnv('VITE_TSETMC_MOST_VISITED_API_PATH'),
+    tsetmcSelectedIndexesApiPath: getRequiredEnv('VITE_TSETMC_SELECTED_INDEXES_API_PATH'),
+    tsetmcInstrumentEffectsApiPath: getRequiredEnv('VITE_TSETMC_INSTRUMENT_EFFECTS_API_PATH'),
     symbolSearchApiBaseUrl: getRequiredEnv('VITE_SYMBOL_SEARCH_API_BASE_URL'),
     symbolSearchApiPath: getRequiredEnv('VITE_SYMBOL_SEARCH_API_PATH'),
     symbolSearchDebounceMs: parsePositiveInt(
@@ -111,6 +119,14 @@ export const appConfig = Object.freeze({
     marketOverviewRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_MARKET_OVERVIEW_REFRESH_MS'),
         'VITE_MARKET_OVERVIEW_REFRESH_MS'
+    ),
+    landingMarketRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_LANDING_MARKET_REFRESH_MS'),
+        'VITE_LANDING_MARKET_REFRESH_MS'
+    ),
+    landingCodalRefreshMs: parsePositiveInt(
+        getRequiredEnv('VITE_LANDING_CODAL_REFRESH_MS'),
+        'VITE_LANDING_CODAL_REFRESH_MS'
     ),
     codalApiBaseUrl: getRequiredEnv('VITE_CODAL_API_BASE_URL'),
     codalNoticesApiPath: getRequiredEnv('VITE_CODAL_NOTICES_API_PATH'),

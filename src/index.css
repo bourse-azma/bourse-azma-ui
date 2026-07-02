@@ -86,9 +86,8 @@ html.dark {
         position: relative;
         min-height: 100%;
         overflow-x: hidden;
-        background:
-            linear-gradient(180deg, rgba(10, 20, 40, 0.96) 0%, rgba(6, 13, 26, 0.99) 52%, #081120 100%),
-            #0a1428;
+        background: linear-gradient(180deg, rgba(10, 20, 40, 0.96) 0%, rgba(6, 13, 26, 0.99) 52%, #081120 100%),
+        #0a1428;
         color: #ffffff;
         scroll-behavior: smooth;
     }
@@ -99,10 +98,9 @@ html.dark {
         z-index: 0;
         pointer-events: none;
         content: '';
-        background:
-            linear-gradient(90deg, rgba(0, 229, 201, 0.08), transparent 34%, rgba(255, 179, 0, 0.06)),
-            linear-gradient(135deg, rgba(0, 229, 201, 0.1), transparent 42%),
-            linear-gradient(180deg, transparent, rgba(8, 17, 32, 0.88));
+        background: linear-gradient(90deg, rgba(0, 229, 201, 0.08), transparent 34%, rgba(255, 179, 0, 0.06)),
+        linear-gradient(135deg, rgba(0, 229, 201, 0.1), transparent 42%),
+        linear-gradient(180deg, transparent, rgba(8, 17, 32, 0.88));
     }
 
     .landing-header {
@@ -137,9 +135,8 @@ html.dark {
         position: absolute;
         inset: 0;
         content: '';
-        background:
-            linear-gradient(90deg, rgba(10, 20, 40, 0.2), rgba(10, 20, 40, 0.72) 42%, rgba(10, 20, 40, 0.93) 76%),
-            linear-gradient(180deg, rgba(10, 20, 40, 0.16), rgba(10, 20, 40, 0.9));
+        background: linear-gradient(90deg, rgba(10, 20, 40, 0.2), rgba(10, 20, 40, 0.72) 42%, rgba(10, 20, 40, 0.93) 76%),
+        linear-gradient(180deg, rgba(10, 20, 40, 0.16), rgba(10, 20, 40, 0.9));
     }
 
     .landing-data-grid {
@@ -147,9 +144,8 @@ html.dark {
         inset: 0;
         z-index: 1;
         pointer-events: none;
-        background-image:
-            linear-gradient(rgba(0, 229, 201, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0, 229, 201, 0.07) 1px, transparent 1px);
+        background-image: linear-gradient(rgba(0, 229, 201, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 229, 201, 0.07) 1px, transparent 1px);
         background-size: 72px 72px;
         mask-image: linear-gradient(180deg, transparent, #000 18%, #000 76%, transparent);
         opacity: 0.28;
@@ -171,10 +167,9 @@ html.dark {
     }
 
     .landing-glow-button {
-        box-shadow:
-            0 0 0 1px rgba(0, 229, 201, 0.24),
-            0 0 28px -8px rgba(0, 229, 201, 0.9),
-            0 14px 34px -22px rgba(0, 229, 201, 0.8);
+        box-shadow: 0 0 0 1px rgba(0, 229, 201, 0.24),
+        0 0 28px -8px rgba(0, 229, 201, 0.9),
+        0 14px 34px -22px rgba(0, 229, 201, 0.8);
     }
 
     .landing-market-panel,
@@ -218,6 +213,13 @@ html.dark {
         font-weight: 900;
     }
 
+    .landing-market-card {
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(7, 18, 37, 0.68);
+    }
+
     .landing-ticker {
         position: relative;
         z-index: 1;
@@ -248,15 +250,29 @@ html.dark {
 
     .landing-ticker-track {
         display: flex;
+        direction: ltr;
         width: max-content;
-        gap: 12px;
         padding: 13px 0;
-        animation: landing-marquee 34s linear infinite;
+        will-change: transform;
+        animation: landing-marquee var(--ticker-duration, 90s) linear infinite;
+    }
+
+    .landing-ticker:hover .landing-ticker-track {
+        animation-play-state: paused;
+    }
+
+    .landing-ticker-group {
+        display: flex;
+        flex: none;
+        gap: 12px;
+        padding-inline-end: 12px;
     }
 
     .landing-ticker-item {
         display: inline-flex;
         align-items: center;
+        gap: 10px;
+        direction: rtl;
         min-width: max-content;
         border-radius: 8px;
         border: 1px solid rgba(0, 229, 201, 0.14);
@@ -265,6 +281,60 @@ html.dark {
         font-size: 12px;
         font-weight: 800;
         color: rgba(232, 242, 255, 0.9);
+    }
+
+    .landing-ticker-symbol {
+        min-width: 52px;
+        text-align: right;
+        color: #fff;
+    }
+
+    .landing-ticker-price {
+        min-width: 76px;
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+        color: rgba(216, 230, 247, 0.88);
+    }
+
+    .landing-ticker-change-positive,
+    .landing-ticker-change-negative {
+        min-width: 58px;
+        text-align: left;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .landing-ticker-change-positive {
+        color: #34D399;
+    }
+
+    .landing-ticker-change-negative {
+        color: #F87171;
+    }
+
+    .market-overview-section {
+        position: relative;
+        overflow: hidden;
+        background: radial-gradient(circle at 8% 8%, rgba(0, 229, 201, 0.13), transparent 30%),
+        radial-gradient(circle at 92% 22%, rgba(51, 94, 168, 0.12), transparent 28%),
+        linear-gradient(180deg, #0b1628 0%, #091426 100%);
+    }
+
+    .market-overview-heading {
+        position: relative;
+    }
+
+    .market-overview-heading::after {
+        display: block;
+        width: 72px;
+        height: 3px;
+        margin-top: 20px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, #00e5c9, rgba(0, 229, 201, 0));
+        content: '';
+    }
+
+    .market-overview-board {
+        box-shadow: 0 24px 70px rgba(1, 8, 20, 0.34), inset 0 1px rgba(255, 255, 255, 0.025);
     }
 
     .landing-feature-card {
@@ -293,22 +363,20 @@ html.dark {
     }
 
     .landing-team-card {
-        padding: 22px;
+        padding: 18px;
     }
 
     .landing-team-avatar {
         display: inline-flex;
-        width: 58px;
-        height: 58px;
+        width: 40px;
+        height: 40px;
         flex: 0 0 auto;
         align-items: center;
         justify-content: center;
         border-radius: 8px;
-        border: 1px solid rgba(0, 229, 201, 0.25);
-        background:
-            linear-gradient(145deg, rgba(0, 229, 201, 0.16), rgba(255, 179, 0, 0.08)),
-            rgba(255, 255, 255, 0.055);
-        color: #00e5c9;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(0, 229, 201, 0.85);
     }
 
     .landing-contact-link {
@@ -335,22 +403,108 @@ html.dark {
 
     .landing-map {
         display: flex;
-        min-height: 150px;
-        align-items: flex-end;
+        min-height: 64px;
+        align-items: center;
         gap: 14px;
         padding: 20px;
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        background:
-            linear-gradient(135deg, rgba(0, 229, 201, 0.08), rgba(255, 179, 0, 0.08)),
-            linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-            rgba(7, 18, 37, 0.76);
+        background: linear-gradient(135deg, rgba(0, 229, 201, 0.08), rgba(255, 179, 0, 0.08)),
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+        rgba(7, 18, 37, 0.76);
         background-size: auto, 34px 34px, 34px 34px, auto;
     }
 
     .landing-contact-form {
         padding: 24px;
+        align-self: start;
+    }
+
+    .auth-card {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
+        rgba(7, 18, 37, 0.82);
+        box-shadow: 0 24px 70px -44px rgba(0, 0, 0, 0.85),
+        0 0 0 1px rgba(0, 229, 201, 0.08);
+        backdrop-filter: blur(22px) saturate(135%);
+    }
+
+    .market-overview-hero-card,
+    .market-side-card,
+    .market-index-card {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.11);
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
+        box-shadow: 0 24px 70px -48px rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(18px) saturate(130%);
+        transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    .market-overview-hero-card {
+        padding: 22px;
+    }
+
+    .market-side-card,
+    .market-index-card {
+        padding: 18px;
+    }
+
+    .market-index-card:hover,
+    .market-side-card:hover {
+        border-color: rgba(0, 229, 201, 0.28);
+        transform: translateY(-2px);
+        box-shadow: 0 28px 80px -52px rgba(0, 229, 201, 0.45);
+    }
+
+    .market-stat-pill {
+        min-width: 92px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(7, 18, 37, 0.72);
+        padding: 10px 12px;
+    }
+
+    .market-stat-pill span {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.48);
+    }
+
+    .market-stat-pill strong {
+        display: block;
+        margin-top: 6px;
+        font-size: 13px;
+        font-weight: 900;
+        color: #ffffff;
+    }
+
+    .market-symbol-row,
+    .market-effect-row,
+    .market-notice-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 10px 12px;
+        transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+    }
+
+    .market-symbol-row:hover,
+    .market-effect-row:hover,
+    .market-notice-row:hover {
+        border-color: rgba(0, 229, 201, 0.24);
+        background: rgba(0, 229, 201, 0.06);
+        transform: translateX(-2px);
+    }
+
+    .market-notice-row {
+        display: block;
     }
 
     .landing-input {
@@ -381,7 +535,7 @@ html.dark {
         }
 
         to {
-            transform: translateX(-50%);
+            transform: translate3d(calc(-1 * var(--ticker-distance, 50%)), 0, 0);
         }
     }
 
@@ -413,9 +567,8 @@ html.dark {
         }
 
         .landing-hero-image::after {
-            background:
-                linear-gradient(90deg, rgba(10, 20, 40, 0.38), rgba(10, 20, 40, 0.83)),
-                linear-gradient(180deg, rgba(10, 20, 40, 0.4), rgba(10, 20, 40, 0.94));
+            background: linear-gradient(90deg, rgba(10, 20, 40, 0.38), rgba(10, 20, 40, 0.83)),
+            linear-gradient(180deg, rgba(10, 20, 40, 0.4), rgba(10, 20, 40, 0.94));
         }
 
         .landing-market-panel {
@@ -449,6 +602,10 @@ html.dark {
         .landing-feature-card {
             transition: none;
         }
+    }
+
+    .landing-footer {
+        background: linear-gradient(180deg, rgba(5, 13, 27, 0.5), rgba(4, 10, 21, 0.96));
     }
 }
 

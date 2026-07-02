@@ -1,5 +1,6 @@
 import {ArrowRight, Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
 import {FormEvent, useEffect, useMemo, useState} from 'react';
+import BourseAzmaLogo from './components/BourseAzmaLogo';
 import {appConfig} from './config/appConfig';
 import {withAuthRequest} from './lib/authRequest';
 import {USERNAME_VALIDATION_MESSAGE, validatePassword, validateUsername} from './lib/authValidation';
@@ -107,6 +108,9 @@ const toApiErrorMessage = (data: unknown, fallback: string) => {
     return fallback;
 };
 
+const authInputClassName = 'landing-input w-full rounded-xl px-3 py-2.5 text-sm';
+const authButtonSecondaryClassName =
+    'inline-flex items-center gap-1.5 rounded-xl border border-white/12 bg-white/6 px-3 py-2 text-xs font-bold text-white transition hover:border-[#00E5C9]/35';
 const loginDescription = 'با نام کاربری یا ایمیل وارد شوید.';
 const registerDescription = 'حساب جدید بسازید و مستقیم وارد داشبورد شوید.';
 
@@ -136,10 +140,10 @@ type FieldLabelProps = {
 function FieldLabel({title, required = false, showRequirement = true}: FieldLabelProps) {
     return (
         <div className="mb-1.5 flex items-baseline justify-between">
-      <span className="text-xs font-semibold text-text">
-        {title}
-          {showRequirement && required ? <span className="mr-1 text-negative">*</span> : null}
-      </span>
+            <span className="text-xs font-semibold text-white/78">
+                {title}
+                {showRequirement && required ? <span className="mr-1 text-[#FF6B7A]">*</span> : null}
+            </span>
         </div>
     );
 }
@@ -167,6 +171,13 @@ export default function AuthPage({onAuthenticated, initialMode = 'login', onBack
         () => (mode === 'login' ? loginDescription : registerDescription),
         [mode]
     );
+
+    useEffect(() => {
+        document.body.style.backgroundColor = '#0A1428';
+        return () => {
+            document.body.style.backgroundColor = '';
+        };
+    }, []);
 
     useEffect(() => {
         setMode(initialMode);
@@ -309,280 +320,286 @@ export default function AuthPage({onAuthenticated, initialMode = 'login', onBack
     };
 
     return (
-        <main className="flex min-h-screen items-center justify-center p-4 sm:p-6">
-            <section className="w-full max-w-md rounded-2xl border border-border/70 bg-surface p-6 shadow-card sm:p-8">
-                {onBackToLanding ? (
-                    <button
-                        type="button"
-                        onClick={onBackToLanding}
-                        className="mb-5 inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-bold text-muted transition hover:text-text"
-                    >
-                        <ArrowRight className="h-4 w-4"/>
-                        بازگشت به صفحه اصلی
-                    </button>
-                ) : null}
-                <h1 className="text-center text-2xl font-black text-text">بورس آزما</h1>
-                <p className="mt-2 text-center text-sm text-muted">{description}</p>
+        <div className="landing-shell auth-shell min-h-screen bg-[#0A1428] text-white" dir="rtl">
+            <div className="landing-data-grid pointer-events-none fixed inset-0 opacity-20" aria-hidden="true"/>
+            <main className="relative z-10 flex min-h-screen items-center justify-center p-4 sm:p-6">
+                <div className="w-full max-w-md">
+                    {onBackToLanding ? (
+                        <button
+                            type="button"
+                            onClick={onBackToLanding}
+                            className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-xs font-black text-white/78 shadow-[0_16px_45px_-30px_rgba(0,229,201,0.8)] backdrop-blur transition hover:border-[#00E5C9]/40 hover:bg-[#00E5C9]/10 hover:text-white"
+                        >
+                            <ArrowRight className="h-4 w-4"/>
+                            بازگشت به صفحه اصلی
+                        </button>
+                    ) : null}
 
-                <div className="mt-6 grid grid-cols-2 rounded-xl bg-surface-2 p-1 text-sm">
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('login')}
-                        className={`rounded-lg px-3 py-2 transition ${
-                            mode === 'login' ? 'bg-primary text-white shadow-sm' : 'text-muted'
-                        }`}
-                    >
-                        ورود
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleModeChange('register')}
-                        className={`rounded-lg px-3 py-2 transition ${
-                            mode === 'register' ? 'bg-primary text-white shadow-sm' : 'text-muted'
-                        }`}
-                    >
-                        ثبت نام
-                    </button>
-                </div>
-
-                <form className="mt-5 space-y-3" onSubmit={handleSubmit} autoComplete="on">
-                    {mode === 'register' ? (
-                        <>
-                            <div>
-                                <FieldLabel title="نام کاربری" required/>
-                                <input
-                                    name="username"
-                                    autoComplete="username"
-                                    autoCapitalize="none"
-                                    spellCheck={false}
-                                    value={username}
-                                    onChange={(event) => setUsername(event.target.value)}
-                                    placeholder="نام کاربری (انگلیسی)"
-                                    required
-                                    minLength={3}
-                                    maxLength={50}
-                                    pattern="[A-Za-z0-9._-]{3,50}"
-                                    title={USERNAME_VALIDATION_MESSAGE}
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="نام" required/>
-                                <input
-                                    name="given-name"
-                                    autoComplete="given-name"
-                                    pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
-                                    title="نام باید فقط با حروف فارسی وارد شود."
-                                    value={firstName}
-                                    onChange={(event) => setFirstName(event.target.value)}
-                                    placeholder="نام"
-                                    required
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="نام خانوادگی" required/>
-                                <input
-                                    name="family-name"
-                                    autoComplete="family-name"
-                                    pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
-                                    title="نام خانوادگی باید فقط با حروف فارسی وارد شود."
-                                    value={lastName}
-                                    onChange={(event) => setLastName(event.target.value)}
-                                    placeholder="نام خانوادگی"
-                                    required
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="کد ملی"/>
-                                <input
-                                    name="national-code"
-                                    value={nationalCode}
-                                    onChange={(event) => setNationalCode(event.target.value)}
-                                    placeholder="کد ملی (10 رقم)"
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="شماره موبایل"/>
-                                <input
-                                    name="tel"
-                                    autoComplete="tel"
-                                    value={phoneNumber}
-                                    onChange={(event) => setPhoneNumber(event.target.value)}
-                                    placeholder="شماره موبایل (مثل 0912... یا +98912...)"
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="ایمیل"/>
-                                <input
-                                    name="email"
-                                    autoComplete="email"
-                                    autoCapitalize="none"
-                                    spellCheck={false}
-                                    type="email"
-                                    value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
-                                    placeholder="ایمیل"
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="موجودی اولیه کیف پول (ریال)"/>
-                                <div className="mb-2 grid grid-cols-3 gap-1.5">
-                                    {INITIAL_BALANCE_PRESETS.map((preset) => {
-                                        const isSelected = selectedBalancePreset === preset.value;
-                                        return (
-                                            <button
-                                                key={preset.value}
-                                                type="button"
-                                                onClick={() => {
-                                                    setInitialBalance(String(preset.value));
-                                                    setSelectedBalancePreset(preset.value);
-                                                    setError(null);
-                                                }}
-                                                className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
-                                                    isSelected
-                                                        ? 'border-primary/40 bg-primary/10 text-primary'
-                                                        : 'border-border bg-surface-2 text-text hover:border-primary/30'
-                                                }`}
-                                            >
-                                                {preset.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <input
-                                    name="initial-balance"
-                                    inputMode="numeric"
-                                    value={initialBalance}
-                                    onChange={(event) => {
-                                        const nextValue = event.target.value;
-                                        setInitialBalance(nextValue);
-                                        const parsed = parseInitialBalanceInput(nextValue);
-                                        setSelectedBalancePreset(
-                                            parsed !== null && INITIAL_BALANCE_PRESETS.some((item) => item.value === parsed)
-                                                ? parsed
-                                                : null,
-                                        );
-                                    }}
-                                    placeholder="مبلغ به ریال"
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-                        </>
-                    ) : (
-                        <div>
-                            <FieldLabel title="نام کاربری یا ایمیل" required showRequirement={false}/>
-                            <input
-                                name="username"
-                                autoComplete="username"
-                                autoCapitalize="none"
-                                spellCheck={false}
-                                value={identifier}
-                                onChange={(event) => setIdentifier(event.target.value)}
-                                placeholder="نام کاربری یا ایمیل"
-                                required
-                                className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                            />
+                    <section className="auth-card w-full p-6 sm:p-8">
+                        <div className="flex flex-col items-center text-center">
+                            <BourseAzmaLogo compact/>
+                            <p className="mt-3 text-sm font-medium text-[#AFC1D8]">{description}</p>
                         </div>
-                    )}
 
-                    <div>
-                        <FieldLabel title="رمز عبور" required showRequirement={mode === 'register'}/>
-                        <div className="flex gap-2">
-                            <input
-                                name="password"
-                                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                                value={password}
-                                onChange={(event) => {
-                                    setPassword(event.target.value);
-                                    setGeneratedPasswordConfirmed(false);
-                                }}
-                                type="password"
-                                placeholder="رمز عبور"
-                                required
-                                minLength={8}
-                                maxLength={24}
-                                pattern={mode === 'register' ? '^(?=.*[A-Za-z])(?=.*\\d).+$' : undefined}
-                                title={mode === 'register' ? 'رمز عبور باید بین ۸ تا ۲۴ کاراکتر و حداقل شامل یک حرف و یک عدد باشد.' : undefined}
-                                className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                            />
+                        <div className="mt-6 grid grid-cols-2 rounded-xl bg-white/6 p-1 text-sm">
+                            <button
+                                type="button"
+                                onClick={() => handleModeChange('login')}
+                                className={`rounded-lg px-3 py-2 font-black transition ${
+                                    mode === 'login' ? 'bg-[#00E5C9] text-[#061221] shadow-sm' : 'text-white/65'
+                                }`}
+                            >
+                                ورود
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleModeChange('register')}
+                                className={`rounded-lg px-3 py-2 font-black transition ${
+                                    mode === 'register' ? 'bg-[#00E5C9] text-[#061221] shadow-sm' : 'text-white/65'
+                                }`}
+                            >
+                                ثبت نام
+                            </button>
+                        </div>
+
+                        <form className="mt-5 space-y-3" onSubmit={handleSubmit} autoComplete="on">
                             {mode === 'register' ? (
-                                <button
-                                    type="button"
-                                    onClick={applyGeneratedPassword}
-                                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-bold text-text transition hover:border-primary/60"
-                                >
-                                    <KeyRound className="h-4 w-4"/>
-                                    ساخت رمز
-                                </button>
-                            ) : null}
-                        </div>
-                    </div>
+                                <>
+                                    <div>
+                                        <FieldLabel title="نام کاربری" required/>
+                                        <input
+                                            name="username"
+                                            autoComplete="username"
+                                            autoCapitalize="none"
+                                            spellCheck={false}
+                                            value={username}
+                                            onChange={(event) => setUsername(event.target.value)}
+                                            placeholder="نام کاربری (انگلیسی)"
+                                            required
+                                            minLength={3}
+                                            maxLength={50}
+                                            pattern="[A-Za-z0-9._-]{3,50}"
+                                            title={USERNAME_VALIDATION_MESSAGE}
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="نام" required/>
+                                        <input
+                                            name="given-name"
+                                            autoComplete="given-name"
+                                            pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                                            title="نام باید فقط با حروف فارسی وارد شود."
+                                            value={firstName}
+                                            onChange={(event) => setFirstName(event.target.value)}
+                                            placeholder="نام"
+                                            required
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="نام خانوادگی" required/>
+                                        <input
+                                            name="family-name"
+                                            autoComplete="family-name"
+                                            pattern="[آاأإئؤءبپتثجچحخدذرزژسشصضطظعغفقکكيگگلمنوهةیى\s‌]+"
+                                            title="نام خانوادگی باید فقط با حروف فارسی وارد شود."
+                                            value={lastName}
+                                            onChange={(event) => setLastName(event.target.value)}
+                                            placeholder="نام خانوادگی"
+                                            required
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="کد ملی"/>
+                                        <input
+                                            name="national-code"
+                                            value={nationalCode}
+                                            onChange={(event) => setNationalCode(event.target.value)}
+                                            placeholder="کد ملی (10 رقم)"
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="شماره موبایل"/>
+                                        <input
+                                            name="tel"
+                                            autoComplete="tel"
+                                            value={phoneNumber}
+                                            onChange={(event) => setPhoneNumber(event.target.value)}
+                                            placeholder="شماره موبایل (مثل 0912... یا +98912...)"
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="ایمیل"/>
+                                        <input
+                                            name="email"
+                                            autoComplete="email"
+                                            autoCapitalize="none"
+                                            spellCheck={false}
+                                            type="email"
+                                            value={email}
+                                            onChange={(event) => setEmail(event.target.value)}
+                                            placeholder="ایمیل"
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                    <div>
+                                        <FieldLabel title="موجودی اولیه کیف پول (ریال)"/>
+                                        <div className="mb-2 grid grid-cols-3 gap-1.5">
+                                            {INITIAL_BALANCE_PRESETS.map((preset) => {
+                                                const isSelected = selectedBalancePreset === preset.value;
+                                                return (
+                                                    <button
+                                                        key={preset.value}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setInitialBalance(String(preset.value));
+                                                            setSelectedBalancePreset(preset.value);
+                                                            setError(null);
+                                                        }}
+                                                        className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition ${
+                                                            isSelected
+                                                                ? 'border-[#00E5C9]/40 bg-[#00E5C9]/10 text-[#00E5C9]'
+                                                                : 'border-white/12 bg-white/6 text-white hover:border-[#00E5C9]/30'
+                                                        }`}
+                                                    >
+                                                        {preset.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <input
+                                            name="initial-balance"
+                                            inputMode="numeric"
+                                            value={initialBalance}
+                                            onChange={(event) => {
+                                                const nextValue = event.target.value;
+                                                setInitialBalance(nextValue);
+                                                const parsed = parseInitialBalanceInput(nextValue);
+                                                setSelectedBalancePreset(
+                                                    parsed !== null && INITIAL_BALANCE_PRESETS.some((item) => item.value === parsed)
+                                                        ? parsed
+                                                        : null,
+                                                );
+                                            }}
+                                            placeholder="مبلغ به ریال"
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <div>
+                                    <FieldLabel title="نام کاربری یا ایمیل" required showRequirement={false}/>
+                                    <input
+                                        name="username"
+                                        autoComplete="username"
+                                        autoCapitalize="none"
+                                        spellCheck={false}
+                                        value={identifier}
+                                        onChange={(event) => setIdentifier(event.target.value)}
+                                        placeholder="نام کاربری یا ایمیل"
+                                        required
+                                        className={authInputClassName}
+                                    />
+                                </div>
+                            )}
 
-                    {mode === 'register' ? (
-                        <>
                             <div>
-                                <FieldLabel title="تأیید رمز عبور" required/>
-                                <input
-                                    name="password-confirmation"
-                                    autoComplete="new-password"
-                                    value={passwordConfirmation}
-                                    onChange={(event) => setPasswordConfirmation(event.target.value)}
-                                    type="password"
-                                    placeholder="تکرار رمز عبور"
-                                    required
-                                    minLength={8}
-                                    maxLength={24}
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text"
-                                />
-                            </div>
-
-                            {generatedPassword ? (
-                                <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <code dir="ltr"
-                                              className="min-w-0 flex-1 rounded-lg bg-bg px-2 py-1.5 text-xs text-text">
-                                            {generatedPassword}
-                                        </code>
-                                        <button
-                                            type="button"
-                                            onClick={() => void copyGeneratedPassword()}
-                                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-text"
-                                            aria-label="کپی رمز پیشنهادی"
-                                        >
-                                            <Copy className="h-4 w-4"/>
-                                        </button>
+                                <FieldLabel title="رمز عبور" required showRequirement={mode === 'register'}/>
+                                <div className="flex gap-2">
+                                    <input
+                                        name="password"
+                                        autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                                        value={password}
+                                        onChange={(event) => {
+                                            setPassword(event.target.value);
+                                            setGeneratedPasswordConfirmed(false);
+                                        }}
+                                        type="password"
+                                        placeholder="رمز عبور"
+                                        required
+                                        minLength={8}
+                                        maxLength={24}
+                                        pattern={mode === 'register' ? '^(?=.*[A-Za-z])(?=.*\\d).+$' : undefined}
+                                        title={mode === 'register' ? 'رمز عبور باید بین ۸ تا ۲۴ کاراکتر و حداقل شامل یک حرف و یک عدد باشد.' : undefined}
+                                        className={`min-w-0 flex-1 ${authInputClassName}`}
+                                    />
+                                    {mode === 'register' ? (
                                         <button
                                             type="button"
                                             onClick={applyGeneratedPassword}
-                                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-text"
-                                            aria-label="ساخت رمز جدید"
+                                            className={authButtonSecondaryClassName}
                                         >
-                                            <RefreshCw className="h-4 w-4"/>
+                                            <KeyRound className="h-4 w-4"/>
+                                            ساخت رمز
                                         </button>
-                                    </div>
-                                    <label
-                                        className="mt-3 flex cursor-pointer items-start gap-2 text-xs leading-6 text-text">
-                                        <input
-                                            type="checkbox"
-                                            checked={generatedPasswordConfirmed}
-                                            onChange={(event) => setGeneratedPasswordConfirmed(event.target.checked)}
-                                            className="mt-1"
-                                        />
-                                        <span>رمز پیشنهادی را ذخیره کرده‌ام و برای ورودهای بعدی به آن دسترسی دارم.</span>
-                                    </label>
+                                    ) : null}
                                 </div>
-                            ) : null}
-                        </>
-                    ) : null}
+                            </div>
 
-                    {mode === 'login' ? (
-                        <label className="group flex cursor-pointer items-center justify-between px-1 py-1.5">
-                            <div className="flex items-center gap-2">
+                            {mode === 'register' ? (
+                                <>
+                                    <div>
+                                        <FieldLabel title="تأیید رمز عبور" required/>
+                                        <input
+                                            name="password-confirmation"
+                                            autoComplete="new-password"
+                                            value={passwordConfirmation}
+                                            onChange={(event) => setPasswordConfirmation(event.target.value)}
+                                            type="password"
+                                            placeholder="تکرار رمز عبور"
+                                            required
+                                            minLength={8}
+                                            maxLength={24}
+                                            className={authInputClassName}
+                                        />
+                                    </div>
+
+                                    {generatedPassword ? (
+                                        <div className="rounded-xl border border-[#00E5C9]/30 bg-[#00E5C9]/10 p-3">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <code dir="ltr"
+                                                      className="min-w-0 flex-1 rounded-lg bg-[#071225] px-2 py-1.5 text-xs text-white">
+                                                    {generatedPassword}
+                                                </code>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void copyGeneratedPassword()}
+                                                    className={`h-9 w-9 shrink-0 items-center justify-center ${authButtonSecondaryClassName}`}
+                                                    aria-label="کپی رمز پیشنهادی"
+                                                >
+                                                    <Copy className="h-4 w-4"/>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={applyGeneratedPassword}
+                                                    className={`h-9 w-9 shrink-0 items-center justify-center ${authButtonSecondaryClassName}`}
+                                                    aria-label="ساخت رمز جدید"
+                                                >
+                                                    <RefreshCw className="h-4 w-4"/>
+                                                </button>
+                                            </div>
+                                            <label
+                                                className="mt-3 flex cursor-pointer items-start gap-2 text-xs leading-6 text-white/82">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={generatedPasswordConfirmed}
+                                                    onChange={(event) => setGeneratedPasswordConfirmed(event.target.checked)}
+                                                    className="mt-1"
+                                                />
+                                                <span>رمز پیشنهادی را ذخیره کرده‌ام و برای ورودهای بعدی به آن دسترسی دارم.</span>
+                                            </label>
+                                        </div>
+                                    ) : null}
+                                </>
+                            ) : null}
+
+                            {mode === 'login' ? (
+                                <label className="group flex cursor-pointer items-center justify-between px-1 py-1.5">
+                                    <div className="flex items-center gap-2">
                 <span className="relative inline-flex h-5 w-5 items-center justify-center">
                   <input
                       type="checkbox"
@@ -591,30 +608,32 @@ export default function AuthPage({onAuthenticated, initialMode = 'login', onBack
                       className="peer sr-only"
                   />
                   <span
-                      className="h-5 w-5 rounded-md border border-border bg-bg transition peer-checked:border-primary peer-checked:bg-primary/20"/>
+                      className="h-5 w-5 rounded-md border border-white/16 bg-[#071225] transition peer-checked:border-[#00E5C9] peer-checked:bg-[#00E5C9]/20"/>
                   <Check
-                      className="pointer-events-none absolute h-3.5 w-3.5 scale-75 text-primary opacity-0 transition peer-checked:scale-100 peer-checked:opacity-100"/>
+                      className="pointer-events-none absolute h-3.5 w-3.5 scale-75 text-[#00E5C9] opacity-0 transition peer-checked:scale-100 peer-checked:opacity-100"/>
                 </span>
-                                <span className="text-xs font-semibold text-text">مرا به خاطر بسپار</span>
-                            </div>
-                        </label>
-                    ) : null}
+                                        <span className="text-xs font-semibold text-white/82">مرا به خاطر بسپار</span>
+                                    </div>
+                                </label>
+                            ) : null}
 
-                    {error ? (
-                        <p className="rounded-xl border border-negative/40 bg-negative/10 px-3 py-2 text-sm text-negative">
-                            {error}
-                        </p>
-                    ) : null}
+                            {error ? (
+                                <p className="rounded-xl border border-[#FF6B7A]/40 bg-[#FF6B7A]/10 px-3 py-2 text-sm text-[#FFB4BC]">
+                                    {error}
+                                </p>
+                            ) : null}
 
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSubmitting ? 'در حال پردازش...' : submitLabel}
-                    </button>
-                </form>
-            </section>
-        </main>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="landing-glow-button w-full rounded-xl bg-[#00E5C9] px-4 py-2.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSubmitting ? 'در حال پردازش...' : submitLabel}
+                            </button>
+                        </form>
+                    </section>
+                </div>
+            </main>
+        </div>
     );
 }
