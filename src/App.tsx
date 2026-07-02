@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import AuthPage, {type AuthSession} from './AuthPage';
+import AuthPage, {type AuthMode, type AuthSession} from './AuthPage';
+import LandingPage from './LandingPage';
 import TradingDashboard from './TradingDashboard';
 import {appConfig} from './config/appConfig';
 import {useTheme} from './hooks/useTheme';
@@ -137,6 +138,8 @@ export default function App() {
     const {theme, toggleTheme} = useTheme();
     const [session, setSession] = useState<SessionState | null>(getInitialSession);
     const [authState, setAuthState] = useState<AuthState>(() => (getInitialSession() ? 'checking' : 'unauthenticated'));
+    const [publicView, setPublicView] = useState<'landing' | 'auth'>('landing');
+    const [authInitialMode, setAuthInitialMode] = useState<AuthMode>('login');
     const [loginEpoch, setLoginEpoch] = useState(() => readLoginEpoch() ?? '');
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
@@ -168,6 +171,8 @@ export default function App() {
         setProfileEditMode(false);
         setSaveError(null);
         setSaveSuccess(null);
+        setPublicView('landing');
+        setAuthInitialMode('login');
     }, []);
 
     const fetchProfile = useCallback(async (targetSession: SessionState) => {
@@ -227,11 +232,28 @@ export default function App() {
         clearLoginSymbolState();
         const epoch = startNewLoginEpoch();
         setLoginEpoch(epoch);
+        setPublicView('landing');
         setSession({
             accessToken: authSession.accessToken ?? '',
             rememberMe: authSession.rememberMe ?? false,
         });
         setAuthState('checking');
+    }, []);
+
+    const openAuth = useCallback((mode: AuthMode) => {
+        setAuthInitialMode(mode);
+        setPublicView('auth');
+        if (typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => window.scrollTo({top: 0, behavior: 'smooth'}));
+        }
+    }, []);
+
+    const openLanding = useCallback(() => {
+        setPublicView('landing');
+        setAuthInitialMode('login');
+        if (typeof window !== 'undefined') {
+            window.requestAnimationFrame(() => window.scrollTo({top: 0, behavior: 'smooth'}));
+        }
     }, []);
 
     const handleLogout = useCallback(() => {
@@ -347,8 +369,17 @@ export default function App() {
                     userProfile={profile || undefined}
                     onProfileUpdated={setProfile}
                 />
+            ) : publicView === 'auth' ? (
+                <AuthPage
+                    onAuthenticated={handleAuthenticated}
+                    initialMode={authInitialMode}
+                    onBackToLanding={openLanding}
+                />
             ) : (
-                <AuthPage onAuthenticated={handleAuthenticated}/>
+                <LandingPage
+                    onLogin={() => openAuth('login')}
+                    onRegister={() => openAuth('register')}
+                />
             )}
 
             {profileModalOpen ? (

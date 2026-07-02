@@ -1,13 +1,15 @@
-import {Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
-import {FormEvent, useMemo, useState} from 'react';
+import {ArrowRight, Check, Copy, KeyRound, RefreshCw} from 'lucide-react';
+import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {appConfig} from './config/appConfig';
 import {withAuthRequest} from './lib/authRequest';
 import {USERNAME_VALIDATION_MESSAGE, validatePassword, validateUsername} from './lib/authValidation';
 
-type AuthMode = 'login' | 'register';
+export type AuthMode = 'login' | 'register';
 
 type AuthPageProps = {
     onAuthenticated: (session: AuthSession) => void;
+    initialMode?: AuthMode;
+    onBackToLanding?: () => void;
 };
 
 type AuthTokenResult = {
@@ -142,8 +144,8 @@ function FieldLabel({title, required = false, showRequirement = true}: FieldLabe
     );
 }
 
-export default function AuthPage({onAuthenticated}: AuthPageProps) {
-    const [mode, setMode] = useState<AuthMode>('login');
+export default function AuthPage({onAuthenticated, initialMode = 'login', onBackToLanding}: AuthPageProps) {
+    const [mode, setMode] = useState<AuthMode>(initialMode);
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
@@ -165,6 +167,15 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
         () => (mode === 'login' ? loginDescription : registerDescription),
         [mode]
     );
+
+    useEffect(() => {
+        setMode(initialMode);
+        setError(null);
+        setGeneratedPassword(null);
+        setGeneratedPasswordConfirmed(false);
+        setInitialBalance('');
+        setSelectedBalancePreset(null);
+    }, [initialMode]);
 
     const submitLabel = mode === 'login' ? 'ورود' : 'ثبت نام';
 
@@ -300,6 +311,16 @@ export default function AuthPage({onAuthenticated}: AuthPageProps) {
     return (
         <main className="flex min-h-screen items-center justify-center p-4 sm:p-6">
             <section className="w-full max-w-md rounded-2xl border border-border/70 bg-surface p-6 shadow-card sm:p-8">
+                {onBackToLanding ? (
+                    <button
+                        type="button"
+                        onClick={onBackToLanding}
+                        className="mb-5 inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-bold text-muted transition hover:text-text"
+                    >
+                        <ArrowRight className="h-4 w-4"/>
+                        بازگشت به صفحه اصلی
+                    </button>
+                ) : null}
                 <h1 className="text-center text-2xl font-black text-text">بورس آزما</h1>
                 <p className="mt-2 text-center text-sm text-muted">{description}</p>
 
