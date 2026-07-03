@@ -83,7 +83,7 @@ export default defineConfig(({mode}) => {
                     changeOrigin: true,
                     secure: false,
                 },
-                '/api/v1/admin/support-requests': {
+                '/api/v1/admin': {
                     target: authProxyTarget,
                     changeOrigin: true,
                     secure: false,

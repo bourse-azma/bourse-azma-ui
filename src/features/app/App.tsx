@@ -8,6 +8,7 @@ import {useAppNavigation} from '../navigation/useAppNavigation';
 const AuthPage = lazy(() => import('../auth/AuthPage'));
 const LandingPage = lazy(() => import('../landing/LandingPage'));
 const TradingDashboard = lazy(() => import('../../TradingDashboard'));
+const AdminDashboard = lazy(() => import('../admin/AdminDashboard'));
 
 function RouteFallback() {
     return (
@@ -27,12 +28,19 @@ export default function App() {
         if (auth.authState === 'checking') return;
         if (pathname === null) {
             navigate('/', {replace: true});
-        } else if (auth.authState === 'unauthenticated' && pathname === '/dashboard') {
+        } else if (auth.authState === 'unauthenticated' && (pathname === '/dashboard' || pathname === '/admin')) {
             navigate('/login', {replace: true});
-        } else if (auth.authState === 'authenticated' && (pathname === '/login' || pathname === '/register')) {
-            navigate('/dashboard', {replace: true});
+        } else if (auth.authState === 'authenticated' && auth.profile) {
+            const isAdmin = auth.profile.role === 'ADMIN';
+            if (isAdmin && (pathname === '/dashboard' || pathname === '/login' || pathname === '/register')) {
+                navigate('/admin', {replace: true});
+            } else if (!isAdmin && pathname === '/admin') {
+                navigate('/dashboard', {replace: true});
+            } else if (pathname === '/login' || pathname === '/register') {
+                navigate('/dashboard', {replace: true});
+            }
         }
-    }, [auth.authState, navigate, pathname]);
+    }, [auth.authState, auth.profile, navigate, pathname]);
 
     const handleAuthenticated = (session: Parameters<typeof auth.handleAuthenticated>[0]) => {
         auth.handleAuthenticated(session);
@@ -45,6 +53,7 @@ export default function App() {
     };
 
     const isDashboard = pathname === '/dashboard';
+    const isAdminDashboard = pathname === '/admin';
     const isAuthPage = pathname === '/login' || pathname === '/register';
 
     return (
@@ -53,9 +62,20 @@ export default function App() {
                 <div className="flex min-h-screen items-center justify-center">
                     <p className="text-sm text-muted">در حال بررسی ورود...</p>
                 </div>
-            ) : pathname === null || (auth.authState === 'unauthenticated' && isDashboard) ||
+            ) : pathname === null || (auth.authState === 'unauthenticated' && (isDashboard || isAdminDashboard)) ||
             (auth.authState === 'authenticated' && isAuthPage) ? (
                 <RouteFallback/>
+            ) : auth.authState === 'authenticated' && auth.session && auth.profile?.role === 'ADMIN' && isAdminDashboard ? (
+                <Suspense fallback={<RouteFallback/>}>
+                    <AdminDashboard
+                        accessToken={auth.session.accessToken}
+                        theme={theme}
+                        onToggleTheme={toggleTheme}
+                        profileDisplayName={auth.displayName}
+                        onOpenProfile={profileEditor.openProfileModal}
+                        onLogout={handleLogout}
+                    />
+                </Suspense>
             ) : auth.authState === 'authenticated' && auth.session && auth.loginEpoch && isDashboard ? (
                 <Suspense fallback={<RouteFallback/>}>
                     <TradingDashboard
