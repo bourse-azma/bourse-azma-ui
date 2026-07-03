@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import type {AuthMode, AuthSession} from '../../auth/types';
+import type {AuthSession} from '../../auth/types';
 import {clearLoginSymbolState, readLoginEpoch, startNewLoginEpoch} from '../../symbol-search/selectedSymbolState';
 import {appConfig} from '../../../config/appConfig';
 import {toApiErrorMessage} from '../../../lib/apiError';
@@ -10,13 +10,13 @@ import {
     SESSION_STORAGE_KEY,
     SESSION_STORAGE_KEY_TEMP,
 } from '../sessionStorage';
-import type {ApiResponse, AuthState, PersistedSession, PublicView, SessionState, UserProfile} from '../types';
+import type {ApiResponse, AuthState, PersistedSession, SessionState, UserProfile} from '../types';
 
 export function useAppAuth() {
-    const [session, setSession] = useState<SessionState | null>(getInitialSession);
-    const [authState, setAuthState] = useState<AuthState>(() => (getInitialSession() ? 'checking' : 'unauthenticated'));
-    const [publicView, setPublicView] = useState<PublicView>('landing');
-    const [authInitialMode, setAuthInitialMode] = useState<AuthMode>('login');
+    const [session, setSession] = useState<SessionState | null>(() => (
+        getInitialSession() ?? {accessToken: '', rememberMe: false}
+    ));
+    const [authState, setAuthState] = useState<AuthState>('checking');
     const [loginEpoch, setLoginEpoch] = useState(() => readLoginEpoch() ?? '');
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
@@ -31,8 +31,6 @@ export function useAppAuth() {
         setSession(null);
         setAuthState('unauthenticated');
         setProfile(null);
-        setPublicView('landing');
-        setAuthInitialMode('login');
     }, []);
 
     const fetchProfile = useCallback(async (targetSession: SessionState) => {
@@ -92,28 +90,11 @@ export function useAppAuth() {
         clearLoginSymbolState();
         const epoch = startNewLoginEpoch();
         setLoginEpoch(epoch);
-        setPublicView('landing');
         setSession({
             accessToken: authSession.accessToken ?? '',
             rememberMe: authSession.rememberMe ?? false,
         });
         setAuthState('checking');
-    }, []);
-
-    const openAuth = useCallback((mode: AuthMode) => {
-        setAuthInitialMode(mode);
-        setPublicView('auth');
-        if (typeof window !== 'undefined') {
-            window.requestAnimationFrame(() => window.scrollTo({top: 0, behavior: 'smooth'}));
-        }
-    }, []);
-
-    const openLanding = useCallback(() => {
-        setPublicView('landing');
-        setAuthInitialMode('login');
-        if (typeof window !== 'undefined') {
-            window.requestAnimationFrame(() => window.scrollTo({top: 0, behavior: 'smooth'}));
-        }
     }, []);
 
     const handleLogout = useCallback(() => {
@@ -134,8 +115,6 @@ export function useAppAuth() {
     return {
         session,
         authState,
-        publicView,
-        authInitialMode,
         loginEpoch,
         profile,
         profileLoading,
@@ -143,8 +122,6 @@ export function useAppAuth() {
         displayName,
         setProfile,
         handleAuthenticated,
-        openAuth,
-        openLanding,
         handleLogout,
     };
 }

@@ -4,6 +4,7 @@ export type AuthPageProps = {
     onAuthenticated: (session: AuthSession) => void;
     initialMode?: AuthMode;
     onBackToLanding?: () => void;
+    onModeChange?: (mode: AuthMode) => void;
 };
 
 export type AuthTokenResult = {

@@ -4,7 +4,7 @@ import {formatCompactAmountFa, formatNumberFa, formatPercentFa, ltrNumericClassN
 import type {MarketId, MarketSymbolQuote, SelectedIndex} from './types';
 import type {LandingMarketData} from './useLandingMarketData';
 
-type Props = { data: LandingMarketData; onLogin: () => void; onRegister: () => void };
+type Props = { data: LandingMarketData; isAuthenticated: boolean; onLogin: () => void; onRegister: () => void };
 type MoversTab = 'gainers' | 'losers';
 type MarketTab = MarketId;
 const MARKET_LABELS: Record<MarketTab, string> = {1: 'بورس', 2: 'فرابورس'};
@@ -85,7 +85,7 @@ function PopularColumn({title, items}: { title: string; items: MarketSymbolQuote
     </div>;
 }
 
-export default function MarketOverviewSection({data, onLogin, onRegister}: Props) {
+export default function MarketOverviewSection({data, isAuthenticated, onLogin, onRegister}: Props) {
     const [marketTab, setMarketTab] = useState<MarketTab>(1);
     const [moversTab, setMoversTab] = useState<MoversTab>('gainers');
     const indexes = marketTab === 1 ? data.bourseIndexes : data.farabourseIndexes;
@@ -232,7 +232,7 @@ export default function MarketOverviewSection({data, onLogin, onRegister}: Props
                     title="فرابورس" items={faraboursePopular}/></div>
             </div>
 
-            <div
+            {!isAuthenticated ? <div
                 className="mt-8 flex flex-col items-center justify-between gap-4 rounded-xl border border-[#00E5C9]/20 bg-[#00E5C9]/[0.06] p-6 sm:flex-row">
                 <div><h3 className="text-lg font-black text-white">ابزارهای حرفه‌ای بازار در انتظار شماست</h3><p
                     className="mt-2 text-sm font-semibold text-[#AFC1D8]">برای تحلیل کامل، دیده‌بان و تمرین معامله‌گری
@@ -246,7 +246,7 @@ export default function MarketOverviewSection({data, onLogin, onRegister}: Props
                         رایگان
                     </button>
                 </div>
-            </div>
+            </div> : null}
         </div>
     </section>;
 }

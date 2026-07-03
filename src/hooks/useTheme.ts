@@ -7,13 +7,13 @@ type DocumentWithViewTransition = Document & {
     startViewTransition?: (updateCallback: () => void) => ViewTransition;
 };
 
-const THEME_STORAGE_KEY = 'bourse-theme';
+const THEME_STORAGE_KEY = 'bourse-theme-preference';
 
 function getInitialTheme(): Theme {
-    if (typeof window === 'undefined') return 'light';
+    if (typeof window === 'undefined') return 'dark';
 
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === 'dark' ? 'dark' : 'light';
+    return stored === 'light' ? 'light' : 'dark';
 }
 
 export function useTheme() {
@@ -22,16 +22,19 @@ export function useTheme() {
     useEffect(() => {
         const root = document.documentElement;
         root.classList.toggle('dark', theme === 'dark');
-        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     }, [theme]);
 
     const toggleTheme = useCallback((origin?: ThemeToggleOrigin) => {
         const nextTheme: Theme = theme === 'light' ? 'dark' : 'light';
+        const applyTheme = () => {
+            window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+            setTheme(nextTheme);
+        };
         const doc = document as DocumentWithViewTransition;
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
         if (!doc.startViewTransition || prefersReducedMotion) {
-            setTheme(nextTheme);
+            applyTheme();
             return;
         }
 
@@ -45,7 +48,7 @@ export function useTheme() {
         );
 
         const transition = doc.startViewTransition(() => {
-            setTheme(nextTheme);
+            applyTheme();
         });
 
         transition.ready

@@ -1,4 +1,4 @@
-import {Menu, UserPlus, X} from 'lucide-react';
+import {LayoutDashboard, Menu, UserPlus, X} from 'lucide-react';
 import BourseAzmaLogo from '../../../components/BourseAzmaLogo';
 import {navItems} from '../constants';
 
@@ -7,6 +7,8 @@ type LandingHeaderProps = {
     menuOpen: boolean;
     onToggleMenu: () => void;
     onCloseMenu: () => void;
+    isAuthenticated: boolean;
+    onDashboard: () => void;
     onLogin: () => void;
     onRegister: () => void;
 };
@@ -16,6 +18,8 @@ export function LandingHeader({
                                   menuOpen,
                                   onToggleMenu,
                                   onCloseMenu,
+                                  isAuthenticated,
+                                  onDashboard,
                                   onLogin,
                                   onRegister,
                               }: LandingHeaderProps) {
@@ -39,21 +43,30 @@ export function LandingHeader({
                 </nav>
 
                 <div className="hidden items-center gap-2 lg:flex">
-                    <button
+                    {isAuthenticated ? <button
                         type="button"
-                        onClick={onLogin}
-                        className="inline-flex items-center gap-2 rounded-lg border border-white/14 bg-white/6 px-4 py-2 text-sm font-bold text-white transition hover:border-[#00E5C9]/45 hover:bg-[#00E5C9]/10"
-                    >
-                        ورود
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onRegister}
+                        onClick={onDashboard}
                         className="landing-glow-button inline-flex items-center gap-2 rounded-lg bg-[#00E5C9] px-5 py-2.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8]"
                     >
-                        <UserPlus className="h-4 w-4"/>
-                        ثبت‌نام
-                    </button>
+                        <LayoutDashboard className="h-4 w-4"/>
+                        ورود به داشبورد
+                    </button> : <>
+                        <button
+                            type="button"
+                            onClick={onLogin}
+                            className="inline-flex items-center gap-2 rounded-lg border border-white/14 bg-white/6 px-4 py-2 text-sm font-bold text-white transition hover:border-[#00E5C9]/45 hover:bg-[#00E5C9]/10"
+                        >
+                            ورود
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onRegister}
+                            className="landing-glow-button inline-flex items-center gap-2 rounded-lg bg-[#00E5C9] px-5 py-2.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8]"
+                        >
+                            <UserPlus className="h-4 w-4"/>
+                            ثبت‌نام
+                        </button>
+                    </>}
                 </div>
 
                 <button
@@ -81,7 +94,19 @@ export function LandingHeader({
                             </a>
                         ))}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    {isAuthenticated ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onCloseMenu();
+                                onDashboard();
+                            }}
+                            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#00E5C9] px-3 py-2 text-sm font-black text-[#061221]"
+                        >
+                            <LayoutDashboard className="h-4 w-4"/>
+                            ورود به داشبورد
+                        </button>
+                    ) : <div className="mt-3 grid grid-cols-2 gap-2">
                         <button
                             type="button"
                             onClick={() => {
@@ -102,7 +127,7 @@ export function LandingHeader({
                         >
                             ثبت‌نام
                         </button>
-                    </div>
+                    </div>}
                 </div>
             ) : null}
         </header>

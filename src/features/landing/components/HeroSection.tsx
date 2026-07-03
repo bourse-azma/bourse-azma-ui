@@ -3,11 +3,13 @@ import heroImage from '../../../assets/boors-azma-hero-fintech.png';
 import {trustSignals} from '../constants';
 
 type HeroSectionProps = {
+    isAuthenticated: boolean;
+    onDashboard: () => void;
     onLogin: () => void;
     onRegister: () => void;
 };
 
-export function HeroSection({onLogin, onRegister}: HeroSectionProps) {
+export function HeroSection({isAuthenticated, onDashboard, onLogin, onRegister}: HeroSectionProps) {
     return (
         <section id="home" className="landing-hero relative flex min-h-[92svh] items-center overflow-hidden pt-24">
             <div
@@ -35,20 +37,20 @@ export function HeroSection({onLogin, onRegister}: HeroSectionProps) {
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                         <button
                             type="button"
-                            onClick={onRegister}
+                            onClick={isAuthenticated ? onDashboard : onRegister}
                             className="landing-glow-button inline-flex items-center justify-center gap-2 rounded-lg bg-[#00E5C9] px-6 py-3.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8]"
                         >
                             شروع تمرین معامله‌گری
                             <ArrowLeft className="h-4 w-4"/>
                         </button>
-                        <button
+                        {!isAuthenticated ? <button
                             type="button"
                             onClick={onLogin}
                             className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/16 bg-white/8 px-6 py-3.5 text-sm font-black text-white backdrop-blur transition hover:border-[#FFB300]/45 hover:bg-[#FFB300]/10"
                         >
                             ورود به حساب
                             <ChevronLeft className="h-4 w-4"/>
-                        </button>
+                        </button> : null}
                     </div>
 
                     <div className="mt-7 flex flex-wrap gap-2">

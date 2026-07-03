@@ -1,5 +1,3 @@
-import type {AuthMode} from '../auth/types';
-
 export type SessionState = {
     accessToken: string;
     rememberMe: boolean;
@@ -27,7 +25,3 @@ export type ApiResponse<T> = {
     message?: string;
     result?: T;
 };
-
-export type PublicView = 'landing' | 'auth';
-
-export type OpenAuthFn = (mode: AuthMode) => void;

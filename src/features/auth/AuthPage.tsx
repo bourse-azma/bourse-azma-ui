@@ -8,8 +8,13 @@ import type {AuthPageProps} from './types';
 
 export type {AuthMode, AuthSession} from './types';
 
-export default function AuthPage({onAuthenticated, initialMode = 'login', onBackToLanding}: AuthPageProps) {
-    const form = useAuthForm({onAuthenticated, initialMode, onBackToLanding});
+export default function AuthPage({
+                                     onAuthenticated,
+                                     initialMode = 'login',
+                                     onBackToLanding,
+                                     onModeChange
+                                 }: AuthPageProps) {
+    const form = useAuthForm({onAuthenticated, initialMode, onBackToLanding, onModeChange});
 
     return (
         <div className="landing-shell auth-shell min-h-screen bg-[#0A1428] text-white" dir="rtl">

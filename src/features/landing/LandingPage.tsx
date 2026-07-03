@@ -10,11 +10,13 @@ import {LandingFooter} from './components/LandingFooter';
 import {LandingHeader} from './components/LandingHeader';
 
 type LandingPageProps = {
+    isAuthenticated: boolean;
+    onDashboard: () => void;
     onLogin: () => void;
     onRegister: () => void;
 };
 
-export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
+export default function LandingPage({isAuthenticated, onDashboard, onLogin, onRegister}: LandingPageProps) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [contactStatus, setContactStatus] = useState<'idle' | 'sent'>('idle');
@@ -63,14 +65,26 @@ export default function LandingPage({onLogin, onRegister}: LandingPageProps) {
                 menuOpen={menuOpen}
                 onToggleMenu={() => setMenuOpen((current) => !current)}
                 onCloseMenu={() => setMenuOpen(false)}
+                isAuthenticated={isAuthenticated}
+                onDashboard={onDashboard}
                 onLogin={onLogin}
                 onRegister={onRegister}
             />
 
             <main>
-                <HeroSection onLogin={onLogin} onRegister={onRegister}/>
+                <HeroSection
+                    isAuthenticated={isAuthenticated}
+                    onDashboard={onDashboard}
+                    onLogin={onLogin}
+                    onRegister={onRegister}
+                />
                 <MarketTickerStrip items={tickerItems}/>
-                <MarketOverviewSection data={marketData} onLogin={onLogin} onRegister={onRegister}/>
+                <MarketOverviewSection
+                    data={marketData}
+                    isAuthenticated={isAuthenticated}
+                    onLogin={onLogin}
+                    onRegister={onRegister}
+                />
                 <FeaturesSection/>
                 <AboutSection/>
                 <ContactSection contactStatus={contactStatus} onSubmit={submitContact}/>

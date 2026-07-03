@@ -7,7 +7,7 @@ import {parseInitialBalanceInput} from '../utils/parseInitialBalanceInput';
 import {submitAuthRequest} from './submitAuthRequest';
 import type {AuthMode, AuthPageProps, AuthSession} from '../types';
 
-export function useAuthForm({onAuthenticated, initialMode = 'login'}: AuthPageProps) {
+export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChange}: AuthPageProps) {
     const [mode, setMode] = useState<AuthMode>(initialMode);
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
@@ -60,6 +60,7 @@ export function useAuthForm({onAuthenticated, initialMode = 'login'}: AuthPagePr
         setMode(nextMode);
         setError(null);
         resetRegisterFields();
+        onModeChange?.(nextMode);
     };
 
     const applyGeneratedPassword = () => {
