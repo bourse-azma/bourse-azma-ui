@@ -17,10 +17,10 @@ export type LandingFeature = {
 };
 
 export const navItems = [
-    {label: 'صفحه اصلی', href: '#home'},
-    {label: 'نمای بازار', href: '#market'},
-    {label: 'معرفی', href: '#about'},
-    {label: 'ارتباط با ما', href: '#contact'},
+    {label: 'صفحه اصلی', href: '/'},
+    {label: 'نمای بازار', href: '/market'},
+    {label: 'معرفی', href: '/#about'},
+    {label: 'ارتباط با ما', href: '/#contact'},
 ] as const;
 
 export const trustSignals = ['داده‌های زنده بازار', 'سرمایه دمو قابل تنظیم', 'تمرین روی نمادهای واقعی'];
@@ -60,13 +60,13 @@ export const features: LandingFeature[] = [
 
 export const teamMembers = [
     {
-        name: 'عرفان داوودی نصر',
+        name: 'مهندس عرفان داوودی نصر',
         email: 'davoodinasr.erfan@gmail.com',
         github: 'ErfanDavoodiNasr',
         icon: Activity,
     },
     {
-        name: 'محسن جلیلی',
+        name: 'مهندس محسن جلیلی',
         email: 'mohsenjalili@ut.ac.ir',
         github: 'reallermaker',
         icon: Radar,

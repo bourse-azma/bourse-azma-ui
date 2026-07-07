@@ -13,7 +13,7 @@ export function ContactSection({contactStatus, onSubmit}: ContactSectionProps) {
                 <div>
                     <span className="text-sm font-black text-[#00E5C9]">ارتباط با ما</span>
                     <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">
-                        همکاری، دمو و ارتباط با ما
+                        همکاری و ارتباط با ما
                     </h2>
                     <p className="mt-4 text-sm font-medium leading-8 text-[#AFC1D8]">
                         برای همکاری، دریافت دمو یا طرح پرسش، از طریق فرم یا ایمیل با ما در تماس باشید.
@@ -35,8 +35,8 @@ export function ContactSection({contactStatus, onSubmit}: ContactSectionProps) {
                     </div>
 
                     <div className="landing-map mt-8">
-                        <MapPinned className="h-6 w-6 text-[#FFB300]"/>
-                        <p className="text-sm font-semibold text-white">تهران، مرکزی</p>
+                        <MapPinned className="h-6 w-6 shrink-0 text-[#FFB300]"/>
+                        <p className="text-sm font-semibold text-white leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</p>
                     </div>
                 </div>
 

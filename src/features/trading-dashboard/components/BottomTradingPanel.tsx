@@ -76,7 +76,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                     </span>
                             <span
                                 className="rounded-full border border-positive/25 bg-positive/10 px-2.5 py-1 text-positive">
-                                        ارزش خالص {formatCompactAmountFa(
+                                        ارزش خالص {formatNumberFa(
                                 vm.demoPortfolioRows.reduce(
                                     (sum, row) => sum + row.quantity * (row.livePrice ?? row.buyPrice),
                                     0

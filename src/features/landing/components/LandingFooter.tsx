@@ -33,8 +33,8 @@ export function LandingFooter() {
                         >
                             <Mail className="h-4 w-4 shrink-0"/> <span dir="ltr">info@bourseazma.ir</span>
                         </a>
-                        <span className="inline-flex items-center gap-2">
-                            <MapPinned className="h-4 w-4 text-[#FFB300]"/> تهران، مرکزی
+                        <span className="inline-flex items-start gap-2">
+                            <MapPinned className="h-4 w-4 shrink-0 text-[#FFB300] mt-0.5"/> <span className="leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</span>
                         </span>
                         <a
                             href="https://github.com/bourse-azma"

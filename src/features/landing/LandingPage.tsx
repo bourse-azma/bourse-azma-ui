@@ -1,10 +1,6 @@
-import {FormEvent, useEffect, useMemo, useState} from 'react';
-import MarketOverviewSection from '../market-overview/MarketOverviewSection';
-import MarketTickerStrip from '../market-overview/MarketTickerStrip';
-import {buildTickerItems, useLandingMarketData} from '../market-overview/useLandingMarketData';
+import {FormEvent, useEffect, useState} from 'react';
 import {AboutSection} from './components/AboutSection';
 import {ContactSection} from './components/ContactSection';
-import {FeaturesSection} from './components/FeaturesSection';
 import {HeroSection} from './components/HeroSection';
 import {LandingFooter} from './components/LandingFooter';
 import {LandingHeader} from './components/LandingHeader';
@@ -20,8 +16,6 @@ export default function LandingPage({isAuthenticated, onDashboard, onLogin, onRe
     const [isScrolled, setIsScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [contactStatus, setContactStatus] = useState<'idle' | 'sent'>('idle');
-    const marketData = useLandingMarketData(true);
-    const tickerItems = useMemo(() => buildTickerItems(marketData), [marketData]);
 
     useEffect(() => {
         const updateHeader = () => setIsScrolled(window.scrollY > 18);
@@ -78,14 +72,6 @@ export default function LandingPage({isAuthenticated, onDashboard, onLogin, onRe
                     onLogin={onLogin}
                     onRegister={onRegister}
                 />
-                <MarketTickerStrip items={tickerItems}/>
-                <MarketOverviewSection
-                    data={marketData}
-                    isAuthenticated={isAuthenticated}
-                    onLogin={onLogin}
-                    onRegister={onRegister}
-                />
-                <FeaturesSection/>
                 <AboutSection/>
                 <ContactSection contactStatus={contactStatus} onSubmit={submitContact}/>
             </main>

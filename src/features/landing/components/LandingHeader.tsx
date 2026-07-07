@@ -23,6 +23,25 @@ export function LandingHeader({
                                   onLogin,
                                   onRegister,
                               }: LandingHeaderProps) {
+    const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+        if (href.startsWith('/')) {
+            e.preventDefault();
+            const [path, hash] = href.split('#');
+            if (window.location.pathname !== path) {
+                window.history.pushState(null, '', path);
+                window.dispatchEvent(new Event('popstate'));
+            }
+            if (hash) {
+                setTimeout(() => {
+                    const el = document.getElementById(hash);
+                    if (el) el.scrollIntoView({behavior: 'smooth'});
+                }, 100);
+            } else {
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        }
+    };
+
     return (
         <header className={`landing-header ${isScrolled ? 'landing-header-solid' : ''}`}>
             <div className="mx-auto flex h-20 w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4">
@@ -35,6 +54,7 @@ export function LandingHeader({
                         <a
                             key={item.href}
                             href={item.href}
+                            onClick={(e) => handleNavClick(e, item.href)}
                             className="rounded-lg px-4 py-2 text-sm font-semibold text-white/72 transition hover:bg-white/8 hover:text-white"
                         >
                             {item.label}
@@ -87,7 +107,10 @@ export function LandingHeader({
                             <a
                                 key={item.href}
                                 href={item.href}
-                                onClick={onCloseMenu}
+                                onClick={(e) => {
+                                    handleNavClick(e, item.href);
+                                    onCloseMenu();
+                                }}
                                 className="rounded-lg px-3 py-2 text-sm font-bold text-white/80 hover:bg-white/8"
                             >
                                 {item.label}
