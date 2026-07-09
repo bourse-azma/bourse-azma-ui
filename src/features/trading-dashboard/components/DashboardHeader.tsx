@@ -116,7 +116,9 @@ function ProfileMenuButton({
 
             {vm.profileMenuOpen ? (
                 <div
-                    className="absolute left-0 top-[calc(100%+8px)] z-40 w-44 rounded-xl border border-border/80 bg-surface p-1.5 shadow-card">
+                    className="absolute left-0 top-[calc(100%+8px)] z-50 w-44 rounded-xl border border-border/80 bg-surface p-1.5 shadow-card"
+                    onMouseDown={(event) => event.stopPropagation()}
+                >
                     <button
                         type="button"
                         onClick={() => {
@@ -215,7 +217,9 @@ function MarketIndexPanel({vm, compact = false}: { vm: TradingDashboardVm; compa
 
             {vm.marketPanelOpen ? (
                 <div
-                    className="mt-2 rounded-xl border border-border/70 bg-surface p-1.5 shadow-card lg:absolute lg:left-0 lg:right-0 lg:top-full lg:z-30">
+                    className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-xl border border-border/70 bg-surface p-1.5 shadow-card"
+                    onMouseDown={(event) => event.stopPropagation()}
+                >
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {vm.marketDetails.map((item) => (
                             <div
@@ -281,7 +285,7 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
     onLogout: () => void
 }) {
     return (
-        <header className="border-b border-border/60 px-3 py-2 sm:px-4">
+        <header className="relative z-30 border-b border-border/60 px-3 py-1.5 sm:px-4 sm:py-2">
             <div className="mx-auto w-full max-w-[1800px] [direction:ltr]">
                 {/* Mobile layout — compact 2-row header */}
                 <div dir="rtl" className="flex flex-col gap-1.5 lg:hidden">

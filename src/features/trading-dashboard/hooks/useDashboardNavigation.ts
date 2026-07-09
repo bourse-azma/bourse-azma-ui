@@ -77,8 +77,8 @@ export function useDashboardNavigation({userProfile}: UseDashboardNavigationPara
             setProfileMenuOpen(false);
         };
 
-        window.addEventListener('mousedown', onClickOutside);
-        return () => window.removeEventListener('mousedown', onClickOutside);
+        window.addEventListener('click', onClickOutside, true);
+        return () => window.removeEventListener('click', onClickOutside, true);
     }, [profileMenuOpen]);
 
     const bottomPanelTabs: Array<{ key: BottomPanelTab; label: string }> = [

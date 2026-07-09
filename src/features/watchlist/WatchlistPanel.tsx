@@ -15,6 +15,10 @@ import {WatchlistSymbolsTable} from './components/WatchlistSymbolsTable';
 export type WatchlistPanelProps = {
     activeTab: SidebarTab;
     onTabChange: (tab: SidebarTab) => void;
+    /** Hide tab bar when opened from mobile drawer (tabs are in MobileNav). */
+    hideTabBar?: boolean;
+    /** Expand list height to fill drawer viewport. */
+    fillHeight?: boolean;
     watchlists: Watchlist[];
     selectedWatchlistId: number | null;
     onSelectWatchlist: (watchlistId: number) => void;
@@ -41,6 +45,8 @@ export type WatchlistPanelProps = {
 export function WatchlistPanel({
                                    activeTab,
                                    onTabChange,
+                                   hideTabBar = false,
+                                   fillHeight = false,
                                    watchlists,
                                    selectedWatchlistId,
                                    onSelectWatchlist,
@@ -68,11 +74,15 @@ export function WatchlistPanel({
     const showWatchlistContent = activeTab === 'watchlist';
 
     return (
-        <aside className={`${cardClass} w-full min-w-0 p-3`}>
-            <SidebarTabBar activeTab={activeTab} onTabChange={onTabChange}/>
+        <aside className={`${hideTabBar ? '' : cardClass} w-full min-w-0 ${hideTabBar ? '' : 'p-3'}`}>
+            {!hideTabBar ? <SidebarTabBar activeTab={activeTab} onTabChange={onTabChange}/> : null}
 
             {activeTab === 'popular' ? (
-                <PopularSymbolsTabContent activeSymbolKey={currentSymbolKey} onSelectSymbol={onSelectSymbol}/>
+                <PopularSymbolsTabContent
+                    activeSymbolKey={currentSymbolKey}
+                    onSelectSymbol={onSelectSymbol}
+                    fillHeight={fillHeight}
+                />
             ) : null}
 
             {activeTab === 'industries' ? (

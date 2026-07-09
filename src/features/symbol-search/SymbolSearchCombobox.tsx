@@ -102,7 +102,7 @@ export default function SymbolSearchCombobox({
             : undefined;
 
     return (
-        <div dir="rtl" ref={rootRef} className="relative block lg:col-span-7">
+        <div dir="rtl" ref={rootRef} className="relative block">
             <Search className="pointer-events-none absolute right-3 top-1/2 z-20 h-4 w-4 -translate-y-1/2 text-muted"/>
             <input
                 value={inputValue}

@@ -16,60 +16,54 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
     userProfile?: TradingDashboardProps['userProfile'];
     onProfileUpdated?: TradingDashboardProps['onProfileUpdated']
 }) {
+    if (!vm.drawerOpen) return null;
+
     return (
-        <>
-            {vm.drawerOpen ? (
-                <div className="fixed inset-0 z-50 md:hidden">
-                    <button
-                        type="button"
-                        onClick={() => vm.setDrawerOpen(false)}
-                        className="absolute inset-0 bg-black/40"
-                        aria-label="close drawer"
-                    />
+        <div className="fixed inset-0 z-50 flex flex-col bg-surface md:hidden">
+            <header
+                className="flex shrink-0 items-center justify-between border-b border-border/70 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+                <h3 className="text-base font-semibold text-text">{drawerTitles[vm.sidebarTab]}</h3>
 
-                    <div
-                        className="thin-scrollbar absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto border-l border-border/70 bg-surface p-3 shadow-card">
-                        <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-text">{drawerTitles[vm.sidebarTab]}</h3>
+                <button
+                    type="button"
+                    onClick={() => vm.setDrawerOpen(false)}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/80 bg-surface-2 text-muted transition hover:text-text"
+                    aria-label="بستن"
+                >
+                    <X className="h-4 w-4"/>
+                </button>
+            </header>
 
-                            <button
-                                type="button"
-                                onClick={() => vm.setDrawerOpen(false)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-surface-2 text-muted transition hover:text-text"
-                                aria-label="close"
-                            >
-                                <X className="h-4 w-4"/>
-                            </button>
-                        </div>
-
-                        <WatchlistPanel
-                            activeTab={vm.sidebarTab}
-                            onTabChange={vm.setSidebarTab}
-                            watchlists={vm.watchlists}
-                            selectedWatchlistId={vm.selectedWatchlistId}
-                            onSelectWatchlist={vm.setSelectedWatchlistId}
-                            loading={vm.watchlistsLoading}
-                            error={vm.watchlistsError}
-                            onRetry={() => void vm.loadWatchlists()}
-                            onRequestCreateWatchlist={vm.openCreateWatchlistModal}
-                            onRequestEditWatchlist={vm.openEditWatchlistModal}
-                            onRequestDeleteWatchlist={(watchlistId) => void vm.handleDeleteWatchlist(watchlistId)}
-                            onSelectSymbol={vm.handleSelectSymbol}
-                            onRemoveSymbol={(symbolId) => void vm.handleRemoveSymbolFromWatchlist(symbolId)}
-                            onToggleCurrentSymbol={() => void vm.handleToggleFavorite()}
-                            watchlistBusy={vm.watchlistBusy}
-                            currentSymbolLabel={vm.selectedSymbol.symbol}
-                            currentSymbolKey={vm.selectedSymbol.key}
-                            resolveLivePrice={vm.resolveDisplayLivePrice}
-                            resolveLivePriceChange={vm.resolveDisplayLivePriceChange}
-                            userProfile={userProfile}
-                            accountSummary={vm.accountSummary}
-                            accessToken={accessToken}
-                            onProfileUpdated={onProfileUpdated}
-                        />
-                    </div>
-                </div>
-            ) : null}
-        </>
+            <div
+                className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <WatchlistPanel
+                    activeTab={vm.sidebarTab}
+                    onTabChange={vm.setSidebarTab}
+                    hideTabBar
+                    fillHeight
+                    watchlists={vm.watchlists}
+                    selectedWatchlistId={vm.selectedWatchlistId}
+                    onSelectWatchlist={vm.setSelectedWatchlistId}
+                    loading={vm.watchlistsLoading}
+                    error={vm.watchlistsError}
+                    onRetry={() => void vm.loadWatchlists()}
+                    onRequestCreateWatchlist={vm.openCreateWatchlistModal}
+                    onRequestEditWatchlist={vm.openEditWatchlistModal}
+                    onRequestDeleteWatchlist={(watchlistId) => void vm.handleDeleteWatchlist(watchlistId)}
+                    onSelectSymbol={vm.handleSelectSymbol}
+                    onRemoveSymbol={(symbolId) => void vm.handleRemoveSymbolFromWatchlist(symbolId)}
+                    onToggleCurrentSymbol={() => void vm.handleToggleFavorite()}
+                    watchlistBusy={vm.watchlistBusy}
+                    currentSymbolLabel={vm.selectedSymbol.symbol}
+                    currentSymbolKey={vm.selectedSymbol.key}
+                    resolveLivePrice={vm.resolveDisplayLivePrice}
+                    resolveLivePriceChange={vm.resolveDisplayLivePriceChange}
+                    userProfile={userProfile}
+                    accountSummary={vm.accountSummary}
+                    accessToken={accessToken}
+                    onProfileUpdated={onProfileUpdated}
+                />
+            </div>
+        </div>
     );
 }

@@ -25,7 +25,7 @@ const formatNumberOrDash = (value: number | null | undefined) =>
 const formatPercentOrDash = (value: number | null | undefined) =>
     formatPercentOrDashBase(value, 2, '—');
 
-const POPULAR_TABLE_GRID = 'grid grid-cols-[1.75rem_minmax(0,1fr)_4.5rem_3.75rem] items-center gap-x-2';
+const POPULAR_TABLE_GRID = 'grid grid-cols-[1.5rem_minmax(0,1fr)_3.75rem_3.25rem] items-center gap-x-2 sm:grid-cols-[1.75rem_minmax(0,1fr)_4.5rem_3.75rem]';
 
 type RankBadgeProps = {
     rank: number;
@@ -53,11 +53,13 @@ const RankBadge = ({rank}: RankBadgeProps) => {
 type PopularSymbolsTabContentProps = {
     activeSymbolKey: string | null;
     onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
+    fillHeight?: boolean;
 };
 
 export default function PopularSymbolsTabContent({
                                                      activeSymbolKey,
                                                      onSelectSymbol,
+                                                     fillHeight = false,
                                                  }: PopularSymbolsTabContentProps) {
     const {
         items,
@@ -194,7 +196,12 @@ export default function PopularSymbolsTabContent({
                         </p>
                     </div>
                 ) : (
-                    <div ref={listRef} className="calm-scroll thin-scrollbar max-h-[292px] overflow-y-auto">
+                    <div
+                        ref={listRef}
+                        className={`calm-scroll thin-scrollbar overflow-y-auto ${
+                            fillHeight ? 'max-h-none min-h-[50vh]' : 'max-h-[292px]'
+                        }`}
+                    >
                         {filteredItems.map((item, index) => {
                             const isActive = activeSymbolKey === item.suggestion.key;
                             const displayPrice = resolveMostVisitedDisplayPrice(item.instrument);

@@ -114,7 +114,91 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                         </div>
                     ) : vm.bottomPanelTab === 'orders' ? (
                         <>
-                            <table className="w-full min-w-[1020px] border-collapse text-right text-xs">
+                            <div className="space-y-2 p-2 md:hidden">
+                                {vm.filteredOrders.map((order, index) => {
+                                    const isBuy = order.type === 'buy';
+                                    const statusClass =
+                                        order.status === 'COMPLETED'
+                                            ? 'border-positive/35 bg-positive/10 text-positive'
+                                            : order.status === 'FAILED'
+                                                ? 'border-negative/35 bg-negative/10 text-negative'
+                                                : order.status === 'CANCELLED'
+                                                    ? 'border-warning/35 bg-warning/10 text-warning'
+                                                    : order.status === 'PARTIALLY_FILLED'
+                                                        ? 'border-amber-400/35 bg-amber-400/10 text-amber-600 dark:text-amber-400'
+                                                        : 'border-primary/35 bg-primary/10 text-primary';
+                                    const isCancelling = vm.cancellingOrderId === order.id;
+
+                                    return (
+                                        <Fragment key={order.id}>
+                                            <div className="rounded-xl border border-border/70 bg-surface p-3">
+                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-text">{order.symbol}</span>
+                                                        <span
+                                                            className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                                                                isBuy
+                                                                    ? 'border-positive/35 bg-positive/10 text-positive'
+                                                                    : 'border-negative/35 bg-negative/10 text-negative'
+                                                            }`}
+                                                        >
+                                                            {isBuy ? 'خرید' : 'فروش'}
+                                                        </span>
+                                                    </div>
+                                                    <span
+                                                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusClass}`}
+                                                    >
+                                                        {order.statusLabel}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                                                    <div>
+                                                        <span className="text-muted">تعداد</span>
+                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.quantity)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted">قیمت</span>
+                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.orderPrice)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted">اجرا شده</span>
+                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-muted">زمان</span>
+                                                        <p className="font-semibold tabular-nums text-muted"
+                                                           dir="ltr">{order.time}</p>
+                                                    </div>
+                                                </div>
+                                                {order.cancellable ? (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isCancelling}
+                                                        onClick={() => {
+                                                            if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
+                                                                void vm.handleCancelOrder(order.id);
+                                                            }
+                                                        }}
+                                                        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1.5 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    >
+                                                        {isCancelling ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin"/>
+                                                        ) : (
+                                                            <X className="h-3 w-3"/>
+                                                        )}
+                                                        لغو سفارش
+                                                    </button>
+                                                ) : null}
+                                            </div>
+                                            {canPrefetchMoreOrders && index === ordersLoadTriggerIndex ? (
+                                                <InfiniteScrollSentinel sentinelRef={ordersLoadMoreRef}/>
+                                            ) : null}
+                                        </Fragment>
+                                    );
+                                })}
+                            </div>
+
+                            <table className="hidden w-full min-w-[1020px] border-collapse text-right text-xs md:table">
                                 <thead>
                                 <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
                                     <th className="px-3 py-3">نوع</th>
@@ -225,38 +309,17 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                             ) : null}
                         </>
                     ) : (
-                        <table className="w-full min-w-[760px] border-collapse text-right text-xs">
-                            <thead>
-                            <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
-                                <th className="px-3 py-3">نماد</th>
-                                <th className="px-3 py-3">زمان</th>
-                                <th className="px-3 py-3">تعداد</th>
-                                <th className="px-3 py-3">قیمت خرید</th>
-                                <th className="px-3 py-3">قیمت لحظه‌ای</th>
-                                <th className="px-3 py-3">ارزش خالص</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {vm.demoPortfolioRows.map((row) => {
-                                const livePrice = row.livePrice ?? row.buyPrice;
-                                const netValue = row.quantity * livePrice;
-                                const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
+                        <>
+                            <div className="space-y-2 p-2 md:hidden">
+                                {vm.demoPortfolioRows.map((row) => {
+                                    const livePrice = row.livePrice ?? row.buyPrice;
+                                    const netValue = row.quantity * livePrice;
+                                    const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
 
-                                return (
-                                    <tr
-                                        key={row.id}
-                                        className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
-                                    >
-                                        <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
-                                        <td className="px-3 py-3 tabular-nums text-muted"
-                                            dir="ltr">{row.time}</td>
-                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
-                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
-                                        <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
-                                        <td className="px-3 py-3">
-                                            <div className="flex flex-col gap-1">
-                                                                <span
-                                                                    className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
+                                    return (
+                                        <div key={row.id} className="rounded-xl border border-border/70 bg-surface p-3">
+                                            <div className="mb-2 flex items-center justify-between gap-2">
+                                                <span className="font-bold text-text">{row.symbol}</span>
                                                 <span
                                                     className={`text-[11px] font-semibold ${ltrNumericClassName} ${
                                                         gainPercent === null
@@ -266,15 +329,79 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                                 : 'text-negative'
                                                     }`}
                                                 >
+                                                    {formatPercentOrDash(gainPercent)}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                                                <div>
+                                                    <span className="text-muted">تعداد</span>
+                                                    <p className="font-semibold tabular-nums text-text">{formatNumberFa(row.quantity)}</p>
+                                                </div>
+                                                <div>
+                                                    <span className="text-muted">قیمت لحظه‌ای</span>
+                                                    <p className="font-semibold tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</p>
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <span className="text-muted">ارزش خالص</span>
+                                                    <p className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <table className="hidden w-full min-w-[760px] border-collapse text-right text-xs md:table">
+                                <thead>
+                                <tr className="border-b border-border/70 bg-surface text-[11px] font-semibold text-muted">
+                                    <th className="px-3 py-3">نماد</th>
+                                    <th className="px-3 py-3">زمان</th>
+                                    <th className="px-3 py-3">تعداد</th>
+                                    <th className="px-3 py-3">قیمت خرید</th>
+                                    <th className="px-3 py-3">قیمت لحظه‌ای</th>
+                                    <th className="px-3 py-3">ارزش خالص</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {vm.demoPortfolioRows.map((row) => {
+                                    const livePrice = row.livePrice ?? row.buyPrice;
+                                    const netValue = row.quantity * livePrice;
+                                    const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
+
+                                    return (
+                                        <tr
+                                            key={row.id}
+                                            className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                        >
+                                            <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
+                                            <td className="px-3 py-3 tabular-nums text-muted"
+                                                dir="ltr">{row.time}</td>
+                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
+                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.buyPrice)}</td>
+                                            <td className="px-3 py-3 tabular-nums text-text">{formatNumberOrDash(row.livePrice)}</td>
+                                            <td className="px-3 py-3">
+                                                <div className="flex flex-col gap-1">
+                                                                <span
+                                                                    className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</span>
+                                                    <span
+                                                        className={`text-[11px] font-semibold ${ltrNumericClassName} ${
+                                                            gainPercent === null
+                                                                ? 'text-muted'
+                                                                : gainPercent >= 0
+                                                                    ? 'text-positive'
+                                                                    : 'text-negative'
+                                                        }`}
+                                                    >
                                                             {formatPercentOrDash(gainPercent)}
                                                         </span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            </tbody>
-                        </table>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                </tbody>
+                            </table>
+                        </>
                     )}
                 </div>
             </section>

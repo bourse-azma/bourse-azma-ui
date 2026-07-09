@@ -39,31 +39,63 @@ export default function OrderBookDepthPanel({
                 const buyWidth = clampDepthPercent(row.buyPercent);
 
                 return (
-                    <div key={row.id} className="space-y-1">
-                        <div
-                            className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,1fr)] items-end gap-2 text-[11px] leading-tight">
-                            <div className="min-w-0 truncate text-right tabular-nums text-negative">
-                                {formatDepthLine(
-                                    row.sellCount,
-                                    row.sellVolume,
-                                    row.sellPercent,
-                                    formatCount,
-                                    formatVolume,
-                                    formatPercent
-                                )}
+                    <div key={row.id} className="space-y-1.5">
+                        <div className="flex flex-col gap-1 sm:hidden">
+                            <div className="flex items-center justify-between gap-2 text-[10px] leading-tight">
+                                <span className="shrink-0 text-xs font-medium text-muted">{row.label}</span>
                             </div>
+                            <div className="grid grid-cols-2 gap-2 text-[10px] leading-tight">
+                                <div
+                                    className="min-w-0 rounded-lg bg-negative/8 px-2 py-1.5 text-right tabular-nums text-negative">
+                                    {formatDepthLine(
+                                        row.sellCount,
+                                        row.sellVolume,
+                                        row.sellPercent,
+                                        formatCount,
+                                        formatVolume,
+                                        formatPercent
+                                    )}
+                                </div>
+                                <div
+                                    className="min-w-0 rounded-lg bg-positive/8 px-2 py-1.5 text-left tabular-nums text-positive">
+                                    {formatDepthLine(
+                                        row.buyCount,
+                                        row.buyVolume,
+                                        row.buyPercent,
+                                        formatCount,
+                                        formatVolume,
+                                        formatPercent
+                                    )}
+                                </div>
+                            </div>
+                        </div>
 
-                            <span className="pb-0.5 text-center text-xs font-medium text-muted">{row.label}</span>
+                        <div className="hidden sm:block">
+                            <div
+                                className="grid grid-cols-[minmax(0,1fr)_52px_minmax(0,1fr)] items-end gap-2 text-[11px] leading-tight">
+                                <div className="min-w-0 truncate text-right tabular-nums text-negative">
+                                    {formatDepthLine(
+                                        row.sellCount,
+                                        row.sellVolume,
+                                        row.sellPercent,
+                                        formatCount,
+                                        formatVolume,
+                                        formatPercent
+                                    )}
+                                </div>
 
-                            <div className="min-w-0 truncate text-left tabular-nums text-positive">
-                                {formatDepthLine(
-                                    row.buyCount,
-                                    row.buyVolume,
-                                    row.buyPercent,
-                                    formatCount,
-                                    formatVolume,
-                                    formatPercent
-                                )}
+                                <span className="pb-0.5 text-center text-xs font-medium text-muted">{row.label}</span>
+
+                                <div className="min-w-0 truncate text-left tabular-nums text-positive">
+                                    {formatDepthLine(
+                                        row.buyCount,
+                                        row.buyVolume,
+                                        row.buyPercent,
+                                        formatCount,
+                                        formatVolume,
+                                        formatPercent
+                                    )}
+                                </div>
                             </div>
                         </div>
 

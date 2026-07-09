@@ -90,14 +90,14 @@ export function OrderBookSection({vm}: { vm: TradingDashboardVm }) {
                         ) : (
                             <>
                                 <div
-                                    className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-4">
+                                    className="mb-3 rounded-2xl border border-border/70 bg-surface-2 p-3 sm:p-4">
                                     <div
-                                        className="mb-3 text-center text-xs font-medium text-muted">بازه
+                                        className="mb-2 text-center text-[11px] font-medium text-muted sm:mb-3 sm:text-xs">بازه
                                         مجاز
                                         روزانه
                                     </div>
                                     <div
-                                        className="grid grid-cols-[74px_1fr] items-center gap-3 text-xs [direction:ltr]">
+                                        className="grid grid-cols-[56px_1fr] items-center gap-2 text-xs sm:grid-cols-[74px_1fr] sm:gap-3 [direction:ltr]">
                 <span
                     className={`text-left text-sm font-bold tabular-nums ${
                         vm.symbolPercent === null ? 'text-muted' : vm.symbolPositive ? 'text-positive' : 'text-negative'

@@ -5,15 +5,15 @@ import {getOrderBookMaxVolumes, volumeToBarPercent} from './orderBookUtils';
 type OrderBookPanelProps = {
     rows: SymbolOrderBookRow[];
     formatNumber: (value: number | null | undefined, digits?: number) => string;
-    /** When provided, bid/ask price cells become clickable and call back with the price. */
     onSelectPrice?: (price: number) => void;
-    /** Expand the scroll area to fill the parent flex slot instead of using a fixed max height. */
     fillHeight?: boolean;
-    /** Render without outer border/radius when nested inside a shared container. */
     embedded?: boolean;
 };
 
 const hasPositiveValue = (value: number | null | undefined) => (value ?? 0) > 0;
+
+const cellClass = 'flex items-center justify-center px-1 py-2 tabular-nums sm:px-2 sm:py-2.5';
+const priceBtnClass = `${cellClass} font-semibold transition disabled:cursor-default disabled:hover:bg-transparent`;
 
 export default function OrderBookPanel({
                                            rows,
@@ -31,26 +31,54 @@ export default function OrderBookPanel({
         }
     };
 
+    const renderPriceCell = (price: number | null, tone: 'positive' | 'negative') => {
+        const colorClass = tone === 'positive' ? 'text-positive' : 'text-negative';
+        const hoverClass = tone === 'positive' ? 'hover:bg-positive/10' : 'hover:bg-negative/10';
+
+        if (isInteractive) {
+            return (
+                <button
+                    type="button"
+                    onClick={() => handleSelect(price)}
+                    disabled={!hasPositiveValue(price)}
+                    title={hasPositiveValue(price) ? 'انتخاب این قیمت' : undefined}
+                    className={`${priceBtnClass} ${colorClass} ${hoverClass}`}
+                >
+                    {formatNumber(price)}
+                </button>
+            );
+        }
+
+        return (
+            <span className={`${cellClass} font-semibold ${colorClass}`}>
+                {formatNumber(price)}
+            </span>
+        );
+    };
+
     return (
         <div
             dir="ltr"
             className={`overflow-hidden ${embedded ? '' : 'rounded-2xl border border-border/70'} ${fillHeight ? 'flex min-h-0 flex-1 flex-col' : ''}`}
         >
-            <div className="grid grid-cols-2 border-b border-border/60 bg-surface-2/95 text-[11px] text-muted">
-                <div className="grid grid-cols-[minmax(3.5rem,0.9fr)_1fr_1fr] border-l border-border/60">
-                    <span className="px-2 py-2 text-center font-medium">تعداد</span>
-                    <span className="px-2 py-2 text-center font-medium">حجم</span>
-                    <span className="px-2 py-2 text-center font-medium text-negative">قیمت</span>
+            {/* Header */}
+            <div
+                className="grid grid-cols-2 border-b border-border/60 bg-surface-2/95 text-[10px] text-muted sm:text-[11px]">
+                <div className="grid grid-cols-2 border-l border-border/60 sm:grid-cols-[minmax(3rem,0.85fr)_1fr_1fr]">
+                    <span className="hidden px-2 py-2 text-center font-medium sm:block">تعداد</span>
+                    <span className={`${cellClass} font-medium`}>حجم</span>
+                    <span className={`${cellClass} font-medium text-negative`}>قیمت</span>
                 </div>
-                <div className="grid grid-cols-[1fr_1fr_minmax(3.5rem,0.9fr)]">
-                    <span className="px-2 py-2 text-center font-medium text-positive">قیمت</span>
-                    <span className="px-2 py-2 text-center font-medium">حجم</span>
-                    <span className="px-2 py-2 text-center font-medium">تعداد</span>
+                <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_minmax(3rem,0.85fr)]">
+                    <span className={`${cellClass} font-medium text-positive`}>قیمت</span>
+                    <span className={`${cellClass} font-medium`}>حجم</span>
+                    <span className="hidden px-2 py-2 text-center font-medium sm:block">تعداد</span>
                 </div>
             </div>
 
+            {/* Rows */}
             <div
-                className={`thin-scrollbar ${fillHeight ? 'min-h-0 flex-1 overflow-y-auto' : embedded ? 'overflow-visible' : 'max-h-[280px] overflow-y-auto'}`}
+                className={`thin-scrollbar ${fillHeight ? 'min-h-0 flex-1 overflow-y-auto' : embedded ? 'overflow-visible' : 'max-h-[280px] overflow-y-auto sm:max-h-[320px]'}`}
             >
                 {rows.map((row) => {
                     const askPower = volumeToBarPercent(row.askVolume ?? 0, maxVolumes.ask);
@@ -59,66 +87,41 @@ export default function OrderBookPanel({
                     return (
                         <div
                             key={row.id}
-                            className="grid grid-cols-2 border-t border-border/50 text-xs first:border-t-0"
+                            className="grid grid-cols-2 border-t border-border/50 text-[11px] first:border-t-0 sm:text-xs"
                         >
-                            {/* sell side */}
-                            <div className="grid grid-cols-[minmax(3.5rem,0.9fr)_1fr_1fr] border-l border-border/60">
-                                <span className="flex items-center justify-center px-2 py-2.5 tabular-nums text-muted">
+                            {/* Sell side */}
+                            <div
+                                className="grid grid-cols-2 border-l border-border/60 sm:grid-cols-[minmax(3rem,0.85fr)_1fr_1fr]">
+                                <span className={`${cellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.askCount)}
                                 </span>
-                                <div className="relative col-span-2 grid grid-cols-2 overflow-hidden">
+                                <div className="relative overflow-hidden">
                                     <DepthFill percent={askPower} tone="negative" origin="right"/>
                                     <span
-                                        className={`relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums ${hasPositiveValue(row.askVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        className={`relative z-[1] ${cellClass} ${hasPositiveValue(row.askVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
                                     >
                                         {formatNumber(row.askVolume)}
                                     </span>
-                                    {isInteractive ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSelect(row.askPrice)}
-                                            disabled={!hasPositiveValue(row.askPrice)}
-                                            title={hasPositiveValue(row.askPrice) ? 'انتخاب این قیمت' : undefined}
-                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-negative transition hover:bg-negative/10 disabled:cursor-default disabled:hover:bg-transparent"
-                                        >
-                                            {formatNumber(row.askPrice)}
-                                        </button>
-                                    ) : (
-                                        <span
-                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-negative">
-                                            {formatNumber(row.askPrice)}
-                                        </span>
-                                    )}
+                                </div>
+                                <div className="relative overflow-hidden">
+                                    {renderPriceCell(row.askPrice, 'negative')}
                                 </div>
                             </div>
 
-                            {/* buy side */}
-                            <div className="grid grid-cols-[1fr_1fr_minmax(3.5rem,0.9fr)]">
-                                <div className="relative col-span-2 grid grid-cols-2 overflow-hidden">
+                            {/* Buy side */}
+                            <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_minmax(3rem,0.85fr)]">
+                                <div className="relative overflow-hidden">
+                                    {renderPriceCell(row.bidPrice, 'positive')}
+                                </div>
+                                <div className="relative overflow-hidden">
                                     <DepthFill percent={bidPower} tone="positive" origin="left"/>
-                                    {isInteractive ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSelect(row.bidPrice)}
-                                            disabled={!hasPositiveValue(row.bidPrice)}
-                                            title={hasPositiveValue(row.bidPrice) ? 'انتخاب این قیمت' : undefined}
-                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-positive transition hover:bg-positive/10 disabled:cursor-default disabled:hover:bg-transparent"
-                                        >
-                                            {formatNumber(row.bidPrice)}
-                                        </button>
-                                    ) : (
-                                        <span
-                                            className="relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums font-semibold text-positive">
-                                            {formatNumber(row.bidPrice)}
-                                        </span>
-                                    )}
                                     <span
-                                        className={`relative z-[1] flex items-center justify-center px-2 py-2.5 tabular-nums ${hasPositiveValue(row.bidVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        className={`relative z-[1] ${cellClass} ${hasPositiveValue(row.bidVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
                                     >
                                         {formatNumber(row.bidVolume)}
                                     </span>
                                 </div>
-                                <span className="flex items-center justify-center px-2 py-2.5 tabular-nums text-muted">
+                                <span className={`${cellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.bidCount)}
                                 </span>
                             </div>

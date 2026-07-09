@@ -9,7 +9,6 @@ import {BottomTradingPanel} from './features/trading-dashboard/components/Bottom
 import {DashboardHeader} from './features/trading-dashboard/components/DashboardHeader';
 import {MarketActionBar} from './features/trading-dashboard/components/MarketActionBar';
 import {MobileMainNav} from './features/trading-dashboard/components/MobileMainNav';
-import {MobileSidebarNav} from './features/trading-dashboard/components/MobileSidebarNav';
 import {NoticeDetailModal} from './features/trading-dashboard/components/NoticeDetailModal';
 import {NoticeFilterModal} from './features/trading-dashboard/components/NoticeFilterModal';
 import {OrderBookSection} from './features/trading-dashboard/components/OrderBookSection';
@@ -50,7 +49,6 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                 />
                 <MarketActionBar vm={vm}/>
                 <MobileMainNav vm={vm}/>
-                <MobileSidebarNav vm={vm}/>
             </div>
 
             <main
