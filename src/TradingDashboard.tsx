@@ -9,6 +9,7 @@ import {BottomTradingPanel} from './features/trading-dashboard/components/Bottom
 import {DashboardHeader} from './features/trading-dashboard/components/DashboardHeader';
 import {MarketActionBar} from './features/trading-dashboard/components/MarketActionBar';
 import {MobileMainNav} from './features/trading-dashboard/components/MobileMainNav';
+import {MobileSidebarNav} from './features/trading-dashboard/components/MobileSidebarNav';
 import {NoticeDetailModal} from './features/trading-dashboard/components/NoticeDetailModal';
 import {NoticeFilterModal} from './features/trading-dashboard/components/NoticeFilterModal';
 import {OrderBookSection} from './features/trading-dashboard/components/OrderBookSection';
@@ -38,7 +39,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
     return (
         <div className="min-h-screen overflow-x-clip bg-bg text-text transition-colors duration-300">
             <div
-                className="sticky top-0 z-50 border-b border-border/70 bg-surface/85 shadow-card backdrop-blur-xl dark:shadow-none">
+                className="sticky top-0 z-50 border-b border-border/70 bg-surface/85 pt-[env(safe-area-inset-top,0px)] shadow-card backdrop-blur-xl dark:shadow-none">
                 <DashboardHeader
                     vm={vm}
                     theme={theme}
@@ -48,10 +49,11 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                     onLogout={onLogout}
                 />
                 <MarketActionBar vm={vm}/>
+                <MobileMainNav vm={vm}/>
+                <MobileSidebarNav vm={vm}/>
             </div>
-            <MobileMainNav vm={vm}/>
 
-            <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
+            <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-4 px-3 py-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-4 sm:pb-28">
                 {vm.mainNavTab === 'گزارشات' ? (
                     <WalletReportsPanel
                         accessToken={accessToken}
@@ -67,7 +69,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
                             <OrderBookSection vm={vm}/>
                             <SymbolInfoSection vm={vm}/>
-                            <div className="hidden self-start md:block md:col-span-1 xl:col-span-3">
+                            <div className="hidden self-start md:col-span-2 md:block xl:col-span-3">
                                 <WatchlistPanel
                                     activeTab={vm.sidebarTab}
                                     onTabChange={vm.setSidebarTab}

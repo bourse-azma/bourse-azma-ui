@@ -53,12 +53,12 @@ export function SymbolPriceCard({vm}: { vm: TradingDashboardVm }) {
 
     return (
         <div className="rounded-2xl border border-border/70 bg-surface-2 p-3">
-            <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${vm.symbolPositive ? 'bg-positive' : 'bg-negative'}`}/>
-                    <h2 className="text-base font-semibold text-text">{vm.activeSymbolData?.title ?? vm.selectedSymbol.symbol}</h2>
+            <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${vm.symbolPositive ? 'bg-positive' : 'bg-negative'}`}/>
+                    <h2 className="truncate text-base font-semibold text-text">{vm.activeSymbolData?.title ?? vm.selectedSymbol.symbol}</h2>
                 </div>
-                <span className="text-xs text-muted">{vm.activeSymbolData?.subtitle ?? vm.selectedSymbol.name}</span>
+                <span className="hidden max-w-[45%] truncate text-xs text-muted sm:inline">{vm.activeSymbolData?.subtitle ?? vm.selectedSymbol.name}</span>
             </div>
 
             <div className="mb-3 flex items-center gap-2">

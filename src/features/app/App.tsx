@@ -7,7 +7,6 @@ import {useAppNavigation} from '../navigation/useAppNavigation';
 
 const AuthPage = lazy(() => import('../auth/AuthPage'));
 const LandingPage = lazy(() => import('../landing/LandingPage'));
-const MarketPage = lazy(() => import('../landing/MarketPage'));
 const TradingDashboard = lazy(() => import('../../TradingDashboard'));
 const AdminDashboard = lazy(() => import('../admin/AdminDashboard'));
 
@@ -56,8 +55,6 @@ export default function App() {
     const isDashboard = pathname === '/dashboard';
     const isAdminDashboard = pathname === '/admin';
     const isAuthPage = pathname === '/login' || pathname === '/register';
-    const isMarketPage = pathname === '/market';
-
     return (
         <div dir="rtl" className="min-h-screen bg-bg text-text font-sans transition-colors duration-300">
             {auth.authState === 'checking' ? (
@@ -100,15 +97,6 @@ export default function App() {
                         initialMode={pathname === '/register' ? 'register' : 'login'}
                         onModeChange={(mode) => navigate(mode === 'login' ? '/login' : '/register')}
                         onBackToLanding={() => navigate('/')}
-                    />
-                </Suspense>
-            ) : isMarketPage ? (
-                <Suspense fallback={<RouteFallback/>}>
-                    <MarketPage
-                        isAuthenticated={auth.authState === 'authenticated'}
-                        onDashboard={() => navigate('/dashboard')}
-                        onLogin={() => navigate('/login')}
-                        onRegister={() => navigate('/register')}
                     />
                 </Suspense>
             ) : (

@@ -5,9 +5,9 @@ export function MobileMainNav({vm}: { vm: TradingDashboardVm }) {
         <>
             <nav
                 dir="rtl"
-                className="sticky top-0 z-30 border-b border-border/50 bg-bg/95 px-3 py-2 backdrop-blur xl:hidden"
+                className="border-t border-border/40 bg-surface/90 px-3 py-1.5 xl:hidden"
             >
-                <div className="mx-auto flex max-w-[1800px] items-center gap-1 overflow-x-auto">
+                <div className="thin-scrollbar mx-auto flex max-w-[1800px] items-center gap-1 overflow-x-auto">
                     {vm.mainNavTabs.map((item) => (
                         <button
                             key={item}

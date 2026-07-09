@@ -11,7 +11,7 @@ type HeroSectionProps = {
 
 export function HeroSection({isAuthenticated, onDashboard, onLogin, onRegister}: HeroSectionProps) {
     return (
-        <section id="home" className="landing-hero relative flex min-h-[92svh] items-center overflow-hidden pt-24">
+        <section id="home" className="landing-hero relative flex min-h-[92svh] items-center overflow-hidden pt-20 sm:pt-24">
             <div
                 className="landing-hero-image"
                 style={{backgroundImage: `url(${heroImage})`}}

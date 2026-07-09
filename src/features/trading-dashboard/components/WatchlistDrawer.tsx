@@ -1,7 +1,15 @@
 import {X} from 'lucide-react';
 import {WatchlistPanel} from '../../watchlist/WatchlistPanel';
+import type {SidebarTab} from '../types';
 import type {TradingDashboardProps} from '../types';
 import type {TradingDashboardVm} from './types';
+
+const drawerTitles: Record<SidebarTab, string> = {
+    watchlist: 'دیده‌بان',
+    popular: 'پرطرفدار',
+    industries: 'صنایع',
+    wallet: 'کیف پول',
+};
 
 export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}: {
     vm: TradingDashboardVm;
@@ -23,7 +31,7 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
                     <div
                         className="thin-scrollbar absolute inset-y-0 right-0 w-[88%] max-w-sm overflow-y-auto border-l border-border/70 bg-surface p-3 shadow-card">
                         <div className="mb-3 flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-text">پنل کناری</h3>
+                            <h3 className="text-sm font-semibold text-text">{drawerTitles[vm.sidebarTab]}</h3>
 
                             <button
                                 type="button"

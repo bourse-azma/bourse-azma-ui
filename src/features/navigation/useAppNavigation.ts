@@ -1,8 +1,8 @@
 import {useCallback, useEffect, useState} from 'react';
 
-export type AppPath = '/' | '/dashboard' | '/admin' | '/login' | '/register' | '/market';
+export type AppPath = '/' | '/dashboard' | '/admin' | '/login' | '/register';
 
-const knownPaths = new Set<AppPath>(['/', '/dashboard', '/admin', '/login', '/register', '/market']);
+const knownPaths = new Set<AppPath>(['/', '/dashboard', '/admin', '/login', '/register']);
 
 function readPathname(): AppPath | null {
     const pathname = window.location.pathname.replace(/\/+$/, '') || '/';

@@ -4,6 +4,7 @@ import {ContactSection} from './components/ContactSection';
 import {HeroSection} from './components/HeroSection';
 import {LandingFooter} from './components/LandingFooter';
 import {LandingHeader} from './components/LandingHeader';
+import {useLandingHashScroll} from './landingNavigation';
 
 type LandingPageProps = {
     isAuthenticated: boolean;
@@ -16,6 +17,8 @@ export default function LandingPage({isAuthenticated, onDashboard, onLogin, onRe
     const [isScrolled, setIsScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [contactStatus, setContactStatus] = useState<'idle' | 'sent'>('idle');
+
+    useLandingHashScroll();
 
     useEffect(() => {
         const updateHeader = () => setIsScrolled(window.scrollY > 18);

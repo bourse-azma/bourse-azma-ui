@@ -59,10 +59,10 @@ export default function AccountStatusBar({summary, onDepositClick}: AccountStatu
 
     return (
         <footer
-            className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 shadow-[0_-8px_30px_-20px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-surface/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_-20px_rgba(15,23,42,0.35)] backdrop-blur-xl">
             <div className="thin-scrollbar overflow-x-auto">
                 <div
-                    className="mx-auto flex min-w-max max-w-[1800px] items-center justify-between gap-2 px-2 py-2 sm:px-4">
+                    className="mx-auto flex min-w-max max-w-[1800px] items-center justify-between gap-2 px-3 py-2 sm:px-4">
                     <div className="flex items-center">
                         <StatItem
                             label="خالص دارایی"

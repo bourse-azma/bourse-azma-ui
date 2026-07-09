@@ -18,7 +18,6 @@ export type LandingFeature = {
 
 export const navItems = [
     {label: 'صفحه اصلی', href: '/'},
-    {label: 'نمای بازار', href: '/market'},
     {label: 'معرفی', href: '/#about'},
     {label: 'ارتباط با ما', href: '/#contact'},
 ] as const;

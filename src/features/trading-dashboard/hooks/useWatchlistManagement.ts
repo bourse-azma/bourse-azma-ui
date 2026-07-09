@@ -89,8 +89,18 @@ export function useWatchlistManagement({
 
     const openWatchlistDrawer = useCallback(() => {
         openWatchlistSection();
-        setDrawerOpen(true);
+        if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+            setDrawerOpen(true);
+        }
     }, [openWatchlistSection, setDrawerOpen]);
+
+    const openSidebarDrawer = useCallback((tab: SidebarTab) => {
+        setMainNavTab('بازار');
+        setSidebarTab(tab);
+        if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+            setDrawerOpen(true);
+        }
+    }, [setMainNavTab, setSidebarTab, setDrawerOpen]);
 
     const openCreateWatchlistModal = useCallback((pendingSymbol?: SymbolSearchSuggestion) => {
         setWatchlistModal({
@@ -292,5 +302,6 @@ export function useWatchlistManagement({
         isSymbolInSelectedWatchlist: selectedWatchlistSymbol !== null,
         openWatchlistSection,
         openWatchlistDrawer,
+        openSidebarDrawer,
     };
 }

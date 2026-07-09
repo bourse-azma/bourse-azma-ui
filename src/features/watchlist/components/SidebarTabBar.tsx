@@ -16,13 +16,13 @@ const tabs: Array<{ id: SidebarTab; label: string; icon: typeof Bell }> = [
 export function SidebarTabBar({activeTab, onTabChange}: SidebarTabBarProps) {
     return (
         <div className="mb-3 border-b border-border/70 pb-2">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <div className="thin-scrollbar flex items-center gap-x-3 gap-y-1 overflow-x-auto text-xs">
                 {tabs.map(({id, label, icon: Icon}) => (
                     <button
                         key={id}
                         type="button"
                         onClick={() => onTabChange(id)}
-                        className={`relative inline-flex items-center gap-1.5 rounded-lg px-1 py-1 transition ${
+                        className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-1 py-1 transition ${
                             activeTab === id ? 'text-text' : 'text-muted hover:text-text'
                         }`}
                     >

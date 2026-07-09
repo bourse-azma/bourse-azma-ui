@@ -1,7 +1,8 @@
-import {type MouseEvent} from 'react';
+import {useEffect} from 'react';
 import {LayoutDashboard, Menu, UserPlus, X} from 'lucide-react';
 import BourseAzmaLogo from '../../../components/BourseAzmaLogo';
 import {navItems} from '../constants';
+import {handleLandingNavClick} from '../landingNavigation';
 
 type LandingHeaderProps = {
     isScrolled: boolean;
@@ -24,29 +25,36 @@ export function LandingHeader({
                                   onLogin,
                                   onRegister,
                               }: LandingHeaderProps) {
-    const handleNavClick = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
-        if (href.startsWith('/')) {
-            e.preventDefault();
-            const [path, hash] = href.split('#');
-            if (window.location.pathname !== path) {
-                window.history.pushState(null, '', path);
-                window.dispatchEvent(new Event('popstate'));
-            }
-            if (hash) {
-                setTimeout(() => {
-                    const el = document.getElementById(hash);
-                    if (el) el.scrollIntoView({behavior: 'smooth'});
-                }, 100);
-            } else {
-                window.scrollTo({top: 0, behavior: 'smooth'});
-            }
-        }
-    };
+    useEffect(() => {
+        if (!menuOpen) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onCloseMenu();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [menuOpen, onCloseMenu]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) onCloseMenu();
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [onCloseMenu]);
 
     return (
         <header className={`landing-header ${isScrolled ? 'landing-header-solid' : ''}`}>
-            <div className="landing-container flex h-20 items-center justify-between gap-4">
-                <a href="/" className="shrink-0" onClick={(e) => handleNavClick(e, '/')} aria-label="بورس آزما">
+            <div className="landing-container flex h-16 items-center justify-between gap-3 sm:h-20 sm:gap-4">
+                <a href="/" className="shrink-0" onClick={(e) => handleLandingNavClick(e, '/')} aria-label="بورس آزما">
                     <BourseAzmaLogo/>
                 </a>
 
@@ -55,7 +63,7 @@ export function LandingHeader({
                         <a
                             key={item.href}
                             href={item.href}
-                            onClick={(e) => handleNavClick(e, item.href)}
+                            onClick={(e) => handleLandingNavClick(e, item.href)}
                             className="rounded-lg px-4 py-2 text-sm font-semibold text-white/72 transition hover:bg-white/8 hover:text-white"
                         >
                             {item.label}
@@ -93,65 +101,83 @@ export function LandingHeader({
                 <button
                     type="button"
                     onClick={onToggleMenu}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 bg-white/8 text-white lg:hidden"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/12 bg-white/8 text-white sm:h-11 sm:w-11 lg:hidden"
                     aria-label={menuOpen ? 'بستن منو' : 'باز کردن منو'}
+                    aria-expanded={menuOpen}
+                    aria-controls="landing-mobile-menu"
                 >
                     {menuOpen ? <X className="h-5 w-5"/> : <Menu className="h-5 w-5"/>}
                 </button>
             </div>
 
             {menuOpen ? (
-                <div className="landing-container mb-4 rounded-lg border border-white/12 bg-[#0B172D]/95 p-3 shadow-2xl lg:hidden">
-                    <div className="grid gap-2">
-                        {navItems.map((item) => (
-                            <a
-                                key={item.href}
-                                href={item.href}
-                                onClick={(e) => {
-                                    handleNavClick(e, item.href);
+                <>
+                    <button
+                        type="button"
+                        className="landing-mobile-menu-backdrop lg:hidden"
+                        aria-label="بستن منو"
+                        onClick={onCloseMenu}
+                    />
+                    <div
+                        id="landing-mobile-menu"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="منوی موبایل"
+                        className="landing-mobile-menu-panel lg:hidden"
+                    >
+                        <div className="grid gap-1">
+                            {navItems.map((item) => (
+                                <a
+                                    key={item.href}
+                                    href={item.href}
+                                    onClick={(e) => {
+                                        handleLandingNavClick(e, item.href);
+                                        onCloseMenu();
+                                    }}
+                                    className="rounded-lg px-4 py-3 text-base font-bold text-white/85 transition hover:bg-white/8"
+                                >
+                                    {item.label}
+                                </a>
+                            ))}
+                        </div>
+                        {isAuthenticated ? (
+                            <button
+                                type="button"
+                                onClick={() => {
                                     onCloseMenu();
+                                    onDashboard();
                                 }}
-                                className="rounded-lg px-3 py-2 text-sm font-bold text-white/80 hover:bg-white/8"
+                                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#00E5C9] px-4 py-3 text-sm font-black text-[#061221]"
                             >
-                                {item.label}
-                            </a>
-                        ))}
+                                <LayoutDashboard className="h-4 w-4"/>
+                                ورود به داشبورد
+                            </button>
+                        ) : (
+                            <div className="mt-6 grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onCloseMenu();
+                                        onLogin();
+                                    }}
+                                    className="rounded-xl border border-white/14 px-4 py-3 text-sm font-bold text-white"
+                                >
+                                    ورود
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onCloseMenu();
+                                        onRegister();
+                                    }}
+                                    className="rounded-xl bg-[#00E5C9] px-4 py-3 text-sm font-black text-[#061221]"
+                                >
+                                    ثبت‌نام
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    {isAuthenticated ? (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onCloseMenu();
-                                onDashboard();
-                            }}
-                            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#00E5C9] px-3 py-2 text-sm font-black text-[#061221]"
-                        >
-                            <LayoutDashboard className="h-4 w-4"/>
-                            ورود به داشبورد
-                        </button>
-                    ) : <div className="mt-3 grid grid-cols-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onCloseMenu();
-                                onLogin();
-                            }}
-                            className="rounded-lg border border-white/14 px-3 py-2 text-sm font-bold text-white"
-                        >
-                            ورود
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                onCloseMenu();
-                                onRegister();
-                            }}
-                            className="rounded-lg bg-[#00E5C9] px-3 py-2 text-sm font-black text-[#061221]"
-                        >
-                            ثبت‌نام
-                        </button>
-                    </div>}
-                </div>
+                </>
             ) : null}
         </header>
     );

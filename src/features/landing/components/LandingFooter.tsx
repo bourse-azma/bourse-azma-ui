@@ -1,6 +1,7 @@
 import {Github, Mail, MapPinned} from 'lucide-react';
 import BourseAzmaLogo from '../../../components/BourseAzmaLogo';
 import {navItems} from '../constants';
+import {handleLandingNavClick} from '../landingNavigation';
 
 export function LandingFooter() {
     return (
@@ -16,8 +17,12 @@ export function LandingFooter() {
                     <h3 className="text-sm font-black text-white">لینک‌های سریع</h3>
                     <div className="mt-3 grid gap-2">
                         {navItems.map((item) => (
-                            <a key={item.href} href={item.href}
-                               className="text-sm font-semibold text-[#AFC1D8] hover:text-[#00E5C9]">
+                            <a
+                                key={item.href}
+                                href={item.href}
+                                onClick={(e) => handleLandingNavClick(e, item.href)}
+                                className="text-sm font-semibold text-[#AFC1D8] hover:text-[#00E5C9]"
+                            >
                                 {item.label}
                             </a>
                         ))}
