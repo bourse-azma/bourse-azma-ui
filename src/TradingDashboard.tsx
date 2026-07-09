@@ -36,7 +36,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
     const vm = useTradingDashboard({loginEpoch, accessToken, userProfile, onProfileUpdated});
 
     return (
-        <div className="min-h-screen bg-bg text-text transition-colors duration-300">
+        <div className="min-h-screen overflow-x-clip bg-bg text-text transition-colors duration-300">
             <div
                 className="sticky top-0 z-50 border-b border-border/70 bg-surface/85 shadow-card backdrop-blur-xl dark:shadow-none">
                 <DashboardHeader
@@ -51,7 +51,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
             </div>
             <MobileMainNav vm={vm}/>
 
-            <main className="mx-auto w-full max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
+            <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-4 px-3 py-4 pb-28 sm:px-4">
                 {vm.mainNavTab === 'گزارشات' ? (
                     <WalletReportsPanel
                         accessToken={accessToken}

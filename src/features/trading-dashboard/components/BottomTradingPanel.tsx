@@ -5,7 +5,7 @@ import {InfiniteScrollSentinel} from '../../../hooks/InfiniteScrollSentinel';
 import {useInfiniteScrollLoadMore} from '../../../hooks/useInfiniteScrollLoadMore';
 import {formatNumberFa, ltrNumericClassName} from '../../../utils/numberFormat';
 import {cardClass} from '../styles';
-import {formatCompactAmountFa, formatNumberOrDash, formatNumberWithUnit, formatPercentOrDash} from '../formatters';
+import {formatNumberOrDash, formatNumberWithUnit, formatPercentOrDash} from '../formatters';
 import type {TradingDashboardVm} from './types';
 
 export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {

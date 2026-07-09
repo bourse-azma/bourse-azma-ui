@@ -1,3 +1,4 @@
+import {type MouseEvent} from 'react';
 import {LayoutDashboard, Menu, UserPlus, X} from 'lucide-react';
 import BourseAzmaLogo from '../../../components/BourseAzmaLogo';
 import {navItems} from '../constants';
@@ -23,7 +24,7 @@ export function LandingHeader({
                                   onLogin,
                                   onRegister,
                               }: LandingHeaderProps) {
-    const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    const handleNavClick = (e: MouseEvent<HTMLAnchorElement>, href: string) => {
         if (href.startsWith('/')) {
             e.preventDefault();
             const [path, hash] = href.split('#');
@@ -44,8 +45,8 @@ export function LandingHeader({
 
     return (
         <header className={`landing-header ${isScrolled ? 'landing-header-solid' : ''}`}>
-            <div className="mx-auto flex h-20 w-[min(1180px,calc(100%-32px))] items-center justify-between gap-4">
-                <a href="#home" className="shrink-0" aria-label="بورس آزما">
+            <div className="landing-container flex h-20 items-center justify-between gap-4">
+                <a href="/" className="shrink-0" onClick={(e) => handleNavClick(e, '/')} aria-label="بورس آزما">
                     <BourseAzmaLogo/>
                 </a>
 
@@ -100,8 +101,7 @@ export function LandingHeader({
             </div>
 
             {menuOpen ? (
-                <div
-                    className="mx-auto mb-4 w-[min(1180px,calc(100%-32px))] rounded-lg border border-white/12 bg-[#0B172D]/95 p-3 shadow-2xl lg:hidden">
+                <div className="landing-container mb-4 rounded-lg border border-white/12 bg-[#0B172D]/95 p-3 shadow-2xl lg:hidden">
                     <div className="grid gap-2">
                         {navItems.map((item) => (
                             <a

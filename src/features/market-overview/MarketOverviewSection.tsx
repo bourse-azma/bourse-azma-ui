@@ -59,26 +59,30 @@ function SymbolRow({symbol}: { symbol: MarketSymbolQuote }) {
     const tone = changeTone(symbol.changePercent);
     return (
         <article className="market-symbol-row">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5 ${tone}`}>
+            <div className="market-symbol-row-main">
+                <span className={`market-symbol-row-icon ${tone}`}>
                     {symbol.changePercent > 0 ? <TrendingUp className="h-4 w-4"/> : symbol.changePercent < 0 ?
                         <TrendingDown className="h-4 w-4"/> : <span className="h-0.5 w-4 bg-current"/>}
                 </span>
-                <div className="min-w-0"><p className="truncate text-sm font-black text-white">{symbol.symbol}</p><p
-                    className="truncate text-[11px] font-semibold text-white/45">{symbol.fullName}</p></div>
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black text-white">{symbol.symbol}</p>
+                    <p className="truncate text-[11px] font-semibold text-white/45">{symbol.fullName}</p>
+                </div>
             </div>
-            <div className="mr-3 flex shrink-0 items-center gap-3" dir="ltr">
-                <span
-                    className={`min-w-[64px] text-left text-xs font-black ${tone} ${ltrNumericClassName}`}>{formatPercentFa(symbol.changePercent, 2)}</span>
-                <span
-                    className={`min-w-[82px] text-left text-sm font-black text-white ${ltrNumericClassName}`}>{formatNumberFa(symbol.price, 0)}</span>
+            <div className="market-symbol-row-values" dir="ltr">
+                <span className={`market-symbol-row-change ${tone} ${ltrNumericClassName}`}>
+                    {formatPercentFa(symbol.changePercent, 2)}
+                </span>
+                <span className={`market-symbol-row-price ${ltrNumericClassName}`}>
+                    {formatNumberFa(symbol.price, 0)}
+                </span>
             </div>
         </article>
     );
 }
 
 function PopularColumn({title, items}: { title: string; items: MarketSymbolQuote[] }) {
-    return <div className="market-side-card">
+    return <div className="market-side-card min-w-0">
         <h4 className="mb-4 text-sm font-black text-white">{title}</h4>
         <div className="space-y-2">{items.map((symbol) => <SymbolRow key={symbol.instrumentCode}
                                                                      symbol={symbol}/>)}</div>
@@ -118,7 +122,7 @@ export default function MarketOverviewSection({data, isAuthenticated, onLogin, o
 
     return <section id="market"
                     className="market-overview-section landing-section border-y border-white/8 py-16 sm:py-20">
-        <div className="mx-auto w-[min(1180px,calc(100%-32px))]">
+        <div className="landing-container">
             <div className="market-overview-heading max-w-3xl"><span
                 className="inline-flex items-center gap-2 rounded-full border border-[#00E5C9]/20 bg-[#00E5C9]/10 px-3 py-1.5 text-sm font-black text-[#00E5C9]"><Sparkles
                 className="h-4 w-4 text-[#FFB300]"/>نبض بازار</span><h2
@@ -126,7 +130,7 @@ export default function MarketOverviewSection({data, isAuthenticated, onLogin, o
                 <p className="mt-3 max-w-2xl text-sm font-medium leading-7 text-[#AFC1D8]">از شاخص‌های اصلی تا نمادهای
                     پرتحرک و تازه‌ترین پیام‌های ناظر؛ همه‌چیز برای یک تصمیم آگاهانه، یک‌جا و به‌روز.</p></div>
 
-            <div className="market-overview-board mt-7 overflow-hidden rounded-2xl border border-white/10 bg-[#0B172B]">
+            <div className="market-overview-board mt-7 min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B172B]">
                 <div className="market-board-header">
                     <p className="text-sm font-black text-white/55">نمای کلی بازار</p>
                     <div className="market-board-tabs">
@@ -197,13 +201,16 @@ export default function MarketOverviewSection({data, isAuthenticated, onLogin, o
                 </div>
             </div>
 
-            <div className="mt-6 grid items-start gap-5 lg:grid-cols-2">
-                <div className="market-side-card">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2"><Flame className="h-4 w-4 text-[#FFB300]"/><h3
-                            className="text-sm font-black text-white">پرتحرک‌ترین
-                            نمادهای {MARKET_LABELS[marketTab]}</h3></div>
-                        <div className="grid grid-cols-2 rounded-lg bg-white/6 p-1 text-xs">
+            <div className="market-side-grid mt-6 grid items-start gap-5 lg:grid-cols-2">
+                <div className="market-side-card min-w-0">
+                    <div className="market-side-card-header">
+                        <div className="market-side-card-title">
+                            <Flame className="h-4 w-4 shrink-0 text-[#FFB300]"/>
+                            <h3 className="text-sm font-black text-white">
+                                پرتحرک‌ترین نمادهای {MARKET_LABELS[marketTab]}
+                            </h3>
+                        </div>
+                        <div className="market-side-card-tabs">
                             <button onClick={() => setMoversTab('gainers')}
                                     className={`rounded-md px-3 py-1.5 font-black ${moversTab === 'gainers' ? 'bg-[#21E6B7] text-[#061221]' : 'text-white/60'}`}>صعودی
                             </button>
@@ -215,10 +222,14 @@ export default function MarketOverviewSection({data, isAuthenticated, onLogin, o
                     <div className="space-y-2">{marketMovers.map((symbol) => <SymbolRow key={symbol.instrumentCode}
                                                                                         symbol={symbol}/>)}</div>
                 </div>
-                <div className="market-side-card">
-                    <div className="mb-4 flex items-center gap-2"><BellRing className="h-4 w-4 text-[#FFB300]"/><h3
-                        className="text-sm font-black text-white">پیام‌های ناظر</h3></div>
-                    <div className="grid gap-2 sm:grid-cols-2">{data.codalNotices.slice(0, 10).map((notice) => <article
+                <div className="market-side-card min-w-0">
+                    <div className="market-side-card-header market-side-card-header-simple">
+                        <div className="market-side-card-title">
+                            <BellRing className="h-4 w-4 shrink-0 text-[#FFB300]"/>
+                            <h3 className="text-sm font-black text-white">پیام‌های ناظر</h3>
+                        </div>
+                    </div>
+                    <div className="market-notice-grid">{data.codalNotices.slice(0, 10).map((notice) => <article
                         key={`${notice.noticeId}-${notice.trackingNumber}`} className="market-notice-row"><span
                         className="text-[11px] font-black text-[#21E6B7]">{notice.symbol ?? 'بازار'}</span><p
                         className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-white/70">{notice.title ?? 'بدون عنوان'}</p>
@@ -226,10 +237,12 @@ export default function MarketOverviewSection({data, isAuthenticated, onLogin, o
                 </div>
             </div>
 
-            <div className="mt-6"><h3 className="mb-4 text-lg font-black text-white">نمادهای پرطرفدار</h3>
-                <div className="grid items-start gap-5 lg:grid-cols-2"><PopularColumn title="بورس"
-                                                                                      items={boursePopular}/><PopularColumn
-                    title="فرابورس" items={faraboursePopular}/></div>
+            <div className="mt-6 min-w-0">
+                <h3 className="mb-4 text-lg font-black text-white">نمادهای پرطرفدار</h3>
+                <div className="market-side-grid grid items-start gap-5 lg:grid-cols-2">
+                    <PopularColumn title="بورس" items={boursePopular}/>
+                    <PopularColumn title="فرابورس" items={faraboursePopular}/>
+                </div>
             </div>
 
             {!isAuthenticated ? <div

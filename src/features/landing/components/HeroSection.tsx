@@ -20,7 +20,7 @@ export function HeroSection({isAuthenticated, onDashboard, onLogin, onRegister}:
             <div className="landing-data-grid" aria-hidden="true"/>
             <div className="landing-scanline" aria-hidden="true"/>
 
-            <div className="relative z-10 mx-auto w-[min(1180px,calc(100%-32px))] py-16">
+            <div className="relative z-10 landing-container py-16">
                 <div className="max-w-3xl">
                     <div
                         className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#00E5C9]/24 bg-[#00E5C9]/8 px-3 py-2 text-xs font-bold text-[#BFFFF7]">

@@ -9,7 +9,7 @@ type ContactSectionProps = {
 export function ContactSection({contactStatus, onSubmit}: ContactSectionProps) {
     return (
         <section id="contact" className="landing-section py-20 sm:py-24">
-            <div className="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="landing-container grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
                 <div>
                     <span className="text-sm font-black text-[#00E5C9]">ارتباط با ما</span>
                     <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">

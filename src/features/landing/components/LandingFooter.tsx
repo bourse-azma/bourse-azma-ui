@@ -5,8 +5,7 @@ import {navItems} from '../constants';
 export function LandingFooter() {
     return (
         <footer className="landing-footer landing-section border-t border-white/8 pt-12 text-right" dir="rtl">
-            <div
-                className="mx-auto grid w-[min(1180px,calc(100%-32px))] items-start gap-10 md:grid-cols-[1.35fr_0.65fr_0.8fr]">
+            <div className="landing-container grid items-start gap-10 md:grid-cols-[1.35fr_0.65fr_0.8fr]">
                 <div>
                     <BourseAzmaLogo/>
                     <p className="max-w-md text-sm font-medium leading-7 text-[#AFC1D8]">
@@ -47,8 +46,7 @@ export function LandingFooter() {
                     </div>
                 </div>
             </div>
-            <div
-                className="mx-auto mt-10 flex w-[min(1180px,calc(100%-32px))] justify-center py-6 text-center text-xs font-semibold text-[#8EA6C4]">
+            <div className="landing-container mt-10 flex justify-center py-6 text-center text-xs font-semibold text-[#8EA6C4]">
                 <span>© ۲۰۲۶ بورس‌آزما. همه حقوق محفوظ است.</span>
             </div>
         </footer>

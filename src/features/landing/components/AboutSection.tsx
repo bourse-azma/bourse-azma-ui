@@ -4,8 +4,7 @@ import {teamMembers} from '../constants';
 export function AboutSection() {
     return (
         <section id="about" className="landing-section border-y border-white/8 bg-white/[0.025] py-20 sm:py-24">
-            <div
-                className="mx-auto grid w-[min(1180px,calc(100%-32px))] gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+            <div className="landing-container grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
                 <div>
                     <span className="text-sm font-black text-[#FFB300]">معرفی</span>
                     <h2 className="mt-3 text-3xl font-black leading-[1.45] text-white sm:text-4xl">درباره بورس‌آزما</h2>

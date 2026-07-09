@@ -102,12 +102,12 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
                         </div>
                     </div>
 
-                    <div dir="rtl" className="lg:col-span-5">
-                        <div className="relative mx-auto w-full max-w-[520px]">
+                    <div dir="rtl" className="min-w-0 lg:col-span-5">
+                        <div className="relative mx-auto w-full min-w-0 max-w-[520px]">
                             <button
                                 type="button"
                                 onClick={() => vm.setMarketPanelOpen((prev) => !prev)}
-                                className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-1.5 transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                                className={`flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-1.5 transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/35 ${
                                     vm.marketPositive
                                         ? 'border-positive/30 bg-positive/[0.08]'
                                         : 'border-negative/35 bg-negative/[0.08]'
@@ -118,9 +118,9 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
                                     <span className="text-[11px] text-muted/80">بورس • فرابورس</span>
                                 </div>
 
-                                <div className="flex items-center gap-2 [direction:ltr]">
+                                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 [direction:ltr]">
                     <span
-                        className="text-xl leading-none font-extrabold tracking-tight tabular-nums text-text sm:text-2xl">
+                        className="text-lg leading-none font-extrabold tracking-tight tabular-nums text-text sm:text-2xl">
                       {formatNumberOrDash(vm.marketIndex)}
                     </span>
 
