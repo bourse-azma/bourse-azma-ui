@@ -1,20 +1,9 @@
 import type {
     OrderFieldErrors,
     OrderFormValues,
-    OrderSide,
     OrderValidationContext,
     OrderValidationResult,
 } from './types';
-import {isOrderBookReady, type OrderBookPriceRange} from '../../symbol-search/orderBookUtils.ts';
-
-export const ORDER_BOOK_PRICE_ERROR =
-    'این سایت در حالت دمو است؛ قیمت سفارش باید در محدوده صف خرید یا فروش باشد و ثبت قیمت خارج از این بازه امکان‌پذیر نیست.';
-
-export const CONDITIONAL_TRIGGER_PRICE_ERROR =
-    'قیمت شرط باید خارج از محدوده فعلی صف خرید یا فروش باشد.';
-
-export const ORDER_BOOK_UNAVAILABLE_ERROR =
-    'اطلاعات صف خرید و فروش در دسترس نیست؛ امکان ثبت سفارش وجود ندارد.';
 
 export const MARKET_CLOSED_ERROR =
     'بازار در حال حاضر بسته است؛ تا زمان بازگشایی امکان ثبت سفارش وجود ندارد.';
@@ -56,47 +45,6 @@ const isPositiveInteger = (value: number | null): value is number =>
 
 const isPositive = (value: number | null): value is number => value !== null && value > 0;
 
-const queuePriceRangeForSide = (
-    side: OrderSide,
-    context: OrderValidationContext
-): OrderBookPriceRange | null => (side === 'BUY' ? context.bidPriceRange : context.askPriceRange);
-
-const isPriceWithinQueueRange = (price: number, range: OrderBookPriceRange): boolean =>
-    price >= range.min && price <= range.max;
-
-const validateQueuePrice = (
-    price: number,
-    side: OrderSide,
-    context: OrderValidationContext,
-    errors: OrderFieldErrors,
-    field: 'price' | 'triggerPrice'
-) => {
-    const range = queuePriceRangeForSide(side, context);
-    if (range === null) {
-        errors[field] = ORDER_BOOK_UNAVAILABLE_ERROR;
-        return;
-    }
-    if (!isPriceWithinQueueRange(price, range)) {
-        errors[field] = ORDER_BOOK_PRICE_ERROR;
-    }
-};
-
-const validateConditionalTriggerPrice = (
-    triggerPrice: number,
-    side: OrderSide,
-    context: OrderValidationContext,
-    errors: OrderFieldErrors
-) => {
-    const range = queuePriceRangeForSide(side, context);
-    if (range === null) {
-        errors.triggerPrice = ORDER_BOOK_UNAVAILABLE_ERROR;
-        return;
-    }
-    if (isPriceWithinQueueRange(triggerPrice, range)) {
-        errors.triggerPrice = CONDITIONAL_TRIGGER_PRICE_ERROR;
-    }
-};
-
 export const validateOrder = (
     values: OrderFormValues,
     context: OrderValidationContext
@@ -125,17 +73,6 @@ export const validateOrder = (
         };
     }
 
-    if (!isOrderBookReady(context.bidPriceRange, context.askPriceRange)) {
-        errors.general = ORDER_BOOK_UNAVAILABLE_ERROR;
-        return {
-            errors,
-            isValid: false,
-            quantity: null,
-            effectivePrice: null,
-            orderValue: null,
-        };
-    }
-
     const quantity = parseNumericInput(values.quantity);
     if (values.quantity.trim() === '') {
         errors.quantity = 'تعداد را وارد کنید.';
@@ -154,7 +91,6 @@ export const validateOrder = (
             errors.triggerPrice = 'قیمت شرط باید بزرگ‌تر از صفر باشد.';
         } else {
             effectivePrice = triggerPrice;
-            validateConditionalTriggerPrice(triggerPrice, values.side, context, errors);
         }
     } else if (values.priceType === 'MARKET') {
         effectivePrice = isPositive(context.livePrice) ? context.livePrice : null;
@@ -169,7 +105,6 @@ export const validateOrder = (
             errors.price = 'قیمت باید بزرگ‌تر از صفر باشد.';
         } else {
             effectivePrice = price;
-            validateQueuePrice(price, values.side, context, errors, 'price');
         }
     }
 

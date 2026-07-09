@@ -1,6 +1,6 @@
 import {useCallback, useMemo} from 'react';
 import {useMarketOverview} from '../../market-overview/useMarketOverview';
-import {getAskPriceRange, getBidPriceRange, normalizeOrderBookRows} from '../../symbol-search/orderBookUtils';
+import {normalizeOrderBookRows} from '../../symbol-search/orderBookUtils';
 import {toMarketLabel} from '../../symbol-search/mappers';
 import type {SymbolSearchSuggestion} from '../../symbol-search/types';
 import {useSymbolDetails} from '../../symbol-search/useSymbolDetails';
@@ -169,8 +169,6 @@ export function useMarketMetrics({
         () => normalizeOrderBookRows(activeSymbolData?.orderBook ?? []),
         [activeSymbolData?.orderBook]
     );
-    const orderBookBidPriceRange = useMemo(() => getBidPriceRange(orderBookRows), [orderBookRows]);
-    const orderBookAskPriceRange = useMemo(() => getAskPriceRange(orderBookRows), [orderBookRows]);
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
     const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(selectedSymbol.type);
@@ -224,11 +222,9 @@ export function useMarketMetrics({
             livePrice: orderLivePrice,
             availableToSell,
             buyingPower: accountSummary.buyingPower,
-            bidPriceRange: orderBookBidPriceRange,
-            askPriceRange: orderBookAskPriceRange,
             marketOpen: isMarketOpen,
         }),
-        [accountSummary.buyingPower, availableToSell, isMarketOpen, orderBookAskPriceRange, orderBookBidPriceRange, orderLivePrice]
+        [accountSummary.buyingPower, availableToSell, isMarketOpen, orderLivePrice]
     );
 
     const tsetmcInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
@@ -260,8 +256,6 @@ export function useMarketMetrics({
         dailyMax,
         markerPercent,
         orderBookRows,
-        orderBookBidPriceRange,
-        orderBookAskPriceRange,
         depthRows,
         symbolDetails,
         marketLabel,
