@@ -5,7 +5,10 @@ import {ltrNumericClassName} from '../../../utils/numberFormat';
 import {formatCompactValueOrUnavailable, formatNumberOrDash, formatPercentOrDash} from '../formatters';
 import type {TradingDashboardVm} from './types';
 
-function ThemeToggleButton({theme, onToggleTheme}: { theme: Theme; onToggleTheme: (origin?: { x: number; y: number }) => void }) {
+function ThemeToggleButton({theme, onToggleTheme}: {
+    theme: Theme;
+    onToggleTheme: (origin?: { x: number; y: number }) => void
+}) {
     return (
         <button
             type="button"
@@ -172,7 +175,8 @@ function MarketIndexPanel({vm, compact = false}: { vm: TradingDashboardVm; compa
                         : 'border-negative/35 bg-negative/[0.08]'
                 }`}
             >
-                <div className={`flex min-w-0 items-center gap-1 text-muted ${compact ? 'text-[10px]' : 'text-[11px] sm:gap-1.5 sm:text-xs'}`}>
+                <div
+                    className={`flex min-w-0 items-center gap-1 text-muted ${compact ? 'text-[10px]' : 'text-[11px] sm:gap-1.5 sm:text-xs'}`}>
                     <span className={`truncate font-medium ${compact ? '' : 'sm:text-sm'}`}>شاخص کل</span>
                     {!compact ? (
                         <span className="hidden shrink-0 text-[10px] text-muted/80 sm:inline sm:text-[11px]">بورس • فرابورس</span>

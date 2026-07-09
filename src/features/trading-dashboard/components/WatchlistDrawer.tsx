@@ -1,7 +1,6 @@
 import {X} from 'lucide-react';
 import {WatchlistPanel} from '../../watchlist/WatchlistPanel';
-import type {SidebarTab} from '../types';
-import type {TradingDashboardProps} from '../types';
+import type {SidebarTab, TradingDashboardProps} from '../types';
 import type {TradingDashboardVm} from './types';
 
 const drawerTitles: Record<SidebarTab, string> = {

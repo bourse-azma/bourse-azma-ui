@@ -1,9 +1,4 @@
-import type {
-    OrderFieldErrors,
-    OrderFormValues,
-    OrderValidationContext,
-    OrderValidationResult,
-} from './types';
+import type {OrderFieldErrors, OrderFormValues, OrderValidationContext, OrderValidationResult,} from './types';
 
 export const MARKET_CLOSED_ERROR =
     'بازار در حال حاضر بسته است؛ تا زمان بازگشایی امکان ثبت سفارش وجود ندارد.';

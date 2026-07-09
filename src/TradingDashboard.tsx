@@ -53,7 +53,8 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                 <MobileSidebarNav vm={vm}/>
             </div>
 
-            <main className="mx-auto w-full min-w-0 max-w-[1800px] space-y-4 px-3 py-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-4 sm:pb-28">
+            <main
+                className="mx-auto w-full min-w-0 max-w-[1800px] space-y-4 px-3 py-3 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-4 sm:pb-28">
                 {vm.mainNavTab === 'گزارشات' ? (
                     <WalletReportsPanel
                         accessToken={accessToken}

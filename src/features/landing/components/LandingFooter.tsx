@@ -38,7 +38,8 @@ export function LandingFooter() {
                             <Mail className="h-4 w-4 shrink-0"/> <span dir="ltr">info@bourseazma.ir</span>
                         </a>
                         <span className="inline-flex items-start gap-2">
-                            <MapPinned className="h-4 w-4 shrink-0 text-[#FFB300] mt-0.5"/> <span className="leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</span>
+                            <MapPinned className="h-4 w-4 shrink-0 text-[#FFB300] mt-0.5"/> <span
+                            className="leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</span>
                         </span>
                         <a
                             href="https://github.com/bourse-azma"
@@ -51,7 +52,8 @@ export function LandingFooter() {
                     </div>
                 </div>
             </div>
-            <div className="landing-container mt-10 flex justify-center py-6 text-center text-xs font-semibold text-[#8EA6C4]">
+            <div
+                className="landing-container mt-10 flex justify-center py-6 text-center text-xs font-semibold text-[#8EA6C4]">
                 <span>© ۲۰۲۶ بورس‌آزما. همه حقوق محفوظ است.</span>
             </div>
         </footer>

@@ -36,7 +36,8 @@ export function ContactSection({contactStatus, onSubmit}: ContactSectionProps) {
 
                     <div className="landing-map mt-8">
                         <MapPinned className="h-6 w-6 shrink-0 text-[#FFB300]"/>
-                        <p className="text-sm font-semibold text-white leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</p>
+                        <p className="text-sm font-semibold text-white leading-relaxed">ایران، تهران، چیتگر، برج رزمال،
+                            طبقه هشتم، گروه توسعه نرم‌افزاری آوین</p>
                     </div>
                 </div>
 
