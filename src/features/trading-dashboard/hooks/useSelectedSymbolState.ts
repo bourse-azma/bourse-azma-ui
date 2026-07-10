@@ -1,9 +1,9 @@
 import {useCallback, useEffect, useState} from 'react';
 import type {SymbolSearchSuggestion} from '../../symbol-search/types';
 import {
+    fetchRandomFeaturedSymbol,
     loadStoredSelectedSymbol,
     persistSelectedSymbol,
-    pickRandomFeaturedSymbol,
 } from '../../symbol-search/selectedSymbolState';
 import {DEFAULT_SELECTED_SYMBOL} from '../constants';
 
@@ -42,9 +42,20 @@ export function useSelectedSymbolState({
             return;
         }
 
-        const randomSymbol = pickRandomFeaturedSymbol();
-        persistSelectedSymbol(randomSymbol, loginEpoch);
-        setSelectedSymbolState(randomSymbol);
+        const controller = new AbortController();
+
+        void (async () => {
+            const randomSymbol = await fetchRandomFeaturedSymbol(controller.signal);
+            if (controller.signal.aborted) {
+                return;
+            }
+
+            const symbol = randomSymbol ?? DEFAULT_SELECTED_SYMBOL;
+            persistSelectedSymbol(symbol, loginEpoch);
+            setSelectedSymbolState(symbol);
+        })();
+
+        return () => controller.abort();
     }, [loginEpoch]);
 
     useEffect(() => {

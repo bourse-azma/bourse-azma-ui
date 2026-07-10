@@ -122,7 +122,6 @@ export default function App() {
                 editUsername={profileEditor.editUsername}
                 editFirstName={profileEditor.editFirstName}
                 editLastName={profileEditor.editLastName}
-                editNationalCode={profileEditor.editNationalCode}
                 editPhoneNumber={profileEditor.editPhoneNumber}
                 editEmail={profileEditor.editEmail}
                 editPassword={profileEditor.editPassword}
@@ -136,7 +135,6 @@ export default function App() {
                 onEditUsernameChange={profileEditor.setEditUsername}
                 onEditFirstNameChange={profileEditor.setEditFirstName}
                 onEditLastNameChange={profileEditor.setEditLastName}
-                onEditNationalCodeChange={profileEditor.setEditNationalCode}
                 onEditPhoneNumberChange={profileEditor.setEditPhoneNumber}
                 onEditEmailChange={profileEditor.setEditEmail}
                 onEditPasswordChange={profileEditor.setEditPassword}

@@ -13,7 +13,6 @@ type ProfileModalProps = {
     editUsername: string;
     editFirstName: string;
     editLastName: string;
-    editNationalCode: string;
     editPhoneNumber: string;
     editEmail: string;
     editPassword: string;
@@ -27,7 +26,6 @@ type ProfileModalProps = {
     onEditUsernameChange: (value: string) => void;
     onEditFirstNameChange: (value: string) => void;
     onEditLastNameChange: (value: string) => void;
-    onEditNationalCodeChange: (value: string) => void;
     onEditPhoneNumberChange: (value: string) => void;
     onEditEmailChange: (value: string) => void;
     onEditPasswordChange: (value: string) => void;
@@ -46,7 +44,6 @@ export function ProfileModal({
                                  editUsername,
                                  editFirstName,
                                  editLastName,
-                                 editNationalCode,
                                  editPhoneNumber,
                                  editEmail,
                                  editPassword,
@@ -60,7 +57,6 @@ export function ProfileModal({
                                  onEditUsernameChange,
                                  onEditFirstNameChange,
                                  onEditLastNameChange,
-                                 onEditNationalCodeChange,
                                  onEditPhoneNumberChange,
                                  onEditEmailChange,
                                  onEditPasswordChange,
@@ -133,17 +129,6 @@ export function ProfileModal({
                                     disabled={!profileEditMode}
                                     className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
                                     placeholder="نام خانوادگی"
-                                />
-                            </div>
-                            <div>
-                                <FieldLabel title="کد ملی"/>
-                                <input
-                                    name="national-code"
-                                    value={editNationalCode}
-                                    onChange={(event) => onEditNationalCodeChange(event.target.value)}
-                                    disabled={!profileEditMode}
-                                    className="w-full rounded-xl border border-border bg-bg px-3 py-2.5 text-sm text-text disabled:opacity-70"
-                                    placeholder="کد ملی"
                                 />
                             </div>
                         </div>

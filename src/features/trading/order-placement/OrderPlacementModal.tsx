@@ -4,6 +4,7 @@ import OrderBookPanel from '../../symbol-search/OrderBookPanel';
 import type {SymbolOrderBookRow} from '../../symbol-search/types';
 import type {CreateOrderResult} from '../api';
 import OrderForm from './OrderForm';
+import OrderSubmitButtons from './OrderSubmitButtons';
 import OrderSuccessOverlay from './OrderSuccessOverlay';
 import {buildOrderSuccessDetails} from './orderSuccess';
 import {useOrderPlacement} from './useOrderPlacement';
@@ -194,6 +195,8 @@ export default function OrderPlacementModal({
                                     دفتر سفارشات برای این نماد در دسترس نیست.
                                 </div>
                             )}
+
+                            <OrderSubmitButtons controller={controller}/>
                         </section>
 
                         <section className="order-1">

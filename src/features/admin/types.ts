@@ -12,7 +12,6 @@ export type AdminUser = {
     username: string;
     firstName: string;
     lastName: string;
-    nationalCode?: string;
     phoneNumber?: string;
     email?: string;
     balance: number;
@@ -74,7 +73,6 @@ export type AdminUserFormValues = {
     username: string;
     firstName: string;
     lastName: string;
-    nationalCode: string;
     phoneNumber: string;
     email: string;
     password: string;

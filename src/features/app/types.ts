@@ -14,7 +14,6 @@ export type UserProfile = {
     username: string;
     firstName: string;
     lastName: string;
-    nationalCode: string;
     phoneNumber: string;
     email: string;
     role: string;

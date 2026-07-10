@@ -36,7 +36,7 @@ export const createAdminUser = (token: string, values: AdminUserFormValues) => m
     '/api/v1/admin/users', token, 'POST', {
         ...values,
         username: values.username.trim(), firstName: values.firstName.trim(), lastName: values.lastName.trim(),
-        nationalCode: optional(values.nationalCode), phoneNumber: optional(values.phoneNumber),
+        phoneNumber: optional(values.phoneNumber),
         email: optional(values.email),
     },
 );
@@ -44,7 +44,7 @@ export const createAdminUser = (token: string, values: AdminUserFormValues) => m
 export const updateAdminUser = (token: string, id: number, values: AdminUserFormValues) => mutate(
     `/api/v1/admin/users/${id}`, token, 'PUT', {
         id, username: values.username.trim(), firstName: values.firstName.trim(), lastName: values.lastName.trim(),
-        nationalCode: optional(values.nationalCode), phoneNumber: optional(values.phoneNumber),
+        phoneNumber: optional(values.phoneNumber),
         email: optional(values.email), password: optional(values.password), currentPassword: null,
     },
 );

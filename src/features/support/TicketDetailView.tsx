@@ -89,7 +89,6 @@ export default function TicketDetailView({
     const hasExtendedUserDetails = Boolean(
         userDetails?.firstName
         || userDetails?.lastName
-        || userDetails?.nationalCode
         || userDetails?.phoneNumber
         || userDetails?.email,
     );

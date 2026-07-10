@@ -18,7 +18,6 @@ export type SupportRequestUserSummary = {
     username: string;
     firstName?: string | null;
     lastName?: string | null;
-    nationalCode?: string | null;
     phoneNumber?: string | null;
     email?: string | null;
 };

@@ -7,7 +7,6 @@ import type {
     OrderSymbolContext,
     OrderType,
     OrderValidationContext,
-    OrderValidity,
     PriceType,
     TriggerComparator,
 } from './types';
@@ -25,7 +24,6 @@ const buildDefaults = (side: OrderSide, livePrice: number | null): OrderFormValu
     side,
     orderType: 'NORMAL',
     priceType: 'CUSTOM',
-    validity: 'TODAY',
     quantity: '',
     price: livePrice && livePrice > 0 ? String(Math.round(livePrice)) : '',
     triggerComparator: 'GREATER_THAN',
@@ -45,8 +43,6 @@ export const useOrderPlacement = ({
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [successResult, setSuccessResult] = useState<CreateOrderResult | null>(null);
 
-    // Reset the form whenever the dialog is (re)opened, the symbol changes,
-    // or the requested side changes.
     useEffect(() => {
         if (!open) return;
         setValues(buildDefaults(initialSide, context.livePrice));
@@ -66,7 +62,6 @@ export const useOrderPlacement = ({
         setValues((prev) => ({
             ...prev,
             orderType,
-            // Clear conditional-only field when switching back to a normal order.
             triggerPrice: orderType === 'NORMAL' ? '' : prev.triggerPrice,
         }));
     }, []);
@@ -74,10 +69,6 @@ export const useOrderPlacement = ({
     const setPriceType = useCallback((priceType: PriceType) => {
         setSubmitError(null);
         setValues((prev) => ({...prev, priceType}));
-    }, []);
-
-    const setValidity = useCallback((validity: OrderValidity) => {
-        setValues((prev) => ({...prev, validity}));
     }, []);
 
     const setQuantity = useCallback((quantity: string) => {
@@ -134,8 +125,6 @@ export const useOrderPlacement = ({
 
             const isConditional = values.orderType === 'CONDITIONAL';
             const triggerPrice = parseNumericInput(values.triggerPrice);
-            // Conditional orders activate at the trigger price, so they are sent as a
-            // custom-priced order using that price; market orders carry no explicit price.
             const priceTypeForPayload = isConditional ? 'CUSTOM' : values.priceType;
             const priceForPayload =
                 isConditional || values.priceType === 'CUSTOM' ? result.effectivePrice : null;
@@ -152,7 +141,6 @@ export const useOrderPlacement = ({
                     quantity: result.quantity,
                     price: priceForPayload,
                     livePrice: livePriceForPayload,
-                    validityType: values.validity,
                     trigger:
                         isConditional && triggerPrice !== null
                             ? {comparator: values.triggerComparator, price: triggerPrice}
@@ -180,7 +168,6 @@ export const useOrderPlacement = ({
         setSide,
         setOrderType,
         setPriceType,
-        setValidity,
         setQuantity,
         setPrice,
         setTriggerComparator,

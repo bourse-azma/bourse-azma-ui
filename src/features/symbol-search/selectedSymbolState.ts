@@ -1,5 +1,9 @@
-import {pickRandomPopularSymbol, POPULAR_SYMBOLS} from './popularSymbols';
+import {getTsetmcMostVisited} from './api';
+import {toSymbolSuggestionFromMostVisited} from './mappers';
+import {MOST_VISITED_MARKET_OPTIONS} from '../popular-symbols/mostVisitedUtils';
 import type {SymbolSearchSuggestion} from './types';
+
+export const FEATURED_DASHBOARD_SYMBOL_COUNT = 5;
 
 export const LOGIN_EPOCH_STORAGE_KEY = 'bourse-azma-login-epoch';
 const SELECTED_SYMBOL_STORAGE_KEY = 'bourse-azma-selected-symbol';
@@ -40,13 +44,26 @@ const randomInt = (maxExclusive: number): number => {
     return values[0] % maxExclusive;
 };
 
-const shuffle = <T, >(items: T[]): T[] => {
-    const copy = [...items];
-    for (let index = copy.length - 1; index > 0; index -= 1) {
-        const swapIndex = randomInt(index + 1);
-        [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+export const fetchRandomFeaturedSymbol = async (
+    signal?: AbortSignal,
+): Promise<SymbolSearchSuggestion | null> => {
+    const market = MOST_VISITED_MARKET_OPTIONS[0];
+
+    try {
+        const result = await getTsetmcMostVisited(market.id, FEATURED_DASHBOARD_SYMBOL_COUNT, signal);
+        const pool = result.mostVisitedInstruments
+            .map((instrument) => toSymbolSuggestionFromMostVisited(instrument, market.type))
+            .filter((suggestion): suggestion is SymbolSearchSuggestion => suggestion !== null)
+            .slice(0, FEATURED_DASHBOARD_SYMBOL_COUNT);
+
+        if (pool.length === 0) {
+            return null;
+        }
+
+        return pool[randomInt(pool.length)] ?? pool[0];
+    } catch {
+        return null;
     }
-    return copy;
 };
 
 export const readLoginEpoch = (): string | null => {
@@ -95,11 +112,6 @@ const clearLegacySymbolKeyFromUrl = (): void => {
 const clearLegacyLocalStorageSymbol = (): void => {
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem(LEGACY_SELECTED_SYMBOL_STORAGE_KEY);
-};
-
-export const pickRandomFeaturedSymbol = (): SymbolSearchSuggestion => {
-    const shuffled = shuffle(POPULAR_SYMBOLS);
-    return shuffled[randomInt(shuffled.length)] ?? pickRandomPopularSymbol();
 };
 
 export const loadStoredSelectedSymbol = (loginEpoch: string): SymbolSearchSuggestion | null => {

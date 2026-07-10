@@ -20,12 +20,6 @@ export default function TicketUserDetails({userDetails}: TicketUserDetailsProps)
                 <p className="text-[10px] text-muted">نام کاربری</p>
                 <p className="mt-0.5 font-semibold text-text" dir="ltr">@{userDetails.username}</p>
             </div>
-            {userDetails.nationalCode ? (
-                <div>
-                    <p className="text-[10px] text-muted">کد ملی</p>
-                    <p className="mt-0.5 font-semibold text-text" dir="ltr">{userDetails.nationalCode}</p>
-                </div>
-            ) : null}
             {userDetails.phoneNumber ? (
                 <div>
                     <p className="text-[10px] text-muted">شماره تماس</p>

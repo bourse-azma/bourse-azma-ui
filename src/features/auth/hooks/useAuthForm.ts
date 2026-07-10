@@ -18,7 +18,6 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
     const [username, setUsername] = useState('');
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [nationalCode, setNationalCode] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState('');
     const [initialBalance, setInitialBalance] = useState('');
@@ -130,7 +129,6 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
                 username: username.trim().toLowerCase(),
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
-                nationalCode: toEnglishDigits(nationalCode).trim(),
                 phoneNumber: normalizePhoneNumber(phoneNumber),
                 email: toEnglishDigits(email).trim().toLowerCase(),
                 password: trimmedPassword,
@@ -160,8 +158,6 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
         setFirstName,
         lastName,
         setLastName,
-        nationalCode,
-        setNationalCode,
         phoneNumber,
         setPhoneNumber,
         email,

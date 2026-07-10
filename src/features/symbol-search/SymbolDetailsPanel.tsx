@@ -29,6 +29,13 @@ const formatDetailValue = (
     if (item.valueType === 'currency') {
         return formatCurrency(typeof item.value === 'number' ? item.value : null);
     }
+    if (item.valueType === 'currencyMillion') {
+        if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
+            return 'ناموجود';
+        }
+        const formatted = formatNumber(item.value / 1_000_000, 2);
+        return formatted === 'ناموجود' ? formatted : `ریال ${formatted}M`;
+    }
     if (item.valueType === 'datetime') {
         return formatDateTimeFa(typeof item.value === 'string' ? item.value : null);
     }
@@ -101,11 +108,11 @@ export default function SymbolDetailsPanel({
                                 <span className="shrink-0 text-muted">{item.label}</span>
                                 <span
                                     className={`min-w-0 text-left font-medium text-text ${
-                                        item.valueType === 'percent' || item.valueType === 'number'
+                                        item.valueType === 'percent' || item.valueType === 'number' || item.valueType === 'currencyMillion'
                                             ? ltrNumericClassName
                                             : 'tabular-nums'
                                     }`}
-                                    dir={item.valueType === 'datetime' ? 'ltr' : undefined}
+                                    dir={item.valueType === 'datetime' || item.valueType === 'currencyMillion' ? 'ltr' : undefined}
                                 >
                                     {displayValue}
                                 </span>

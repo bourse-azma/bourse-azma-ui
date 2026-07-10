@@ -1,12 +1,11 @@
-import type {OrderSide, OrderType, OrderValidity, PriceType, TriggerComparator,} from '../api';
+import type {OrderSide, OrderType, PriceType, TriggerComparator} from '../api';
 
-export type {OrderSide, OrderType, OrderValidity, PriceType, TriggerComparator};
+export type {OrderSide, OrderType, PriceType, TriggerComparator};
 
 export type OrderFormValues = {
     side: OrderSide;
     orderType: OrderType;
     priceType: PriceType;
-    validity: OrderValidity;
     quantity: string;
     price: string;
     triggerComparator: TriggerComparator;
@@ -45,13 +44,6 @@ export type OrderValidationResult = {
     quantity: number | null;
     effectivePrice: number | null;
     orderValue: number | null;
-};
-
-export const VALIDITY_LABELS: Record<OrderValidity, string> = {
-    TODAY: 'امروز',
-    DAY: 'روز',
-    DAYS_30: '30 روز',
-    DAYS_90: '90 روز',
 };
 
 export const TRIGGER_LABELS: Record<TriggerComparator, string> = {

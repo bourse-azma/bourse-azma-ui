@@ -9,7 +9,6 @@ type ApiEnvelope<T> = {
 export type OrderSide = 'BUY' | 'SELL';
 export type OrderType = 'NORMAL' | 'CONDITIONAL';
 export type PriceType = 'CUSTOM' | 'MARKET';
-export type OrderValidity = 'TODAY' | 'DAY' | 'DAYS_30' | 'DAYS_90';
 export type TriggerComparator = 'GREATER_THAN' | 'LESS_THAN' | 'EQUAL';
 export type OrderStatusType =
     'REQUESTED'
@@ -40,8 +39,6 @@ export type TradingOrder = {
     orderType?: OrderType;
     orderTypeLabel?: string;
     priceType?: PriceType;
-    validity?: OrderValidity;
-    expiresAt?: string | null;
     triggerComparator?: TriggerComparator | null;
     triggerPrice?: number | null;
 };
@@ -88,7 +85,6 @@ export type CreateTradingOrderRequest = {
     quantity: number;
     price: number | null;
     livePrice: number;
-    validityType: OrderValidity;
     trigger: CreateTradingOrderTrigger | null;
 };
 

@@ -1,4 +1,4 @@
-import {Github, Mail, MapPinned} from 'lucide-react';
+import {Mail, MapPinned} from 'lucide-react';
 import BourseAzmaLogo from '../../../components/BourseAzmaLogo';
 import {navItems} from '../constants';
 import {handleLandingNavClick} from '../landingNavigation';
@@ -41,14 +41,6 @@ export function LandingFooter() {
                             <MapPinned className="h-4 w-4 shrink-0 text-[#FFB300] mt-0.5"/> <span
                             className="leading-relaxed">ایران، تهران، چیتگر، برج رزمال، طبقه هشتم، گروه توسعه نرم‌افزاری آوین</span>
                         </span>
-                        <a
-                            href="https://github.com/bourse-azma"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 transition hover:text-[#00E5C9]"
-                        >
-                            <Github className="h-4 w-4"/> گیت‌هاب بورس‌آزما
-                        </a>
                     </div>
                 </div>
             </div>

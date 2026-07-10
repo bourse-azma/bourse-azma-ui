@@ -68,8 +68,6 @@ export default function AuthPage({
                                     onFirstNameChange={form.setFirstName}
                                     lastName={form.lastName}
                                     onLastNameChange={form.setLastName}
-                                    nationalCode={form.nationalCode}
-                                    onNationalCodeChange={form.setNationalCode}
                                     phoneNumber={form.phoneNumber}
                                     onPhoneNumberChange={form.setPhoneNumber}
                                     email={form.email}

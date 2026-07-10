@@ -1,5 +1,5 @@
 import {FormEvent} from 'react';
-import {Github, Mail, MapPinned, Send} from 'lucide-react';
+import {Mail, MapPinned, Send} from 'lucide-react';
 
 type ContactSectionProps = {
     contactStatus: 'idle' | 'sent';
@@ -22,15 +22,6 @@ export function ContactSection({contactStatus, onSubmit}: ContactSectionProps) {
                         <a href="mailto:info@bourseazma.ir" className="landing-contact-link">
                             <Mail className="h-5 w-5 text-[#00E5C9]"/>
                             info@bourseazma.ir
-                        </a>
-                        <a
-                            href="https://github.com/bourse-azma"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="landing-contact-link"
-                        >
-                            <Github className="h-5 w-5 text-[#FFB300]"/>
-                            github.com/bourse-azma
                         </a>
                     </div>
 

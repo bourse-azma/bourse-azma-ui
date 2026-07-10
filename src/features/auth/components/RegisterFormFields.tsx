@@ -10,8 +10,6 @@ type RegisterFormFieldsProps = {
     onFirstNameChange: (value: string) => void;
     lastName: string;
     onLastNameChange: (value: string) => void;
-    nationalCode: string;
-    onNationalCodeChange: (value: string) => void;
     phoneNumber: string;
     onPhoneNumberChange: (value: string) => void;
     email: string;
@@ -30,8 +28,6 @@ export function RegisterFormFields({
                                        onFirstNameChange,
                                        lastName,
                                        onLastNameChange,
-                                       nationalCode,
-                                       onNationalCodeChange,
                                        phoneNumber,
                                        onPhoneNumberChange,
                                        email,
@@ -87,16 +83,6 @@ export function RegisterFormFields({
                     onChange={(event) => onLastNameChange(event.target.value)}
                     placeholder="نام خانوادگی"
                     required
-                    className={authInputClassName}
-                />
-            </div>
-            <div>
-                <FieldLabel title="کد ملی"/>
-                <input
-                    name="national-code"
-                    value={nationalCode}
-                    onChange={(event) => onNationalCodeChange(event.target.value)}
-                    placeholder="کد ملی (10 رقم)"
                     className={authInputClassName}
                 />
             </div>

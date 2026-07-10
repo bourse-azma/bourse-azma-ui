@@ -19,7 +19,6 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
     const [editFirstName, setEditFirstName] = useState('');
     const [editLastName, setEditLastName] = useState('');
     const [editUsername, setEditUsername] = useState('');
-    const [editNationalCode, setEditNationalCode] = useState('');
     const [editPhoneNumber, setEditPhoneNumber] = useState('');
     const [editEmail, setEditEmail] = useState('');
     const [editPassword, setEditPassword] = useState('');
@@ -29,7 +28,6 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
         setEditFirstName(targetProfile.firstName);
         setEditLastName(targetProfile.lastName);
         setEditUsername(targetProfile.username);
-        setEditNationalCode(targetProfile.nationalCode);
         setEditPhoneNumber(targetProfile.phoneNumber);
         setEditEmail(targetProfile.email);
         setEditPassword('');
@@ -69,7 +67,6 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
             username: editUsername.trim().toLowerCase(),
             firstName: editFirstName.trim(),
             lastName: editLastName.trim(),
-            nationalCode: toEnglishDigits(editNationalCode).trim(),
             phoneNumber: normalizePhoneNumber(editPhoneNumber),
             email: toEnglishDigits(editEmail).trim().toLowerCase(),
             password: newPassword === '' ? null : newPassword,
@@ -132,8 +129,6 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
         setEditLastName,
         editUsername,
         setEditUsername,
-        editNationalCode,
-        setEditNationalCode,
         editPhoneNumber,
         setEditPhoneNumber,
         editEmail,

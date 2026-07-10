@@ -3,7 +3,7 @@ import {Loader2, X} from 'lucide-react';
 import type {AdminUser, AdminUserFormValues} from './types';
 
 const emptyForm: AdminUserFormValues = {
-    username: '', firstName: '', lastName: '', nationalCode: '', phoneNumber: '',
+    username: '', firstName: '', lastName: '', phoneNumber: '',
     email: '', password: '', balance: 0,
 };
 
@@ -24,7 +24,6 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
             username: user.username,
             firstName: user.firstName,
             lastName: user.lastName,
-            nationalCode: user.nationalCode ?? '',
             phoneNumber: user.phoneNumber ?? '',
             email: user.email ?? '',
             password: '',
@@ -52,7 +51,6 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
     const fields: Array<{ key: keyof AdminUserFormValues; label: string; type?: string; placeholder?: string }> = [
         {key: 'firstName', label: 'نام'}, {key: 'lastName', label: 'نام خانوادگی'},
         {key: 'username', label: 'نام کاربری', placeholder: 'username'},
-        {key: 'nationalCode', label: 'کد ملی', placeholder: '۱۰ رقم'},
         {key: 'phoneNumber', label: 'شماره موبایل', placeholder: '+989123456789'},
         {key: 'email', label: 'ایمیل', type: 'email'},
         {key: 'password', label: editing ? 'رمز جدید (اختیاری)' : 'رمز عبور', type: 'password'},
@@ -75,7 +73,7 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
                     required={field.key === 'username' || field.key === 'firstName' || field.key === 'lastName' || (!editing && field.key === 'password')}
                     type={field.type ?? 'text'} value={String(form[field.key])} placeholder={field.placeholder}
                     onChange={e => update(field.key, e.target.value as never)}
-                    dir={['username', 'nationalCode', 'phoneNumber', 'email', 'password'].includes(field.key) ? 'ltr' : 'rtl'}
+                    dir={['username', 'phoneNumber', 'email', 'password'].includes(field.key) ? 'ltr' : 'rtl'}
                     className="mt-1.5 w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right font-normal outline-none focus:border-primary"/></label>)}
                 {!editing ?
                     <label className="text-xs font-bold text-text">موجودی اولیه<input required min={0} type="number"

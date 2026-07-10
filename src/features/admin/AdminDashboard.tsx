@@ -327,7 +327,7 @@ function UsersPanel({
         <div className="mb-4 flex flex-col gap-2 sm:flex-row"><label className="relative flex-1"><Search
             className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"/><input value={search}
                                                                                              onChange={e => setSearch(e.target.value)}
-                                                                                             placeholder="نام، نام کاربری، موبایل، ایمیل یا کد ملی..."
+                                                                                             placeholder="نام، نام کاربری، موبایل یا ایمیل..."
                                                                                              className="w-full rounded-xl border border-border bg-surface-2 py-2.5 pr-10 pl-3 text-xs outline-none focus:border-primary"/></label><label
             className="flex cursor-pointer items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs"><input
             type="checkbox" checked={onlineOnly} onChange={e => setOnlineOnly(e.target.checked)}
@@ -431,7 +431,7 @@ function UserDetail({detail, onBack, onEdit, onToggleBlocked, onDelete, busy}: {
         count: detail.activities.length
     }];
     const infoItems: Array<[string, string | undefined, 'rtl' | 'ltr']> = [
-        ['موبایل', u.phoneNumber, 'ltr'], ['ایمیل', u.email, 'ltr'], ['کد ملی', u.nationalCode, 'ltr'],
+        ['موبایل', u.phoneNumber, 'ltr'], ['ایمیل', u.email, 'ltr'],
         ['IP آخرین ورود', u.lastLoginIp, 'ltr'], ['تاریخ عضویت', dateTime(u.createdAt), 'rtl'],
         ['آخرین ورود', dateTime(u.lastLoginAt), 'rtl'], ['آخرین فعالیت', dateTime(u.lastSeenAt), 'rtl'],
         ['تیکت‌ها', number.format(u.ticketCount), 'rtl'],

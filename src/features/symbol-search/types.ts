@@ -156,7 +156,7 @@ export type SymbolDepthRow = {
 export type SymbolDetailRow = {
     label: string;
     value: number | string | null;
-    valueType: 'number' | 'percent' | 'currency' | 'plain' | 'datetime';
+    valueType: 'number' | 'percent' | 'currency' | 'currencyMillion' | 'plain' | 'datetime';
     digits?: number;
 };
 
