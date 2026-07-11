@@ -77,17 +77,15 @@ export const validateOrder = (
 
     let effectivePrice: number | null = null;
     if (values.orderType === 'CONDITIONAL') {
-        // A conditional order activates at the trigger price; that price is also
-        // used as the effective order price (there is no separate price field).
         const triggerPrice = parseNumericInput(values.triggerPrice);
         if (values.triggerPrice.trim() === '') {
             errors.triggerPrice = 'قیمت شرط را وارد کنید.';
         } else if (!isPositive(triggerPrice)) {
             errors.triggerPrice = 'قیمت شرط باید بزرگ‌تر از صفر باشد.';
-        } else {
-            effectivePrice = triggerPrice;
         }
-    } else if (values.priceType === 'MARKET') {
+    }
+
+    if (values.priceType === 'MARKET') {
         effectivePrice = isPositive(context.livePrice) ? context.livePrice : null;
         if (effectivePrice === null) {
             errors.price = 'قیمت بازار در دسترس نیست.';

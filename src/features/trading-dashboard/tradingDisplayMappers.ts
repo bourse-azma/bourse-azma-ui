@@ -78,8 +78,10 @@ export function mapDemoOrders(
 
 export function filterDemoOrders(demoOrders: DemoOrderRow[], orderFilter: OrderFilter): DemoOrderRow[] {
     if (orderFilter === 'all') return demoOrders;
-    const statusMap: Record<Exclude<OrderFilter, 'all'>, OrderStatusType[]> = {
-        open: ['REQUESTED', 'TRIGGER_PENDING'],
+    if (orderFilter === 'open') {
+        return demoOrders.filter((order) => order.cancellable && order.remainingQuantity > 0);
+    }
+    const statusMap: Record<Exclude<OrderFilter, 'all' | 'open'>, OrderStatusType[]> = {
         partial: ['PARTIALLY_FILLED'],
         done: ['COMPLETED'],
         cancelled: ['CANCELLED'],

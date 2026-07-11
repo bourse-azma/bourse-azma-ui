@@ -64,14 +64,12 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
             <OrderTypeToggle value={values.orderType} side={values.side} onChange={setOrderType}/>
 
             <div className={`flex flex-1 flex-col gap-3 rounded-2xl border p-4 ${themeBg}`}>
-                {!isConditional ? (
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-muted">نوع قیمت</label>
-                        <PriceTypeSelect value={values.priceType} onChange={setPriceType}/>
-                    </div>
-                ) : null}
+                <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-muted">نوع قیمت</label>
+                    <PriceTypeSelect value={values.priceType} onChange={setPriceType}/>
+                </div>
 
-                {!isConditional ? (
+                {values.priceType === 'CUSTOM' ? (
                     <div className="space-y-1.5">
                         <label htmlFor="order-price" className="block text-xs font-medium text-muted">
                             قیمت
@@ -99,7 +97,13 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                             </div>
                         ) : null}
                     </div>
-                ) : null}
+                ) : (
+                    <p className="text-xs leading-6 text-muted">
+                        {isConditional
+                            ? 'پس از فعال‌شدن شرط، سفارش با بهترین قیمت موجود بازار اجرا می‌شود.'
+                            : 'سفارش با بهترین قیمت موجود بازار اجرا می‌شود.'}
+                    </p>
+                )}
 
                 <div className="space-y-1.5">
                     <label htmlFor="order-quantity" className="block text-xs font-medium text-muted">

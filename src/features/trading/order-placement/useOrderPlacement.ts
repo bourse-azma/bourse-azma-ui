@@ -125,9 +125,8 @@ export const useOrderPlacement = ({
 
             const isConditional = values.orderType === 'CONDITIONAL';
             const triggerPrice = parseNumericInput(values.triggerPrice);
-            const priceTypeForPayload = isConditional ? 'CUSTOM' : values.priceType;
             const priceForPayload =
-                isConditional || values.priceType === 'CUSTOM' ? result.effectivePrice : null;
+                values.priceType === 'CUSTOM' ? result.effectivePrice : null;
 
             setSubmitting(true);
             setSubmitError(null);
@@ -135,7 +134,7 @@ export const useOrderPlacement = ({
                 const orderResult = await createTradingOrder(accessToken, {
                     side: values.side,
                     orderType: values.orderType,
-                    priceType: priceTypeForPayload,
+                    priceType: values.priceType,
                     symbol: symbol.symbol,
                     instrumentCode: symbol.instrumentCode!.trim(),
                     quantity: result.quantity,
