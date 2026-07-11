@@ -93,7 +93,7 @@ export function RegisterFormFields({
                     autoComplete="tel"
                     value={phoneNumber}
                     onChange={(event) => onPhoneNumberChange(event.target.value)}
-                    placeholder="شماره موبایل (مثل 0912... یا +98912...)"
+                    placeholder="شماره موبایل (مثل 0912...)"
                     className={authInputClassName}
                 />
             </div>

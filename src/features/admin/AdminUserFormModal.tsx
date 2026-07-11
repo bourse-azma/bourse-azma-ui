@@ -51,7 +51,7 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
     const fields: Array<{ key: keyof AdminUserFormValues; label: string; type?: string; placeholder?: string }> = [
         {key: 'firstName', label: 'نام'}, {key: 'lastName', label: 'نام خانوادگی'},
         {key: 'username', label: 'نام کاربری', placeholder: 'username'},
-        {key: 'phoneNumber', label: 'شماره موبایل', placeholder: '+989123456789'},
+        {key: 'phoneNumber', label: 'شماره موبایل', placeholder: '09123456789'},
         {key: 'email', label: 'ایمیل', type: 'email'},
         {key: 'password', label: editing ? 'رمز جدید (اختیاری)' : 'رمز عبور', type: 'password'},
     ];
