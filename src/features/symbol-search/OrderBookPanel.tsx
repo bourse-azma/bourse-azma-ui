@@ -102,6 +102,12 @@ export default function OrderBookPanel({
                                     >
                                         {formatNumber(row.askVolume)}
                                     </span>
+                                    {(row.ownAskVolume ?? 0) > 0 ? (
+                                        <span
+                                            className="absolute right-0.5 top-0.5 z-[2] rounded bg-negative/15 px-1 text-[8px] font-bold text-negative">
+                                            شما
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <div className="relative overflow-hidden">
                                     {renderPriceCell(row.askPrice, 'negative')}
@@ -120,6 +126,12 @@ export default function OrderBookPanel({
                                     >
                                         {formatNumber(row.bidVolume)}
                                     </span>
+                                    {(row.ownBidVolume ?? 0) > 0 ? (
+                                        <span
+                                            className="absolute left-0.5 top-0.5 z-[2] rounded bg-positive/15 px-1 text-[8px] font-bold text-positive">
+                                            شما
+                                        </span>
+                                    ) : null}
                                 </div>
                                 <span className={`${cellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.bidCount)}

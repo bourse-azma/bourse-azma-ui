@@ -140,6 +140,8 @@ export type SymbolOrderBookRow = {
     bidPrice: number | null;
     bidVolume: number | null;
     bidCount: number | null;
+    ownAskVolume?: number;
+    ownBidVolume?: number;
 };
 
 export type SymbolDepthRow = {

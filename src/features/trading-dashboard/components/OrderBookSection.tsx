@@ -29,8 +29,16 @@ export function OrderBookSection({vm}: { vm: TradingDashboardVm }) {
                 ) : (
                     <>
                         <div className="mb-3">
-                            <h2 className="text-sm font-semibold text-text">دفتر سفارشات</h2>
+                            <h2 className="text-sm font-semibold text-text">دفتر سفارشات اختصاصی شما</h2>
                             <p className="text-xs text-muted">{vm.activeSymbolSummary}</p>
+                            <p className="mt-1 text-[10px] text-muted/80">
+                                سفارش‌های کاربران دیگر روی این صف و معاملات شما اثری ندارند.
+                            </p>
+                            {vm.privateOrderBookError ? (
+                                <p className="mt-1 text-[10px] text-negative">
+                                    نمایش موقت اطلاعات عمومی بازار؛ همگام‌سازی صف اختصاصی انجام نشد.
+                                </p>
+                            ) : null}
                         </div>
 
                         {vm.symbolError && !vm.activeSymbolData ? (

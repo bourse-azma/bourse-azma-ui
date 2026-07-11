@@ -42,6 +42,7 @@ export function useTradingDashboard({
     const {activeOrdersForSummary, ...accountVm} = account;
 
     const metrics = useMarketMetrics({
+        accessToken,
         selectedSymbol: symbol.selectedSymbol,
         isMarketViewActive: navigation.isMarketViewActive,
         orderbookTab: navigation.orderbookTab,

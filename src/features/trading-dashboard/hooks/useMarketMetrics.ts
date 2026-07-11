@@ -7,6 +7,7 @@ import {useSymbolDetails} from '../../symbol-search/useSymbolDetails';
 import {usePeerGroup} from '../../symbol-search/usePeerGroup';
 import type {PortfolioHolding, TradingOrder} from '../../trading/api';
 import {useInstrumentLivePrices} from '../../trading/useInstrumentLivePrices';
+import {usePrivateOrderBook} from '../../trading/usePrivateOrderBook';
 import type {OrderSymbolContext} from '../../trading/order-placement/types';
 import type {Watchlist} from '../../watchlist/api';
 import {collectLivePriceInstrumentCodes} from '../collectLivePriceInstrumentCodes';
@@ -24,6 +25,7 @@ import {
 import type {BottomPanelTab, OrderbookTab, OrderFilter, SidebarTab, SymbolTab, UserProfile,} from '../types';
 
 type UseMarketMetricsParams = {
+    accessToken: string;
     selectedSymbol: SymbolSearchSuggestion;
     isMarketViewActive: boolean;
     orderbookTab: OrderbookTab;
@@ -40,6 +42,7 @@ type UseMarketMetricsParams = {
 };
 
 export function useMarketMetrics({
+                                     accessToken,
                                      selectedSymbol,
                                      isMarketViewActive,
                                      orderbookTab,
@@ -165,10 +168,36 @@ export function useMarketMetrics({
         return clamp(((symbolPrice - dailyMin) / (dailyMax - dailyMin)) * 100, 3, 96);
     }, [dailyMax, dailyMin, symbolPrice]);
 
-    const orderBookRows = useMemo(
-        () => normalizeOrderBookRows(activeSymbolData?.orderBook ?? []),
-        [activeSymbolData?.orderBook]
+    const privateBookRefreshKey = useMemo(
+        () => tradingOrders
+            .filter((order) => order.instrumentCode === activeInstrumentCode && order.remainingQuantity > 0)
+            .map((order) => `${order.id}:${order.status}:${order.remainingQuantity}`)
+            .join('|'),
+        [activeInstrumentCode, tradingOrders]
     );
+    const privateOrderBook = usePrivateOrderBook(
+        accessToken,
+        activeInstrumentCode,
+        isMarketViewActive && orderbookTab === 'info',
+        privateBookRefreshKey
+    );
+    const orderBookRows = useMemo(() => {
+        if (privateOrderBook.data?.instrumentCode === activeInstrumentCode) {
+            return normalizeOrderBookRows(privateOrderBook.data.rows.map((row) => ({
+                id: `private-${row.level}`,
+                level: row.level,
+                askCount: row.askOrderCount,
+                askVolume: row.askVolume,
+                askPrice: row.askPrice,
+                bidPrice: row.bidPrice,
+                bidVolume: row.bidVolume,
+                bidCount: row.bidOrderCount,
+                ownAskVolume: row.ownAskVolume,
+                ownBidVolume: row.ownBidVolume,
+            })));
+        }
+        return normalizeOrderBookRows(activeSymbolData?.orderBook ?? []);
+    }, [activeInstrumentCode, activeSymbolData?.orderBook, privateOrderBook.data]);
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
     const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(selectedSymbol.type);
@@ -256,6 +285,8 @@ export function useMarketMetrics({
         dailyMax,
         markerPercent,
         orderBookRows,
+        privateOrderBookLoading: privateOrderBook.loading,
+        privateOrderBookError: privateOrderBook.error,
         depthRows,
         symbolDetails,
         marketLabel,

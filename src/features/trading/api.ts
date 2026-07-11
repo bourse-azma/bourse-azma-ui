@@ -71,6 +71,24 @@ export type CancelOrderResult = {
     order: TradingOrder;
 };
 
+export type PrivateOrderBookRow = {
+    level: number;
+    askPrice: number | null;
+    askVolume: number;
+    askOrderCount: number;
+    ownAskVolume: number;
+    bidPrice: number | null;
+    bidVolume: number;
+    bidOrderCount: number;
+    ownBidVolume: number;
+};
+
+export type PrivateOrderBook = {
+    instrumentCode: string;
+    rows: PrivateOrderBookRow[];
+    refreshedAt: string;
+};
+
 export type CreateTradingOrderTrigger = {
     comparator: TriggerComparator;
     price: number;
@@ -156,6 +174,17 @@ export const getTradingOrders = (
 
 export const getPortfolioHoldings = (accessToken: string) =>
     request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.', {method: 'GET'});
+
+export const getPrivateOrderBook = (
+    accessToken: string,
+    instrumentCode: string,
+    signal?: AbortSignal
+) => request<PrivateOrderBook>(
+    `/api/v1/trading/order-book?instrumentCode=${encodeURIComponent(instrumentCode)}`,
+    accessToken,
+    'دریافت دفتر سفارش اختصاصی ناموفق بود.',
+    {method: 'GET', signal}
+);
 
 export const createTradingOrder = (accessToken: string, payload: CreateTradingOrderRequest) =>
     request<CreateOrderResult>('/api/v1/trading/orders', accessToken, 'ثبت سفارش ناموفق بود.', {
