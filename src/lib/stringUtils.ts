@@ -8,9 +8,8 @@ export const toEnglishDigits = (value: string): string =>
 
 export const normalizePhoneNumber = (raw: string): string => {
     const value = toEnglishDigits(raw).replace(/\s+/g, '');
-    if (value.startsWith('+98')) return value;
-    if (value.startsWith('98')) return `+${value}`;
-    if (value.startsWith('09') && value.length === 11) return `+98${value.slice(1)}`;
+    if (value.startsWith('+98')) return `0${value.slice(3)}`;
+    if (value.startsWith('98')) return `0${value.slice(2)}`;
     return value;
 };
 
