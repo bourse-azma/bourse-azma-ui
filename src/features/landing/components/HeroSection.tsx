@@ -26,13 +26,15 @@ export function HeroSection({isAuthenticated, onDashboard, onLogin, onRegister}:
                     <div
                         className="mb-6 inline-flex items-center gap-2 rounded-lg border border-[#00E5C9]/24 bg-[#00E5C9]/8 px-3 py-2 text-xs font-bold text-[#BFFFF7]">
                         <Sparkles className="h-4 w-4 text-[#FFB300]"/>
-                        تمرین حرفه‌ای معاملات بورس ایران
+                        سامانه حرفه‌ای معاملات بورس تهران
                     </div>
                     <h1 className="max-w-4xl text-4xl font-black leading-[1.35] text-white sm:text-5xl lg:text-7xl">
-                        بازار را قبل از معامله واقعی تجربه کن
+                        معاملاتی امن، سریع و دقیق را تجربه کنید
                     </h1>
                     <p className="mt-6 max-w-2xl text-base font-medium leading-8 text-[#D8E6F7] sm:text-lg">
-                        بورس آزما محیطی برای تمرین تصمیم‌گیری، مدیریت سرمایه و تحلیل نمادهای بازار سرمایه ایران است.
+                        بورس آزما پلتفرمی کارآمد با بالاترین استانداردهای امنیتی برای انجام معاملات، مدیریت سرمایه و
+                        تحلیل بازار سرمایه ایران است. این پروژه شامل پلتفرم بورس دیتا هم هست که به‌زودی در اختیار
+                        کاربران قرار خواهد گرفت.
                     </p>
 
                     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -41,7 +43,7 @@ export function HeroSection({isAuthenticated, onDashboard, onLogin, onRegister}:
                             onClick={isAuthenticated ? onDashboard : onRegister}
                             className="landing-glow-button inline-flex items-center justify-center gap-2 rounded-lg bg-[#00E5C9] px-6 py-3.5 text-sm font-black text-[#061221] transition hover:bg-[#2DFFE8]"
                         >
-                            شروع تمرین معامله‌گری
+                            شروع معامله‌گری
                             <ArrowLeft className="h-4 w-4"/>
                         </button>
                         {!isAuthenticated ? <button
