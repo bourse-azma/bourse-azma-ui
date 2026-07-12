@@ -131,8 +131,10 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
 
                                     return (
                                         <Fragment key={order.id}>
-                                            <div className="rounded-xl border border-border/70 bg-surface p-3">
-                                                <div className="mb-2 flex items-center justify-between gap-2">
+                                            <div
+                                                className="overflow-hidden rounded-xl border border-border/70 bg-surface">
+                                                <div
+                                                    className="flex items-center justify-between gap-2 border-b border-border/60 bg-surface-2/55 px-3 py-2.5">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-text">{order.symbol}</span>
                                                         <span
@@ -151,23 +153,28 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                         {order.statusLabel}
                                                     </span>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
-                                                    <div>
-                                                        <span className="text-muted">تعداد</span>
-                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.quantity)}</p>
+                                                <div className="divide-y divide-border/50 px-3 text-[11px]">
+                                                    <div className="flex items-center justify-between gap-3 py-2">
+                                                        <span className="text-muted">تعداد سفارش</span>
+                                                        <span
+                                                            className="font-semibold tabular-nums text-text">{formatNumberFa(order.quantity)}</span>
                                                     </div>
-                                                    <div>
-                                                        <span className="text-muted">قیمت</span>
-                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.orderPrice)}</p>
+                                                    <div className="flex items-center justify-between gap-3 py-2">
+                                                        <span className="text-muted">قیمت سفارش</span>
+                                                        <span
+                                                            className="font-semibold tabular-nums text-text">{formatNumberFa(order.orderPrice)}
+                                                            <small
+                                                                className="font-normal text-muted">ریال</small></span>
                                                     </div>
-                                                    <div>
+                                                    <div className="flex items-center justify-between gap-3 py-2">
                                                         <span className="text-muted">اجرا شده</span>
-                                                        <p className="font-semibold tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</p>
+                                                        <span
+                                                            className="font-semibold tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</span>
                                                     </div>
-                                                    <div>
-                                                        <span className="text-muted">زمان</span>
-                                                        <p className="font-semibold tabular-nums text-muted"
-                                                           dir="ltr">{order.time}</p>
+                                                    <div className="flex items-center justify-between gap-3 py-2">
+                                                        <span className="text-muted">زمان ثبت</span>
+                                                        <span className="font-medium tabular-nums text-muted"
+                                                              dir="ltr">{order.time}</span>
                                                     </div>
                                                 </div>
                                                 {order.cancellable ? (
@@ -179,7 +186,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                                 void vm.handleCancelOrder(order.id);
                                                             }
                                                         }}
-                                                        className="mt-2 inline-flex w-full items-center justify-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1.5 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        className="mx-3 mb-3 mt-1 inline-flex w-[calc(100%-1.5rem)] items-center justify-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1.5 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
                                                     >
                                                         {isCancelling ? (
                                                             <Loader2 className="h-3 w-3 animate-spin"/>

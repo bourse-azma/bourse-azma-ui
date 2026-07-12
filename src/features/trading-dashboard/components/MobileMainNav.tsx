@@ -10,21 +10,20 @@ const sidebarTabs: Array<{ id: SidebarTab; label: string; icon: typeof Bell }> =
 ];
 
 export function MobileMainNav({vm}: { vm: TradingDashboardVm }) {
-    const showSidebarTabs = vm.mainNavTab === 'بازار';
-
     return (
-        <nav dir="rtl" className="border-t border-border/40 bg-surface/90 px-3 py-1 xl:hidden">
-            <div className="mx-auto w-full max-w-[1800px] space-y-1">
-                <div className="thin-scrollbar flex items-center gap-1 overflow-x-auto">
+        <nav dir="rtl" className="border-t border-border/40 bg-surface/90 px-3 py-1.5 xl:hidden">
+            <div className="mx-auto w-full max-w-[1800px] space-y-1.5">
+                <div aria-label="بخش‌های اصلی"
+                     className="grid grid-cols-3 gap-1 rounded-xl bg-surface-2/80 p-1 ring-1 ring-border/60">
                     {vm.mainNavTabs.map((item) => (
                         <button
                             key={item}
                             type="button"
                             onClick={() => vm.setMainNavTab(item)}
-                            className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                            className={`min-w-0 rounded-lg px-2 py-1.5 text-[10px] font-semibold transition ${
                                 vm.mainNavTab === item
-                                    ? 'border-primary/30 bg-primary/10 text-primary'
-                                    : 'border-border/70 bg-surface text-muted'
+                                    ? 'bg-surface text-primary shadow-sm ring-1 ring-primary/20'
+                                    : 'text-muted hover:bg-surface/60'
                             }`}
                         >
                             {item}
@@ -32,25 +31,23 @@ export function MobileMainNav({vm}: { vm: TradingDashboardVm }) {
                     ))}
                 </div>
 
-                {showSidebarTabs ? (
-                    <div className="thin-scrollbar flex items-center gap-1 overflow-x-auto md:hidden">
-                        {sidebarTabs.map(({id, label, icon: Icon}) => (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => vm.openSidebarDrawer(id)}
-                                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition ${
-                                    vm.drawerOpen && vm.sidebarTab === id
-                                        ? 'border-primary/30 bg-primary/10 text-primary'
-                                        : 'border-border/70 bg-surface-2 text-muted'
-                                }`}
-                            >
-                                <Icon className="h-3 w-3"/>
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-                ) : null}
+                <div aria-label="ابزارهای بازار" className="grid grid-cols-4 gap-1">
+                    {sidebarTabs.map(({id, label, icon: Icon}) => (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => vm.openSidebarDrawer(id)}
+                            className={`inline-flex min-w-0 items-center justify-center gap-1 rounded-lg px-1 py-1 text-[9px] font-medium transition ${
+                                vm.drawerOpen && vm.sidebarTab === id
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'text-muted hover:bg-surface-2'
+                            }`}
+                        >
+                            <Icon className="h-3.5 w-3.5 shrink-0"/>
+                            <span className="max-w-full truncate">{label}</span>
+                        </button>
+                    ))}
+                </div>
             </div>
         </nav>
     );

@@ -5,9 +5,10 @@ import {ltrNumericClassName} from '../../../utils/numberFormat';
 import {formatCompactValueOrUnavailable, formatNumberOrDash, formatPercentOrDash} from '../formatters';
 import type {TradingDashboardVm} from './types';
 
-function ThemeToggleButton({theme, onToggleTheme}: {
+function ThemeToggleButton({theme, onToggleTheme, compact = false}: {
     theme: Theme;
-    onToggleTheme: (origin?: { x: number; y: number }) => void
+    onToggleTheme: (origin?: { x: number; y: number }) => void;
+    compact?: boolean;
 }) {
     return (
         <button
@@ -20,27 +21,31 @@ function ThemeToggleButton({theme, onToggleTheme}: {
                 });
             }}
             aria-label="toggle theme"
-            className="relative inline-flex h-8 w-[68px] shrink-0 items-center overflow-hidden rounded-full border border-border/80 bg-surface-2 px-1 transition hover:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-[72px]"
+            className={compact
+                ? 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/80 bg-surface-2 text-muted transition hover:border-primary/35 hover:text-text focus-visible:ring-2 focus-visible:ring-primary/50'
+                : 'relative inline-flex h-8 w-[68px] shrink-0 items-center overflow-hidden rounded-full border border-border/80 bg-surface-2 px-1 transition hover:border-primary/35 focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-[72px]'}
         >
+            {compact ? (theme === 'dark' ? <Moon className="h-3.5 w-3.5"/> : <Sun className="h-3.5 w-3.5"/>) : <>
             <span
                 className={`absolute top-1 left-1 h-6 w-8 rounded-full bg-surface shadow-sm transition-transform duration-300 ${
                     theme === 'dark' ? 'translate-x-8 sm:translate-x-9' : 'translate-x-0'
                 }`}
             />
-            <span
-                className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
-                    theme === 'dark' ? 'text-muted' : 'text-text'
-                }`}
-            >
+                <span
+                    className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
+                        theme === 'dark' ? 'text-muted' : 'text-text'
+                    }`}
+                >
                 <Sun className="h-3.5 w-3.5"/>
             </span>
-            <span
-                className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
-                    theme === 'dark' ? 'text-text' : 'text-muted'
-                }`}
-            >
+                <span
+                    className={`z-10 flex h-6 w-8 items-center justify-center rounded-full text-[11px] transition-colors duration-200 ${
+                        theme === 'dark' ? 'text-text' : 'text-muted'
+                    }`}
+                >
                 <Moon className="h-3.5 w-3.5"/>
             </span>
+            </>}
         </button>
     );
 }
@@ -165,11 +170,13 @@ function WalletButton({vm, compact = false}: { vm: TradingDashboardVm; compact?:
 
 function MarketIndexPanel({vm, compact = false}: { vm: TradingDashboardVm; compact?: boolean }) {
     return (
-        <div className={`relative min-w-0 ${compact ? 'flex-1' : 'mx-auto w-full max-w-[520px] lg:max-w-none'}`}>
+        <div className={`relative min-w-0 ${compact ? 'w-full' : 'mx-auto w-full max-w-[520px] lg:max-w-none'}`}>
             <button
                 type="button"
                 onClick={() => vm.setMarketPanelOpen((prev) => !prev)}
-                className={`flex w-full min-w-0 items-center justify-between gap-1.5 rounded-xl border transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                className={`w-full min-w-0 items-center rounded-xl border transition hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                    compact ? 'grid grid-cols-[auto_minmax(0,1fr)] gap-1.5' : 'flex justify-between gap-1.5'
+                } ${
                     compact ? 'px-2 py-1' : 'px-2.5 py-1.5 sm:px-3'
                 } ${
                     vm.marketPositive
@@ -178,17 +185,18 @@ function MarketIndexPanel({vm, compact = false}: { vm: TradingDashboardVm; compa
                 }`}
             >
                 <div
-                    className={`flex min-w-0 items-center gap-1 text-muted ${compact ? 'text-[10px]' : 'text-[11px] sm:gap-1.5 sm:text-xs'}`}>
-                    <span className={`truncate font-medium ${compact ? '' : 'sm:text-sm'}`}>شاخص کل</span>
+                    className={`flex min-w-0 items-center gap-1 text-muted ${compact ? 'text-[9px]' : 'text-[11px] sm:gap-1.5 sm:text-xs'}`}>
+                    <span className={`${compact ? 'shrink-0 whitespace-nowrap' : 'truncate sm:text-sm'} font-medium`}>شاخص کل</span>
                     {!compact ? (
                         <span className="hidden shrink-0 text-[10px] text-muted/80 sm:inline sm:text-[11px]">بورس • فرابورس</span>
                     ) : null}
                 </div>
 
-                <div className="flex min-w-0 shrink-0 items-center gap-1 [direction:ltr] sm:gap-2">
+                <div
+                    className={`flex min-w-0 items-center justify-end gap-1 [direction:ltr] sm:gap-2 ${compact ? 'overflow-hidden' : 'shrink-0'}`}>
                     <span
                         className={`font-extrabold leading-none tracking-tight tabular-nums text-text ${
-                            compact ? 'text-sm' : 'text-base sm:text-2xl'
+                            compact ? 'text-xs' : 'text-base sm:text-2xl'
                         }`}
                     >
                         {formatNumberOrDash(vm.marketIndex)}
@@ -204,7 +212,7 @@ function MarketIndexPanel({vm, compact = false}: { vm: TradingDashboardVm; compa
                     ) : null}
                     <span
                         className={`font-semibold ${ltrNumericClassName} ${
-                            compact ? 'text-[10px]' : 'text-[11px] sm:text-sm'
+                            compact ? 'text-[9px]' : 'text-[11px] sm:text-sm'
                         } ${vm.marketPositive ? 'text-positive' : 'text-negative'}`}
                     >
                         ({formatPercentOrDash(vm.marketPercent)})
@@ -287,38 +295,40 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
     return (
         <header className="relative z-30 border-b border-border/60 px-3 py-1.5 sm:px-4 sm:py-2">
             <div className="mx-auto w-full max-w-[1800px] [direction:ltr]">
-                {/* Mobile layout — compact 2-row header */}
-                <div dir="rtl" className="flex flex-col gap-1.5 lg:hidden">
-                    <div className="flex items-center gap-2">
-                        <div className="flex shrink-0 items-center gap-1.5">
-                            <img
-                                src={bourseAzmaLogo}
-                                alt="بورس آزما"
-                                className="h-7 w-auto max-w-[80px] object-contain sm:h-8 sm:max-w-[96px]"
-                            />
-                            <span className="hidden text-sm font-extrabold text-text sm:inline">بورس آزما</span>
-                        </div>
-
-                        <MarketIndexPanel vm={vm} compact/>
-
+                {/* Mobile layout — compact, single visual group */}
+                <div dir="rtl" className="flex items-center gap-1.5 lg:hidden">
+                    <div className="flex shrink-0 items-center">
+                        <img
+                            src={bourseAzmaLogo}
+                            alt="بورس آزما"
+                            className="h-7 w-auto max-w-[80px] object-contain sm:h-8 sm:max-w-[96px]"
+                        />
+                        <span className="sr-only">بورس آزما</span>
                     </div>
 
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                            <MarketStatusPill vm={vm} compact/>
-                            <WalletButton vm={vm} compact/>
-                        </div>
+                    <div className="min-w-[132px] flex-1">
+                        <MarketIndexPanel vm={vm} compact/>
+                    </div>
 
-                        <div className="flex shrink-0 items-center gap-1.5">
-                            <ProfileMenuButton
-                                vm={vm}
-                                profileDisplayName={profileDisplayName}
-                                onOpenProfile={onOpenProfile}
-                                onLogout={onLogout}
-                                compact
-                            />
-                            <ThemeToggleButton theme={theme} onToggleTheme={onToggleTheme}/>
-                        </div>
+                    <div className="mr-auto flex shrink-0 items-center gap-1">
+                            <span
+                                className={`inline-flex h-7 items-center gap-1 rounded-full border px-2 text-[9px] font-semibold ${
+                                    vm.isMarketOpen
+                                        ? 'border-positive/30 bg-positive/10 text-positive'
+                                        : 'border-negative/30 bg-negative/10 text-negative'
+                                }`}>
+                                <span
+                                    className={`h-1.5 w-1.5 rounded-full ${vm.isMarketOpen ? 'bg-positive' : 'bg-negative'}`}/>
+                                بازار {vm.isMarketOpen ? 'باز' : 'بسته'}
+                            </span>
+                        <ProfileMenuButton
+                            vm={vm}
+                            profileDisplayName={profileDisplayName}
+                            onOpenProfile={onOpenProfile}
+                            onLogout={onLogout}
+                            compact
+                        />
+                        <ThemeToggleButton theme={theme} onToggleTheme={onToggleTheme} compact/>
                     </div>
                 </div>
 
