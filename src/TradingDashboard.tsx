@@ -121,6 +121,17 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                             : formatNumberFa(value, digits)
                     }
                     onClose={() => vm.setOrderModalSide(null)}
+                    onViewOrders={() => {
+                        vm.setOrderModalSide(null);
+                        vm.setMainNavTab('بازار');
+                        vm.setBottomPanelTab('orders');
+                        window.setTimeout(() => {
+                            document.getElementById('trading-orders-panel')?.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'start',
+                            });
+                        }, 0);
+                    }}
                     onOrderPlaced={vm.handleOrderPlaced}
                 />
             ) : null}

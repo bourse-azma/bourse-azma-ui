@@ -1,14 +1,21 @@
-import {Check} from 'lucide-react';
+import {Check, X} from 'lucide-react';
 import type {OrderSuccessDetails} from './orderSuccess';
 
 type OrderSuccessOverlayProps = {
     details: OrderSuccessDetails;
     formatNumber: (value: number | null | undefined, digits?: number) => string;
     onContinue: () => void;
+    onViewOrders: () => void;
     onClose: () => void;
 };
 
-export default function OrderSuccessOverlay({details, formatNumber, onContinue, onClose}: OrderSuccessOverlayProps) {
+export default function OrderSuccessOverlay({
+                                                details,
+                                                formatNumber,
+                                                onContinue,
+                                                onViewOrders,
+                                                onClose,
+                                            }: OrderSuccessOverlayProps) {
     const isBuy = details.tone === 'buy';
     const accentBg = isBuy ? 'bg-positive' : 'bg-negative';
     const cardBorder = isBuy ? 'border-positive/40' : 'border-negative/40';
@@ -21,8 +28,18 @@ export default function OrderSuccessOverlay({details, formatNumber, onContinue, 
             aria-atomic="true"
         >
             <div
-                className={`pointer-events-auto w-full max-w-md animate-success-pop rounded-2xl border-2 bg-surface-2 px-6 py-7 text-center shadow-card ${cardBorder}`}
+                className={`pointer-events-auto relative w-full max-w-md animate-success-pop rounded-2xl border-2 bg-surface-2 px-6 py-7 text-center shadow-card ${cardBorder}`}
             >
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="absolute left-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/80 bg-surface text-muted shadow-sm transition hover:border-border hover:bg-surface-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                    aria-label="بستن پنجره"
+                    title="بستن پنجره"
+                >
+                    <X className="h-4.5 w-4.5" aria-hidden="true"/>
+                </button>
+
                 <div
                     className={`mx-auto mb-5 flex h-[72px] w-[72px] items-center justify-center rounded-full ${accentBg} text-white shadow-card`}
                 >
@@ -49,18 +66,18 @@ export default function OrderSuccessOverlay({details, formatNumber, onContinue, 
                     </div>
                 </dl>
 
-                <div className="mt-5 grid grid-cols-2 gap-2">
+                <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <button
                         type="button"
-                        onClick={onClose}
-                        className={`inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90 ${accentBg}`}
+                        onClick={onViewOrders}
+                        className={`inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${accentBg}`}
                     >
-                        بستن پنجره
+                        مشاهده سفارش‌ها
                     </button>
                     <button
                         type="button"
                         onClick={onContinue}
-                        className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-2"
+                        className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
                         سفارش جدید
                     </button>

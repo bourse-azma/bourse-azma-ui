@@ -29,7 +29,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
 
     return (
         <>
-            <section dir="rtl" className={`${cardClass} p-3 xl:col-span-8`}>
+            <section id="trading-orders-panel" dir="rtl" className={`${cardClass} scroll-mt-32 p-3 xl:col-span-8`}>
                 <div
                     className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
                     <div

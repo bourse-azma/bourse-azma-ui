@@ -67,12 +67,12 @@ export default function OrderBookPanel({
                 className="grid grid-cols-2 border-b border-border/60 bg-surface-2/95 text-[10px] text-muted sm:text-[11px]">
                 <div className="grid grid-cols-2 border-l border-border/60 sm:grid-cols-[minmax(3rem,0.85fr)_1fr_1fr]">
                     <span className="hidden px-2 py-2 text-center font-medium sm:block">تعداد</span>
-                    <span className={`${cellClass} font-medium`}>حجم</span>
                     <span className={`${cellClass} font-medium text-negative`}>قیمت</span>
+                    <span className={`${cellClass} font-medium`}>حجم</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_minmax(3rem,0.85fr)]">
-                    <span className={`${cellClass} font-medium text-positive`}>قیمت</span>
                     <span className={`${cellClass} font-medium`}>حجم</span>
+                    <span className={`${cellClass} font-medium text-positive`}>قیمت</span>
                     <span className="hidden px-2 py-2 text-center font-medium sm:block">تعداد</span>
                 </div>
             </div>
@@ -97,6 +97,9 @@ export default function OrderBookPanel({
                                     {formatNumber(row.askCount)}
                                 </span>
                                 <div className="relative overflow-hidden">
+                                    {renderPriceCell(row.askPrice, 'negative')}
+                                </div>
+                                <div className="relative overflow-hidden">
                                     <DepthFill percent={askPower} tone="negative" origin="right"/>
                                     <span
                                         className={`relative z-[1] ${cellClass} ${valueCellClass} ${hasPositiveValue(row.askVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
@@ -105,16 +108,10 @@ export default function OrderBookPanel({
                                         {formatNumber(row.askVolume)}
                                     </span>
                                 </div>
-                                <div className="relative overflow-hidden">
-                                    {renderPriceCell(row.askPrice, 'negative')}
-                                </div>
                             </div>
 
                             {/* Buy side */}
                             <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_minmax(3rem,0.85fr)]">
-                                <div className="relative overflow-hidden">
-                                    {renderPriceCell(row.bidPrice, 'positive')}
-                                </div>
                                 <div className="relative overflow-hidden">
                                     <DepthFill percent={bidPower} tone="positive" origin="left"/>
                                     <span
@@ -123,6 +120,9 @@ export default function OrderBookPanel({
                                     >
                                         {formatNumber(row.bidVolume)}
                                     </span>
+                                </div>
+                                <div className="relative overflow-hidden">
+                                    {renderPriceCell(row.bidPrice, 'positive')}
                                 </div>
                                 <span className={`${cellClass} ${valueCellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.bidCount)}

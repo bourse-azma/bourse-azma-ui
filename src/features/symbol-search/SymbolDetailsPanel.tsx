@@ -29,12 +29,12 @@ const formatDetailValue = (
     if (item.valueType === 'currency') {
         return formatCurrency(typeof item.value === 'number' ? item.value : null);
     }
-    if (item.valueType === 'currencyMillion') {
+    if (item.valueType === 'currencyBillion') {
         if (typeof item.value !== 'number' || !Number.isFinite(item.value)) {
             return 'ناموجود';
         }
-        const formatted = formatNumber(item.value / 1_000_000, 2);
-        return formatted === 'ناموجود' ? formatted : `ریال ${formatted}M`;
+        const formatted = formatNumber(item.value / 1_000_000_000, 2);
+        return formatted === 'ناموجود' ? formatted : `ریال ${formatted}B`;
     }
     if (item.valueType === 'datetime') {
         return formatDateTimeFa(typeof item.value === 'string' ? item.value : null);
@@ -108,11 +108,11 @@ export default function SymbolDetailsPanel({
                                 <span className="shrink-0 text-muted">{item.label}</span>
                                 <span
                                     className={`min-w-0 text-left font-medium text-text ${
-                                        item.valueType === 'percent' || item.valueType === 'number' || item.valueType === 'currencyMillion'
+                                        item.valueType === 'percent' || item.valueType === 'number' || item.valueType === 'currencyBillion'
                                             ? ltrNumericClassName
                                             : 'tabular-nums'
                                     }`}
-                                    dir={item.valueType === 'datetime' || item.valueType === 'currencyMillion' ? 'ltr' : undefined}
+                                    dir={item.valueType === 'datetime' || item.valueType === 'currencyBillion' ? 'ltr' : undefined}
                                 >
                                     {displayValue}
                                 </span>

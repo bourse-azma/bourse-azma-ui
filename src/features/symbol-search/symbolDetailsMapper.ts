@@ -123,7 +123,7 @@ const toDetailRows = (input: {
 }): SymbolDetailRow[] => {
     const commonRows: SymbolDetailRow[] = [
         {label: 'حجم معاملات', value: input.tradeVolume, valueType: 'number'},
-        {label: 'ارزش معاملات', value: input.tradeValue, valueType: 'currencyMillion'},
+        {label: 'ارزش معاملات', value: input.tradeValue, valueType: 'currencyBillion'},
         {label: 'زمان آخرین معامله', value: input.lastTradeAt, valueType: 'datetime'},
     ];
 
@@ -137,7 +137,7 @@ const toDetailRows = (input: {
 
     return [
         ...commonRows.slice(0, 2),
-        {label: 'ارزش بازار', value: input.marketValue, valueType: 'currencyMillion'},
+        {label: 'ارزش بازار', value: input.marketValue, valueType: 'currencyBillion'},
         commonRows[2],
         {label: 'EPS', value: input.eps, valueType: 'number'},
         {label: 'P/E', value: input.pe, valueType: 'number', digits: 2},

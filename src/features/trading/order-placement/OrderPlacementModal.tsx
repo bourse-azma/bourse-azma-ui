@@ -21,6 +21,7 @@ type OrderPlacementModalProps = {
     accessToken: string;
     formatNumber: (value: number | null | undefined, digits?: number) => string;
     onClose: () => void;
+    onViewOrders: () => void;
     onOrderPlaced: (result: CreateOrderResult, closeAfter: boolean) => void;
 };
 
@@ -43,6 +44,7 @@ export default function OrderPlacementModal({
                                                 accessToken,
                                                 formatNumber,
                                                 onClose,
+                                                onViewOrders,
                                                 onOrderPlaced,
                                             }: OrderPlacementModalProps) {
     const closeAfterSuccessRef = useRef(false);
@@ -136,6 +138,7 @@ export default function OrderPlacementModal({
                             details={successDetails}
                             formatNumber={formatNumber}
                             onContinue={controller.clearSuccess}
+                            onViewOrders={onViewOrders}
                             onClose={onClose}
                         />
                     ) : null}
