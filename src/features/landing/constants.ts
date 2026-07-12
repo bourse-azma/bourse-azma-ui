@@ -59,13 +59,13 @@ export const features: LandingFeature[] = [
 
 export const teamMembers = [
     {
-        name: 'مهندس عرفان داوودی نصر',
+        name: 'عرفان داوودی نصر',
         email: 'davoodinasr.erfan@gmail.com',
         github: 'ErfanDavoodiNasr',
         icon: Activity,
     },
     {
-        name: 'مهندس محسن جلیلی',
+        name: 'محسن جلیلی',
         email: 'mohsenjalili@ut.ac.ir',
         github: 'reallermaker',
         icon: Radar,
