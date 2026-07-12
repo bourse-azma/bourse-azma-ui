@@ -198,8 +198,11 @@ export default function PopularSymbolsTabContent({
                 ) : (
                     <div
                         ref={listRef}
-                        className={`calm-scroll thin-scrollbar overflow-y-auto ${
-                            fillHeight ? 'max-h-none min-h-[50vh]' : 'max-h-[292px]'
+                        className={`calm-scroll thin-scrollbar ${
+                            // The mobile drawer is already the vertical scroll container.
+                            // A second, unconstrained overflow container can swallow touch
+                            // gestures on iOS/Android without having anywhere to scroll.
+                            fillHeight ? 'min-h-[50vh] overflow-visible' : 'max-h-[292px] overflow-y-auto'
                         }`}
                     >
                         {filteredItems.map((item, index) => {

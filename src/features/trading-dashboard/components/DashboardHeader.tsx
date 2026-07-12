@@ -104,7 +104,7 @@ function ProfileMenuButton({
     compact?: boolean;
 }) {
     return (
-        <div ref={vm.profileMenuRef} className="relative min-w-0">
+        <div ref={vm.profileMenuRef} data-profile-menu className="relative min-w-0">
             <button
                 type="button"
                 onClick={() => vm.setProfileMenuOpen((prev) => !prev)}

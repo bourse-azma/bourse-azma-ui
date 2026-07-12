@@ -35,7 +35,7 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
             </header>
 
             <div
-                className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                className="thin-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
                 <WatchlistPanel
                     activeTab={vm.sidebarTab}
                     onTabChange={vm.setSidebarTab}

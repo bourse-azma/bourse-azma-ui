@@ -73,7 +73,10 @@ export function useDashboardNavigation({userProfile}: UseDashboardNavigationPara
         const onClickOutside = (event: MouseEvent) => {
             const target = event.target as Node | null;
             if (!target) return;
-            if (profileMenuRef.current?.contains(target)) return;
+            // The responsive header renders both its mobile and desktop variants.
+            // Only one ref can point at a variant, so identify either menu from the
+            // event target instead of treating taps in the other variant as outside.
+            if (target instanceof Element && target.closest('[data-profile-menu]')) return;
             setProfileMenuOpen(false);
         };
 
