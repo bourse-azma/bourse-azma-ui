@@ -53,7 +53,10 @@ const parsePositiveInt = (raw: string, key: string) => {
     return Math.floor(parsed);
 };
 
+const parseBoolean = (raw: string | undefined) => raw?.trim().toLowerCase() === 'true';
+
 export const appConfig = Object.freeze({
+    uiDebugMode: parseBoolean(import.meta.env.VITE_UI_DEBUG_MODE),
     marketOverviewApiBaseUrl: getRequiredEnv('VITE_MARKET_OVERVIEW_API_BASE_URL'),
     marketOverviewApiPath: getRequiredEnv('VITE_MARKET_OVERVIEW_API_PATH'),
     tsetmcApiBaseUrl: getRequiredEnv('VITE_TSETMC_API_BASE_URL'),

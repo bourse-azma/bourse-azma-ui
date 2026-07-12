@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+    readonly VITE_UI_DEBUG_MODE?: string;
     readonly VITE_MARKET_OVERVIEW_API_BASE_URL: string;
     readonly VITE_MARKET_OVERVIEW_REFRESH_MS: string;
     readonly VITE_LANDING_MARKET_REFRESH_MS: string;

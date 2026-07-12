@@ -10,6 +10,7 @@ import {buildOrderSuccessDetails} from './orderSuccess';
 import {useOrderPlacement} from './useOrderPlacement';
 import type {OrderSide, OrderSymbolContext, OrderValidationContext} from './types';
 import {formatPercentFa, ltrNumericClassName} from '../../../utils/numberFormat';
+import {appConfig} from '../../../config/appConfig';
 
 type OrderPlacementModalProps = {
     open: boolean;
@@ -70,17 +71,14 @@ export default function OrderPlacementModal({
         if (!controller.successResult) return;
 
         const closeAfter = closeAfterSuccessRef.current;
-        const {clearSuccess} = controller;
+        if (!closeAfter) return;
+
         const timer = window.setTimeout(() => {
-            if (closeAfter) {
-                onClose();
-            } else {
-                clearSuccess();
-            }
-        }, closeAfter ? 1400 : 2600);
+            onClose();
+        }, 1400);
 
         return () => window.clearTimeout(timer);
-    }, [controller.clearSuccess, controller.successResult, onClose]);
+    }, [controller.successResult, onClose]);
 
     if (!open) return null;
 
@@ -107,9 +105,15 @@ export default function OrderPlacementModal({
                 <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-2">
                         <h3 className="text-base font-bold text-text">{headerTitle}</h3>
-                        {context.marketOpen === null ? (
+                        {appConfig.uiDebugMode ? (
+                            <span
+                                className="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
+                                حالت تست
+                            </span>
+                        ) : null}
+                        {!appConfig.uiDebugMode && context.marketOpen === null ? (
                             <span className="h-5 w-20 animate-pulse rounded-full bg-surface-2"/>
-                        ) : !context.marketOpen ? (
+                        ) : !appConfig.uiDebugMode && !context.marketOpen ? (
                             <span
                                 className="shrink-0 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
                                 بازار بسته
@@ -128,7 +132,12 @@ export default function OrderPlacementModal({
 
                 <div className="relative flex min-h-0 flex-1 flex-col">
                     {successDetails ? (
-                        <OrderSuccessOverlay details={successDetails} formatNumber={formatNumber}/>
+                        <OrderSuccessOverlay
+                            details={successDetails}
+                            formatNumber={formatNumber}
+                            onContinue={controller.clearSuccess}
+                            onClose={onClose}
+                        />
                     ) : null}
 
                     <div className="thin-scrollbar grid flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-2">

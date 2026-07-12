@@ -6,6 +6,7 @@ import ConditionalTriggerFields from './ConditionalTriggerFields';
 import {MARKET_CLOSED_ERROR} from './orderValidation';
 import type {useOrderPlacement} from './useOrderPlacement';
 import type {OrderValidationContext} from './types';
+import {appConfig} from '../../../config/appConfig';
 
 type OrderFormProps = {
     controller: ReturnType<typeof useOrderPlacement>;
@@ -42,7 +43,19 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
 
     return (
         <div dir="rtl" className="flex h-full flex-col gap-4">
-            {context.marketOpen === null ? (
+            {appConfig.uiDebugMode ? (
+                <div
+                    role="status"
+                    className="flex items-start gap-2.5 rounded-2xl border border-warning/45 bg-warning/10 px-4 py-3 text-sm leading-7 text-warning"
+                >
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0"/>
+                    <div>
+                        <p className="font-semibold text-text">حالت تست فعال است</p>
+                        <p className="mt-0.5 text-xs leading-6 text-muted">فقط محدودیت ساعت فعالیت بازار نادیده گرفته
+                            می‌شود.</p>
+                    </div>
+                </div>
+            ) : context.marketOpen === null ? (
                 <div className="space-y-2 rounded-2xl border border-border/70 bg-surface-2/60 p-4">
                     <div className="h-4 w-32 animate-pulse rounded-full bg-surface-2"/>
                     <div className="h-3 w-full animate-pulse rounded-full bg-surface-2"/>

@@ -4,9 +4,11 @@ import type {OrderSuccessDetails} from './orderSuccess';
 type OrderSuccessOverlayProps = {
     details: OrderSuccessDetails;
     formatNumber: (value: number | null | undefined, digits?: number) => string;
+    onContinue: () => void;
+    onClose: () => void;
 };
 
-export default function OrderSuccessOverlay({details, formatNumber}: OrderSuccessOverlayProps) {
+export default function OrderSuccessOverlay({details, formatNumber, onContinue, onClose}: OrderSuccessOverlayProps) {
     const isBuy = details.tone === 'buy';
     const accentBg = isBuy ? 'bg-positive' : 'bg-negative';
     const cardBorder = isBuy ? 'border-positive/40' : 'border-negative/40';
@@ -46,6 +48,23 @@ export default function OrderSuccessOverlay({details, formatNumber}: OrderSucces
                         <dd className="font-bold text-text">{details.statusLabel}</dd>
                     </div>
                 </dl>
+
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white transition hover:opacity-90 ${accentBg}`}
+                    >
+                        بستن پنجره
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onContinue}
+                        className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-2"
+                    >
+                        سفارش جدید
+                    </button>
+                </div>
             </div>
         </div>
     );

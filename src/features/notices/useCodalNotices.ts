@@ -51,6 +51,7 @@ export function useCodalNotices(
         params.delete('page');
         return params.toString();
     }, [query]);
+    const stableQuery = useMemo(() => query, [querySignature]);
 
     useEffect(() => {
         if (!enabled) {
@@ -97,7 +98,7 @@ export function useCodalNotices(
         let active = true;
         const controller = new AbortController();
         const isFirstPage = pageToLoad === 1;
-        const requestLength = clamp(Math.floor(query.length), 1, CODAL_MAX_PAGE_LENGTH);
+        const requestLength = clamp(Math.floor(stableQuery.length), 1, CODAL_MAX_PAGE_LENGTH);
         requestInFlightRef.current = true;
 
         setState((prev) => ({
@@ -118,7 +119,7 @@ export function useCodalNotices(
                 for (let index = 0; index < pagesToFetch; index += 1) {
                     const requestPage = isFirstPage ? 1 : pageToLoad + index;
                     const requestQuery: CodalNoticesQuery = {
-                        ...query,
+                        ...stableQuery,
                         page: requestPage,
                         length: requestLength,
                     };
@@ -180,7 +181,7 @@ export function useCodalNotices(
             requestInFlightRef.current = false;
             controller.abort();
         };
-    }, [enabled, errorMessage, pagesPerLoad, pageToLoad, query, reloadKey]);
+    }, [enabled, errorMessage, pagesPerLoad, pageToLoad, stableQuery, reloadKey]);
 
     const loadMore = () => {
         if (requestInFlightRef.current) return;

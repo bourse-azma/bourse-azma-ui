@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {type CreateOrderResult, createTradingOrder} from '../api';
 import {parseNumericInput, validateOrder} from './orderValidation';
+import {appConfig} from '../../../config/appConfig';
 import type {
     OrderFormValues,
     OrderSide,
@@ -97,7 +98,7 @@ export const useOrderPlacement = ({
         );
     }, []);
 
-    const validation = useMemo(() => validateOrder(values, context), [values, context]);
+    const validation = useMemo(() => validateOrder(values, context, appConfig.uiDebugMode), [values, context]);
 
     const instrumentMissing = !symbol.instrumentCode || symbol.instrumentCode.trim() === '';
     const canSubmit = validation.isValid && !instrumentMissing && !submitting && !successResult;
@@ -115,7 +116,7 @@ export const useOrderPlacement = ({
                 setSubmitError('کد ابزار این نماد در دسترس نیست؛ امکان ثبت سفارش وجود ندارد.');
                 return;
             }
-            const result = validateOrder(values, context);
+            const result = validateOrder(values, context, appConfig.uiDebugMode);
             if (!result.isValid || result.quantity === null || result.effectivePrice === null) {
                 return;
             }

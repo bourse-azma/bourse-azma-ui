@@ -12,7 +12,8 @@ type OrderBookPanelProps = {
 
 const hasPositiveValue = (value: number | null | undefined) => (value ?? 0) > 0;
 
-const cellClass = 'flex items-center justify-center px-1 py-2 tabular-nums sm:px-2 sm:py-2.5';
+const cellClass = 'flex min-w-0 items-center justify-center overflow-hidden whitespace-nowrap px-0.5 py-2 tabular-nums sm:px-1 sm:py-2.5';
+const valueCellClass = 'text-[9px] leading-none sm:text-[10px] lg:text-[11px] 2xl:text-xs';
 const priceBtnClass = `${cellClass} font-semibold transition disabled:cursor-default disabled:hover:bg-transparent`;
 
 export default function OrderBookPanel({
@@ -92,22 +93,17 @@ export default function OrderBookPanel({
                             {/* Sell side */}
                             <div
                                 className="grid grid-cols-2 border-l border-border/60 sm:grid-cols-[minmax(3rem,0.85fr)_1fr_1fr]">
-                                <span className={`${cellClass} hidden text-muted sm:flex`}>
+                                <span className={`${cellClass} ${valueCellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.askCount)}
                                 </span>
                                 <div className="relative overflow-hidden">
                                     <DepthFill percent={askPower} tone="negative" origin="right"/>
                                     <span
-                                        className={`relative z-[1] ${cellClass} ${hasPositiveValue(row.askVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        className={`relative z-[1] ${cellClass} ${valueCellClass} ${hasPositiveValue(row.askVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        title={formatNumber(row.askVolume)}
                                     >
                                         {formatNumber(row.askVolume)}
                                     </span>
-                                    {(row.ownAskVolume ?? 0) > 0 ? (
-                                        <span
-                                            className="absolute right-0.5 top-0.5 z-[2] rounded bg-negative/15 px-1 text-[8px] font-bold text-negative">
-                                            شما
-                                        </span>
-                                    ) : null}
                                 </div>
                                 <div className="relative overflow-hidden">
                                     {renderPriceCell(row.askPrice, 'negative')}
@@ -122,18 +118,13 @@ export default function OrderBookPanel({
                                 <div className="relative overflow-hidden">
                                     <DepthFill percent={bidPower} tone="positive" origin="left"/>
                                     <span
-                                        className={`relative z-[1] ${cellClass} ${hasPositiveValue(row.bidVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        className={`relative z-[1] ${cellClass} ${valueCellClass} ${hasPositiveValue(row.bidVolume) ? 'font-medium text-text' : 'text-muted/60'}`}
+                                        title={formatNumber(row.bidVolume)}
                                     >
                                         {formatNumber(row.bidVolume)}
                                     </span>
-                                    {(row.ownBidVolume ?? 0) > 0 ? (
-                                        <span
-                                            className="absolute left-0.5 top-0.5 z-[2] rounded bg-positive/15 px-1 text-[8px] font-bold text-positive">
-                                            شما
-                                        </span>
-                                    ) : null}
                                 </div>
-                                <span className={`${cellClass} hidden text-muted sm:flex`}>
+                                <span className={`${cellClass} ${valueCellClass} hidden text-muted sm:flex`}>
                                     {formatNumber(row.bidCount)}
                                 </span>
                             </div>

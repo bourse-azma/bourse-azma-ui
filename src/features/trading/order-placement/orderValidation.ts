@@ -42,11 +42,12 @@ const isPositive = (value: number | null): value is number => value !== null && 
 
 export const validateOrder = (
     values: OrderFormValues,
-    context: OrderValidationContext
+    context: OrderValidationContext,
+    debugMode = false
 ): OrderValidationResult => {
     const errors: OrderFieldErrors = {};
 
-    if (context.marketOpen === null) {
+    if (!debugMode && context.marketOpen === null) {
         errors.general = MARKET_STATE_LOADING_ERROR;
         return {
             errors,
@@ -57,7 +58,7 @@ export const validateOrder = (
         };
     }
 
-    if (!context.marketOpen) {
+    if (!debugMode && !context.marketOpen) {
         errors.general = MARKET_CLOSED_ERROR;
         return {
             errors,
