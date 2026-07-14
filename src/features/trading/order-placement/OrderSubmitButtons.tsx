@@ -6,7 +6,7 @@ type OrderSubmitButtonsProps = {
 };
 
 export default function OrderSubmitButtons({controller}: OrderSubmitButtonsProps) {
-    const {values, submitting, canSubmit, submit} = controller;
+    const {values, submitting, canSubmit, submit, isEditing} = controller;
 
     const isBuy = values.side === 'BUY';
     const submitBg = isBuy ? 'bg-positive' : 'bg-negative';
@@ -27,6 +27,8 @@ export default function OrderSubmitButtons({controller}: OrderSubmitButtonsProps
                         <Loader2 className="h-4 w-4 animate-spin"/>
                         در حال ثبت...
                     </span>
+                ) : isEditing ? (
+                    'ثبت ویرایش'
                 ) : isBuy ? (
                     'ارسال خرید'
                 ) : (
@@ -39,7 +41,7 @@ export default function OrderSubmitButtons({controller}: OrderSubmitButtonsProps
                 disabled={!canSubmit}
                 className={`flex h-11 items-center justify-center rounded-xl border bg-surface px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${submitOutline}`}
             >
-                ارسال و بستن
+                {isEditing ? 'ویرایش و بستن' : 'ارسال و بستن'}
             </button>
         </div>
     );

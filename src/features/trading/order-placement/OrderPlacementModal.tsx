@@ -2,7 +2,7 @@ import {X} from 'lucide-react';
 import {useEffect, useMemo, useRef} from 'react';
 import OrderBookPanel from '../../symbol-search/OrderBookPanel';
 import type {SymbolOrderBookRow} from '../../symbol-search/types';
-import type {CreateOrderResult} from '../api';
+import type {CreateOrderResult, TradingOrder} from '../api';
 import OrderForm from './OrderForm';
 import OrderSubmitButtons from './OrderSubmitButtons';
 import OrderSuccessOverlay from './OrderSuccessOverlay';
@@ -19,6 +19,7 @@ type OrderPlacementModalProps = {
     orderBookRows: SymbolOrderBookRow[];
     context: OrderValidationContext;
     accessToken: string;
+    editingOrder?: TradingOrder | null;
     formatNumber: (value: number | null | undefined, digits?: number) => string;
     onClose: () => void;
     onViewOrders: () => void;
@@ -42,6 +43,7 @@ export default function OrderPlacementModal({
                                                 orderBookRows,
                                                 context,
                                                 accessToken,
+                                                editingOrder = null,
                                                 formatNumber,
                                                 onClose,
                                                 onViewOrders,
@@ -55,6 +57,7 @@ export default function OrderPlacementModal({
         symbol,
         context,
         accessToken,
+        editingOrder,
         onSuccess: (result, closeAfter) => {
             closeAfterSuccessRef.current = closeAfter;
             onOrderPlaced(result, closeAfter);
@@ -64,9 +67,9 @@ export default function OrderPlacementModal({
     const successDetails = useMemo(
         () =>
             controller.successResult
-                ? buildOrderSuccessDetails(controller.successResult, formatNumber)
+                ? buildOrderSuccessDetails(controller.successResult, formatNumber, controller.isEditing)
                 : null,
-        [controller.successResult, formatNumber]
+        [controller.isEditing, controller.successResult, formatNumber]
     );
 
     useEffect(() => {
@@ -86,7 +89,9 @@ export default function OrderPlacementModal({
 
     const isBuy = controller.values.side === 'BUY';
     const lastChange = formatPercent(symbol.changePercent);
-    const headerTitle = `${isBuy ? 'خرید' : 'فروش'} ${symbol.symbol}`;
+    const headerTitle = controller.isEditing
+        ? `ویرایش سفارش ${symbol.symbol}`
+        : `${isBuy ? 'خرید' : 'فروش'} ${symbol.symbol}`;
 
     return (
         <div className="fixed inset-0 z-[75] flex items-center justify-center p-3 sm:p-5">
@@ -137,7 +142,8 @@ export default function OrderPlacementModal({
                         <OrderSuccessOverlay
                             details={successDetails}
                             formatNumber={formatNumber}
-                            onContinue={controller.clearSuccess}
+                            onContinue={controller.isEditing ? onClose : controller.clearSuccess}
+                            continueLabel={controller.isEditing ? 'بستن' : 'سفارش جدید'}
                             onViewOrders={onViewOrders}
                             onClose={onClose}
                         />
@@ -212,7 +218,8 @@ export default function OrderPlacementModal({
                         </section>
 
                         <section className="order-1">
-                            <OrderForm controller={controller} context={context} formatNumber={formatNumber}/>
+                            <OrderForm controller={controller} context={controller.validationContext}
+                                       formatNumber={formatNumber}/>
                         </section>
                     </div>
                 </div>

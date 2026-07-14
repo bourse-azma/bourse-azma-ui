@@ -19,6 +19,7 @@ export const calculatePercentageQuantity = (
     values: OrderFormValues,
     context: OrderValidationContext,
     percentage: OrderPercentage,
+    executedQuantity = 0,
 ): number | null => {
     let maximumQuantity: number | null;
 
@@ -35,5 +36,5 @@ export const calculatePercentageQuantity = (
         return null;
     }
 
-    return Math.floor((maximumQuantity * percentage) / 100);
+    return executedQuantity + Math.floor((maximumQuantity * percentage) / 100);
 };

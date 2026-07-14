@@ -9,6 +9,7 @@ type ConditionalTriggerFieldsProps = {
     error?: string;
     onComparatorChange: (comparator: TriggerComparator) => void;
     onTriggerPriceChange: (value: string) => void;
+    disabled?: boolean;
 };
 
 const COMPARATORS: TriggerComparator[] = ['GREATER_THAN', 'LESS_THAN', 'EQUAL'];
@@ -20,6 +21,7 @@ export default function ConditionalTriggerFields({
                                                      error,
                                                      onComparatorChange,
                                                      onTriggerPriceChange,
+                                                     disabled = false,
                                                  }: ConditionalTriggerFieldsProps) {
     const accent = side === 'BUY' ? 'focus:ring-positive/30' : 'focus:ring-negative/30';
 
@@ -30,8 +32,9 @@ export default function ConditionalTriggerFields({
                 <select
                     aria-label="شرط قیمت"
                     value={comparator}
+                    disabled={disabled}
                     onChange={(event) => onComparatorChange(event.target.value as TriggerComparator)}
-                    className={`h-11 rounded-xl border border-border/80 bg-surface px-2 text-sm text-text outline-none transition focus:ring-2 ${accent}`}
+                    className={`h-11 rounded-xl border border-border/80 bg-surface px-2 text-sm text-text outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70 ${accent}`}
                 >
                     {COMPARATORS.map((option) => (
                         <option key={option} value={option}>
@@ -44,9 +47,10 @@ export default function ConditionalTriggerFields({
                         inputMode="numeric"
                         dir="ltr"
                         value={triggerPrice}
+                        disabled={disabled}
                         onChange={(event) => onTriggerPriceChange(event.target.value)}
                         placeholder="قیمت شرط"
-                        className={`h-11 w-full rounded-xl border bg-surface px-3 pl-12 text-sm text-text outline-none transition focus:ring-2 ${accent} ${
+                        className={`h-11 w-full rounded-xl border bg-surface px-3 pl-12 text-sm text-text outline-none transition focus:ring-2 disabled:cursor-not-allowed disabled:opacity-70 ${accent} ${
                             error ? 'border-negative/50' : 'border-border/80'
                         }`}
                     />

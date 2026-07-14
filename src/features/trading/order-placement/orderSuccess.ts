@@ -18,7 +18,8 @@ const formatQuantity = (value: number): string =>
 export const buildOrderSuccessDetails = (
     result: CreateOrderResult,
     formatNumber: (value: number | null | undefined, digits?: number) => string = (value) =>
-        value === null || value === undefined ? '—' : formatQuantity(value)
+        value === null || value === undefined ? '—' : formatQuantity(value),
+    edited = false,
 ): OrderSuccessDetails => {
     const {order, trades} = result;
     const tone: OrderSuccessTone = order.side === 'BUY' ? 'buy' : 'sell';
@@ -31,24 +32,28 @@ export const buildOrderSuccessDetails = (
     let message: string;
 
     if (order.status === 'COMPLETED') {
-        title = 'سفارش با موفقیت اجرا شد';
+        title = edited ? 'سفارش ویرایش و اجرا شد' : 'سفارش با موفقیت اجرا شد';
         message = `${sideLabel} ${formatNumber(executedQuantity)} سهم از نماد ${symbol} انجام شد.`;
     } else if (order.status === 'PARTIALLY_FILLED') {
-        title = 'سفارش بخشی اجرا شد';
+        title = edited ? 'سفارش ویرایش و بخشی اجرا شد' : 'سفارش بخشی اجرا شد';
         if (order.remainingQuantity > 0) {
             message = `${formatNumber(executedQuantity)} سهم اجرا شد و ${formatNumber(order.remainingQuantity)} سهم در صف باقی ماند.`;
         } else {
             message = `${formatNumber(executedQuantity)} سهم از ${formatNumber(quantity)} سهم اجرا شد و باقیمانده سفارش بازار لغو شد.`;
         }
     } else if (order.status === 'TRIGGER_PENDING') {
-        title = 'سفارش شرطی ثبت شد';
-        message = `سفارش ${sideLabel} نماد ${symbol} پس از برقراری شرط فعال می‌شود.`;
+        title = edited ? 'سفارش شرطی ویرایش شد' : 'سفارش شرطی ثبت شد';
+        message = edited
+            ? `تغییرات سفارش ${sideLabel} نماد ${symbol} ذخیره شد و سفارش همچنان در انتظار شرط است.`
+            : `سفارش ${sideLabel} نماد ${symbol} پس از برقراری شرط فعال می‌شود.`;
     } else if (trades.length > 0) {
         title = 'سفارش ثبت و بخشی اجرا شد';
         message = `${sideLabel} نماد ${symbol}: ${formatNumber(executedQuantity)} سهم در معاملات اولیه اجرا شد.`;
     } else {
-        title = 'سفارش ثبت شد';
-        message = `${sideLabel} ${formatNumber(quantity)} سهم نماد ${symbol} در صف قرار گرفت.`;
+        title = edited ? 'سفارش با موفقیت ویرایش شد' : 'سفارش ثبت شد';
+        message = edited
+            ? `تغییرات سفارش ${sideLabel} نماد ${symbol} ذخیره شد و ${formatNumber(order.remainingQuantity)} سهم در صف قرار دارد.`
+            : `${sideLabel} ${formatNumber(quantity)} سهم نماد ${symbol} در صف قرار گرفت.`;
     }
 
     return {

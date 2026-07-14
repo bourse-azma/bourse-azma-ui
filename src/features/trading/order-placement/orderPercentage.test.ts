@@ -41,4 +41,13 @@ describe('calculatePercentageQuantity', () => {
             100,
         )).toBe(4);
     });
+
+    it('keeps the executed quantity fixed and applies percentages to the editable remainder', () => {
+        expect(calculatePercentageQuantity(
+            values,
+            {...context, availableToSell: 80},
+            50,
+            20,
+        )).toBe(60);
+    });
 });

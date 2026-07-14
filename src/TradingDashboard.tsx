@@ -1,6 +1,5 @@
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import OrderPlacementModal from './features/trading/order-placement/OrderPlacementModal';
-import EditOrderModal from './features/trading/order-placement/EditOrderModal';
 import AdminSupportPanel from './features/support/AdminSupportPanel';
 import SupportRequestsPanel from './features/support/SupportRequestsPanel';
 import {WalletReportsPanel} from './features/wallet/WalletReportsPanel';
@@ -109,22 +108,27 @@ export default function TradingDashboard(props: TradingDashboardProps) {
 
             <AccountStatusBar summary={vm.accountSummary} onDepositClick={vm.openWalletPanel}/>
 
-            {vm.orderModalSide ? (
+            {vm.orderModalSide || vm.editingOrder ? (
                 <OrderPlacementModal
                     open
-                    initialSide={vm.orderModalSide}
+                    initialSide={vm.editingOrder?.side ?? vm.orderModalSide ?? 'BUY'}
                     symbol={vm.orderSymbolContext}
                     orderBookRows={vm.orderBookRows}
                     context={vm.orderValidationContext}
                     accessToken={accessToken}
+                    editingOrder={vm.editingOrder}
                     formatNumber={(value, digits) =>
                         value === null || value === undefined || Number.isNaN(value)
                             ? '—'
                             : formatNumberFa(value, digits)
                     }
-                    onClose={() => vm.setOrderModalSide(null)}
+                    onClose={() => {
+                        vm.setOrderModalSide(null);
+                        vm.setEditingOrder(null);
+                    }}
                     onViewOrders={() => {
                         vm.setOrderModalSide(null);
+                        vm.setEditingOrder(null);
                         vm.setMainNavTab('بازار');
                         vm.setBottomPanelTab('orders');
                         window.setTimeout(() => {
@@ -135,19 +139,6 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                         }, 0);
                     }}
                     onOrderPlaced={vm.handleOrderPlaced}
-                />
-            ) : null}
-
-            {vm.editingOrder ? (
-                <EditOrderModal
-                    key={vm.editingOrder.id}
-                    order={vm.editingOrder}
-                    minimumOrderValue={vm.tradingRules.minimumOrderValue}
-                    submitting={vm.updatingOrderId === vm.editingOrder.id}
-                    onClose={() => {
-                        if (vm.updatingOrderId === null) vm.setEditingOrder(null);
-                    }}
-                    onSubmit={vm.handleUpdateOrder}
                 />
             ) : null}
 

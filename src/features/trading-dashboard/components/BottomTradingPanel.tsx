@@ -186,7 +186,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                     <div className="mx-3 mb-3 mt-1 grid grid-cols-2 gap-2">
                                                         <button
                                                             type="button"
-                                                            disabled={isCancelling || vm.updatingOrderId !== null}
+                                                            disabled={isCancelling}
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
                                                                 vm.openEditOrder(order.id);
@@ -198,7 +198,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            disabled={isCancelling || vm.updatingOrderId !== null}
+                                                            disabled={isCancelling}
                                                             onClick={(event) => {
                                                                 event.stopPropagation();
                                                                 if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
@@ -296,7 +296,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                         <div className="flex items-center gap-1.5">
                                                             <button
                                                                 type="button"
-                                                                disabled={isCancelling || vm.updatingOrderId !== null}
+                                                                disabled={isCancelling}
                                                                 onClick={(event) => {
                                                                     event.stopPropagation();
                                                                     vm.openEditOrder(order.id);
@@ -308,7 +308,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                             </button>
                                                             <button
                                                                 type="button"
-                                                                disabled={isCancelling || vm.updatingOrderId !== null}
+                                                                disabled={isCancelling}
                                                                 onClick={(event) => {
                                                                     event.stopPropagation();
                                                                     if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {

@@ -1,56 +1,65 @@
-import {formatNumberFa} from '../../../utils/numberFormat';
-import type {PriceType} from '../api';
-import {parseNumericInput} from './orderValidation';
+import type {TradingOrder} from '../api';
+import type {OrderFormValues, OrderValidationContext, OrderValidationResult} from './types';
+import {parseNumericInput, validateOrder} from './orderValidation';
 
-export type OrderEditValidation = {
-    quantity: number | null;
-    price: number | null;
-    remainingQuantity: number | null;
-    remainingValue: number | null;
-    error: string | null;
-};
-
-type ValidateOrderEditInput = {
-    quantityText: string;
-    priceText: string;
-    priceType: PriceType | undefined;
-    currentOrderPrice: number;
-    executedQuantity: number;
-    minimumOrderValue: number;
-};
-
-export const validateOrderEdit = ({
-                                      quantityText,
-                                      priceText,
-                                      priceType,
-                                      currentOrderPrice,
-                                      executedQuantity,
-                                      minimumOrderValue,
-                                  }: ValidateOrderEditInput): OrderEditValidation => {
-    const quantity = parseNumericInput(quantityText);
-    const price = priceType === 'MARKET' ? currentOrderPrice : parseNumericInput(priceText);
-    let error: string | null = null;
-
-    if (quantity === null || !Number.isSafeInteger(quantity) || quantity <= 0) {
-        error = 'تعداد باید یک عدد صحیح و بزرگ‌تر از صفر باشد.';
-    } else if (quantity <= executedQuantity) {
-        error = `تعداد کل باید از تعداد اجراشده (${formatNumberFa(executedQuantity)}) بیشتر باشد.`;
-    } else if (price === null || !Number.isFinite(price) || price <= 0) {
-        error = 'قیمت باید بزرگ‌تر از صفر باشد.';
+export const buildEditingValidationContext = (
+    context: OrderValidationContext,
+    order: TradingOrder,
+): OrderValidationContext => {
+    if (order.side === 'BUY') {
+        const releasedReservation = order.orderPrice * order.remainingQuantity;
+        return {
+            ...context,
+            buyingPower: context.buyingPower === null
+                ? null
+                : context.buyingPower + releasedReservation,
+        };
     }
 
-    const remainingQuantity = quantity !== null && Number.isSafeInteger(quantity)
-        ? quantity - executedQuantity
-        : null;
-    const remainingValue = remainingQuantity !== null && remainingQuantity > 0 && price !== null
-        ? remainingQuantity * price
+    return {
+        ...context,
+        availableToSell: context.availableToSell === null
+            ? null
+            : context.availableToSell + order.remainingQuantity,
+    };
+};
+
+export const validateOrderEdit = (
+    values: OrderFormValues,
+    context: OrderValidationContext,
+    order: TradingOrder,
+    debugMode = false,
+): OrderValidationResult => {
+    const totalQuantity = parseNumericInput(values.quantity);
+    const totalQuantityIsInteger = totalQuantity !== null
+        && Number.isSafeInteger(totalQuantity)
+        && totalQuantity > 0;
+    const remainingQuantity = totalQuantityIsInteger
+        ? totalQuantity - order.executedQuantity
         : null;
 
-    if (!error && remainingValue !== null && !Number.isFinite(remainingValue)) {
-        error = 'ارزش سفارش بیش از محدوده قابل محاسبه است.';
-    } else if (!error && remainingValue !== null && remainingValue < minimumOrderValue) {
-        error = `ارزش باقیمانده سفارش باید حداقل ${formatNumberFa(minimumOrderValue)} ریال باشد.`;
+    const baseValidation = validateOrder(
+        {
+            ...values,
+            quantity: remainingQuantity !== null && remainingQuantity > 0
+                ? String(remainingQuantity)
+                : '',
+        },
+        context,
+        debugMode,
+    );
+    const errors = {...baseValidation.errors};
+
+    if (!totalQuantityIsInteger) {
+        errors.quantity = 'تعداد کل باید عدد صحیح و بزرگ‌تر از صفر باشد.';
+    } else if (remainingQuantity === null || remainingQuantity <= 0) {
+        errors.quantity = `تعداد کل باید از تعداد اجراشده (${order.executedQuantity.toLocaleString('en-US')}) بیشتر باشد.`;
     }
 
-    return {quantity, price, remainingQuantity, remainingValue, error};
+    return {
+        ...baseValidation,
+        errors,
+        isValid: Object.keys(errors).length === 0,
+        quantity: totalQuantityIsInteger ? totalQuantity : null,
+    };
 };

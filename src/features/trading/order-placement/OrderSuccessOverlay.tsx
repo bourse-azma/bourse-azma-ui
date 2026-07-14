@@ -7,6 +7,7 @@ type OrderSuccessOverlayProps = {
     onContinue: () => void;
     onViewOrders: () => void;
     onClose: () => void;
+    continueLabel?: string;
 };
 
 export default function OrderSuccessOverlay({
@@ -15,6 +16,7 @@ export default function OrderSuccessOverlay({
                                                 onContinue,
                                                 onViewOrders,
                                                 onClose,
+                                                continueLabel = 'سفارش جدید',
                                             }: OrderSuccessOverlayProps) {
     const isBuy = details.tone === 'buy';
     const accentBg = isBuy ? 'bg-positive' : 'bg-negative';
@@ -79,7 +81,7 @@ export default function OrderSuccessOverlay({
                         onClick={onContinue}
                         className="inline-flex h-11 items-center justify-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-text transition hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                     >
-                        سفارش جدید
+                        {continueLabel}
                     </button>
                 </div>
             </div>

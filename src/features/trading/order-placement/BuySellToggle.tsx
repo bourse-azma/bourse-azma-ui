@@ -3,9 +3,10 @@ import type {OrderSide} from './types';
 type BuySellToggleProps = {
     value: OrderSide;
     onChange: (side: OrderSide) => void;
+    disabled?: boolean;
 };
 
-export default function BuySellToggle({value, onChange}: BuySellToggleProps) {
+export default function BuySellToggle({value, onChange, disabled = false}: BuySellToggleProps) {
     return (
         <div
             role="tablist"
@@ -16,8 +17,9 @@ export default function BuySellToggle({value, onChange}: BuySellToggleProps) {
                 type="button"
                 role="tab"
                 aria-selected={value === 'BUY'}
+                disabled={disabled}
                 onClick={() => onChange('BUY')}
-                className={`h-9 rounded-lg text-sm font-semibold transition ${
+                className={`h-9 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
                     value === 'BUY'
                         ? 'bg-positive text-white shadow-glow'
                         : 'text-positive hover:bg-positive/10'
@@ -29,8 +31,9 @@ export default function BuySellToggle({value, onChange}: BuySellToggleProps) {
                 type="button"
                 role="tab"
                 aria-selected={value === 'SELL'}
+                disabled={disabled}
                 onClick={() => onChange('SELL')}
-                className={`h-9 rounded-lg text-sm font-semibold transition ${
+                className={`h-9 rounded-lg text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
                     value === 'SELL'
                         ? 'bg-negative text-white'
                         : 'text-negative hover:bg-negative/10'

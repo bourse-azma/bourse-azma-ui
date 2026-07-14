@@ -39,7 +39,7 @@ export function useTradingDashboard({
         setBottomPanelTab: navigation.setBottomPanelTab,
         showWatchlistToast,
     });
-    const {activeOrdersForSummary, ...accountVm} = account;
+    const {activeOrdersForSummary, openEditOrder: openAccountOrderEditor, ...accountVm} = account;
 
     const metrics = useMarketMetrics({
         accessToken,
@@ -110,5 +110,22 @@ export function useTradingDashboard({
         window.scrollTo({top: 0, behavior: 'smooth'});
     }, [navigation, symbol]);
 
-    return {...nav, ...symbol, ...metrics, ...accountVm, ...watchlistVm, ...notices, orderFilters, openTradingSymbol};
+    const openOrderEditor = useCallback((orderId: number) => {
+        const order = account.tradingOrders.find((candidate) => candidate.id === orderId);
+        if (!order?.cancellable) return;
+        openTradingSymbol(order.symbol, order.instrumentCode);
+        openAccountOrderEditor(orderId);
+    }, [account.tradingOrders, openAccountOrderEditor, openTradingSymbol]);
+
+    return {
+        ...nav,
+        ...symbol,
+        ...metrics,
+        ...accountVm,
+        ...watchlistVm,
+        ...notices,
+        orderFilters,
+        openTradingSymbol,
+        openEditOrder: openOrderEditor,
+    };
 }

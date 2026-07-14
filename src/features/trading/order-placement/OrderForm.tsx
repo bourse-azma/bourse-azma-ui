@@ -31,6 +31,8 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
         setPrice,
         setTriggerComparator,
         setTriggerPrice,
+        isEditing,
+        editingOrder,
     } = controller;
 
     const isBuy = values.side === 'BUY';
@@ -77,13 +79,21 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                 </div>
             ) : null}
 
-            <BuySellToggle value={values.side} onChange={setSide}/>
-            <OrderTypeToggle value={values.orderType} side={values.side} onChange={setOrderType}/>
+            <BuySellToggle value={values.side} onChange={setSide} disabled={isEditing}/>
+            <OrderTypeToggle value={values.orderType} side={values.side} onChange={setOrderType}
+                             disabled={isEditing}/>
+
+            {isEditing ? (
+                <p className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-xs leading-6 text-primary">
+                    در ویرایش سفارش، سمت معامله، نوع سفارش و نوع قیمت ثابت می‌مانند؛ تعداد کل
+                    {values.priceType === 'CUSTOM' ? ' و قیمت' : ''} قابل تغییر است.
+                </p>
+            ) : null}
 
             <div className={`flex flex-1 flex-col gap-3 rounded-2xl border p-4 ${themeBg}`}>
                 <div className="space-y-1.5">
                     <label className="block text-xs font-medium text-muted">نوع قیمت</label>
-                    <PriceTypeSelect value={values.priceType} onChange={setPriceType}/>
+                    <PriceTypeSelect value={values.priceType} onChange={setPriceType} disabled={isEditing}/>
                 </div>
 
                 {values.priceType === 'CUSTOM' ? (
@@ -124,7 +134,7 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
 
                 <div className="space-y-1.5">
                     <label htmlFor="order-quantity" className="block text-xs font-medium text-muted">
-                        تعداد
+                        {isEditing ? 'تعداد کل سفارش' : 'تعداد'}
                     </label>
                     <input
                         id="order-quantity"
@@ -157,7 +167,9 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                         ))}
                     </div>
                     <p className="text-[10px] leading-5 text-muted">
-                        {isBuy
+                        {isEditing
+                            ? `تعداد اجراشده ثابت است (${formatNumber(editingOrder?.executedQuantity ?? 0)} سهم) و درصدها فقط بخش باقیمانده را محاسبه می‌کنند.`
+                            : isBuy
                             ? 'تعداد سهم بر اساس درصد انتخابی از قدرت خرید و قیمت سفارش، رو به پایین گرد می‌شود.'
                             : 'تعداد سهم بر اساس درصد انتخابی از موجودی قابل فروش، رو به پایین گرد می‌شود.'}
                     </p>
@@ -177,6 +189,7 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                         error={validation.errors.triggerPrice}
                         onComparatorChange={setTriggerComparator}
                         onTriggerPriceChange={setTriggerPrice}
+                        disabled={isEditing}
                     />
                 ) : null}
 

@@ -12,8 +12,6 @@ import {
     type PortfolioHolding,
     type TradingOrder,
     type TradingRules,
-    updateTradingOrder,
-    type UpdateTradingOrderRequest,
 } from '../../trading/api';
 import {ACTIVE_ORDER_STATUSES, ORDERS_PAGE_SIZE} from '../constants';
 import type {BottomPanelTab, UserProfile} from '../types';
@@ -46,8 +44,6 @@ export function useTradingAccountState({
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
     const cancellingOrderIdRef = useRef<number | null>(null);
     const [editingOrder, setEditingOrder] = useState<TradingOrder | null>(null);
-    const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
-    const updatingOrderIdRef = useRef<number | null>(null);
     const [tradingRules, setTradingRules] = useState<TradingRules>(DEFAULT_TRADING_RULES);
     const accountRequestIdRef = useRef(0);
     const ordersListGenerationRef = useRef(0);
@@ -191,30 +187,6 @@ export function useTradingAccountState({
         }
     }, [tradingOrders]);
 
-    const handleUpdateOrder = useCallback(async (
-        orderId: number,
-        payload: UpdateTradingOrderRequest
-    ): Promise<string | null> => {
-        if (updatingOrderIdRef.current !== null) return 'یک ویرایش سفارش در حال انجام است.';
-        updatingOrderIdRef.current = orderId;
-        setUpdatingOrderId(orderId);
-        try {
-            const result = await updateTradingOrder(accessToken, orderId, payload);
-            setEditingOrder(null);
-            showWatchlistToast(
-                `سفارش ${result.order.sideLabel} نماد ${result.order.symbol} ویرایش شد.`,
-                'success'
-            );
-            await refreshAccountStatus();
-            return null;
-        } catch (error) {
-            return error instanceof Error ? error.message : 'ویرایش سفارش ناموفق بود.';
-        } finally {
-            updatingOrderIdRef.current = null;
-            setUpdatingOrderId(null);
-        }
-    }, [accessToken, refreshAccountStatus, showWatchlistToast]);
-
     useEffect(() => {
         void loadTradingAccount();
         return () => {
@@ -223,7 +195,6 @@ export function useTradingAccountState({
             profileRequestIdRef.current += 1;
             ordersLoadingMoreRef.current = false;
             cancellingOrderIdRef.current = null;
-            updatingOrderIdRef.current = null;
         };
     }, [loadTradingAccount]);
 
@@ -278,9 +249,7 @@ export function useTradingAccountState({
         handleCancelOrder,
         editingOrder,
         setEditingOrder,
-        updatingOrderId,
         openEditOrder,
-        handleUpdateOrder,
         tradingRules,
     };
 }
