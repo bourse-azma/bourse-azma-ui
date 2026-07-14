@@ -71,6 +71,16 @@ export type CancelOrderResult = {
     order: TradingOrder;
 };
 
+export type UpdateTradingOrderRequest = {
+    quantity: number;
+    price: number | null;
+};
+
+export type UpdateOrderResult = {
+    order: TradingOrder;
+    trades: TradeRecord[];
+};
+
 export type PrivateOrderBookRow = {
     level: number;
     askPrice: number | null;
@@ -204,6 +214,15 @@ export const createTradingOrder = (accessToken: string, payload: CreateTradingOr
         method: 'POST',
         body: JSON.stringify(payload),
     });
+
+export const updateTradingOrder = (
+    accessToken: string,
+    orderId: number,
+    payload: UpdateTradingOrderRequest
+) => request<UpdateOrderResult>(`/api/v1/trading/orders/${orderId}`, accessToken, 'ویرایش سفارش ناموفق بود.', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+});
 
 export const cancelTradingOrder = (accessToken: string, orderId: number) =>
     request<CancelOrderResult>(`/api/v1/trading/orders/${orderId}/cancel`, accessToken, 'لغو سفارش ناموفق بود.', {

@@ -12,6 +12,8 @@ import {
     type PortfolioHolding,
     type TradingOrder,
     type TradingRules,
+    updateTradingOrder,
+    type UpdateTradingOrderRequest,
 } from '../../trading/api';
 import {ACTIVE_ORDER_STATUSES, ORDERS_PAGE_SIZE} from '../constants';
 import type {BottomPanelTab, UserProfile} from '../types';
@@ -36,39 +38,65 @@ export function useTradingAccountState({
     const [ordersHasMore, setOrdersHasMore] = useState(false);
     const [ordersLoadingMore, setOrdersLoadingMore] = useState(false);
     const ordersPageRef = useRef(0);
+    const ordersLoadingMoreRef = useRef(false);
     const [portfolioHoldings, setPortfolioHoldings] = useState<PortfolioHolding[]>([]);
     const [tradingAccountLoading, setTradingAccountLoading] = useState(true);
     const [tradingAccountError, setTradingAccountError] = useState<string | null>(null);
     const [orderModalSide, setOrderModalSide] = useState<OrderSide | null>(null);
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+    const cancellingOrderIdRef = useRef<number | null>(null);
+    const [editingOrder, setEditingOrder] = useState<TradingOrder | null>(null);
+    const [updatingOrderId, setUpdatingOrderId] = useState<number | null>(null);
+    const updatingOrderIdRef = useRef<number | null>(null);
     const [tradingRules, setTradingRules] = useState<TradingRules>(DEFAULT_TRADING_RULES);
+    const accountRequestIdRef = useRef(0);
+    const ordersListGenerationRef = useRef(0);
+    const profileRequestIdRef = useRef(0);
 
     const loadTradingAccount = useCallback(async (silent = false, appendOrders = false) => {
+        if (appendOrders) {
+            const listGeneration = ordersListGenerationRef.current;
+            const pageToLoad = ordersPageRef.current + 1;
+            try {
+                const ordersResult = await getTradingOrders(accessToken, pageToLoad, ORDERS_PAGE_SIZE);
+                if (listGeneration !== ordersListGenerationRef.current) return;
+                setTradingOrders((prev) => {
+                    const existingIds = new Set(prev.map((order) => order.id));
+                    return [...prev, ...ordersResult.items.filter((order) => !existingIds.has(order.id))];
+                });
+                ordersPageRef.current = ordersResult.page;
+                setOrdersHasMore(ordersResult.hasNext);
+            } catch {
+                // Keep the already loaded orders. A later scroll or account refresh can retry.
+            }
+            return;
+        }
+
+        const requestId = ++accountRequestIdRef.current;
+        ordersListGenerationRef.current += 1;
         if (!silent && !appendOrders) {
             setTradingAccountLoading(true);
             setTradingAccountError(null);
         }
-        const pageToLoad = appendOrders ? ordersPageRef.current + 1 : 0;
         try {
             const [ordersResult, activeOrdersResult, holdings] = await Promise.all([
-                getTradingOrders(accessToken, pageToLoad, ORDERS_PAGE_SIZE),
-                appendOrders
-                    ? Promise.resolve(null)
-                    : getTradingOrders(accessToken, 0, 100, ACTIVE_ORDER_STATUSES),
+                getTradingOrders(accessToken, 0, ORDERS_PAGE_SIZE),
+                getTradingOrders(accessToken, 0, 100, ACTIVE_ORDER_STATUSES),
                 getPortfolioHoldings(accessToken),
             ]);
-            setTradingOrders((prev) => (appendOrders ? [...prev, ...ordersResult.items] : ordersResult.items));
+            // A slower, older response must never overwrite a newer post-trade snapshot.
+            if (requestId !== accountRequestIdRef.current) return;
+            setTradingOrders(ordersResult.items);
             ordersPageRef.current = ordersResult.page;
             setOrdersHasMore(ordersResult.hasNext);
-            if (!appendOrders && activeOrdersResult) {
-                setActiveOrdersForSummary(
-                    activeOrdersResult.items.filter((order) => order.remainingQuantity > 0)
-                );
-            }
+            setActiveOrdersForSummary(
+                activeOrdersResult.items.filter((order) => order.remainingQuantity > 0)
+            );
             setPortfolioHoldings(holdings);
             setTradingAccountError(null);
         } catch (error) {
-            if (!silent && !appendOrders) {
+            if (requestId !== accountRequestIdRef.current) return;
+            if (!silent) {
                 setTradingAccountError(error instanceof Error ? error.message : 'دریافت اطلاعات معاملاتی ناموفق بود.');
                 setTradingOrders([]);
                 setActiveOrdersForSummary([]);
@@ -77,37 +105,45 @@ export function useTradingAccountState({
                 ordersPageRef.current = 0;
             }
         } finally {
-            if (!silent && !appendOrders) {
+            if (requestId === accountRequestIdRef.current && !silent) {
                 setTradingAccountLoading(false);
             }
         }
     }, [accessToken]);
 
     const loadMoreOrders = useCallback(async () => {
-        if (ordersLoadingMore || !ordersHasMore) {
+        if (ordersLoadingMoreRef.current || !ordersHasMore) {
             return;
         }
+        ordersLoadingMoreRef.current = true;
         setOrdersLoadingMore(true);
         try {
             await loadTradingAccount(true, true);
         } finally {
+            ordersLoadingMoreRef.current = false;
             setOrdersLoadingMore(false);
         }
-    }, [loadTradingAccount, ordersHasMore, ordersLoadingMore]);
+    }, [loadTradingAccount, ordersHasMore]);
 
     const refreshAccountStatus = useCallback(async () => {
         const tasks: Promise<void>[] = [loadTradingAccount(true)];
 
         if (onProfileUpdated) {
+            const profileRequestId = ++profileRequestIdRef.current;
             tasks.push(
                 (async () => {
-                    const response = await fetch('/api/v1/users/me', withAuthRequest(accessToken, {
-                        method: 'GET',
-                    }));
-                    if (!response.ok) return;
-                    const data = (await response.json()) as { result?: UserProfile };
-                    if (data.result) {
-                        onProfileUpdated(data.result);
+                    try {
+                        const response = await fetch('/api/v1/users/me', withAuthRequest(accessToken, {
+                            method: 'GET',
+                        }));
+                        if (!response.ok) return;
+                        const data = (await response.json()) as { result?: UserProfile };
+                        if (data.result && profileRequestId === profileRequestIdRef.current) {
+                            onProfileUpdated(data.result);
+                        }
+                    } catch {
+                        // Portfolio/orders have their own refresh lifecycle; a transient profile
+                        // request failure must not stop polling or turn a successful edit into an error.
                     }
                 })()
             );
@@ -128,7 +164,8 @@ export function useTradingAccountState({
 
     const handleCancelOrder = useCallback(
         async (orderId: number) => {
-            if (cancellingOrderId !== null) return;
+            if (cancellingOrderIdRef.current !== null) return;
+            cancellingOrderIdRef.current = orderId;
             setCancellingOrderId(orderId);
             try {
                 const result = await cancelTradingOrder(accessToken, orderId);
@@ -140,14 +177,54 @@ export function useTradingAccountState({
                     'error'
                 );
             } finally {
+                cancellingOrderIdRef.current = null;
                 setCancellingOrderId(null);
             }
         },
-        [accessToken, cancellingOrderId, refreshAccountStatus, showWatchlistToast]
+        [accessToken, refreshAccountStatus, showWatchlistToast]
     );
+
+    const openEditOrder = useCallback((orderId: number) => {
+        const order = tradingOrders.find((candidate) => candidate.id === orderId);
+        if (order?.cancellable) {
+            setEditingOrder(order);
+        }
+    }, [tradingOrders]);
+
+    const handleUpdateOrder = useCallback(async (
+        orderId: number,
+        payload: UpdateTradingOrderRequest
+    ): Promise<string | null> => {
+        if (updatingOrderIdRef.current !== null) return 'یک ویرایش سفارش در حال انجام است.';
+        updatingOrderIdRef.current = orderId;
+        setUpdatingOrderId(orderId);
+        try {
+            const result = await updateTradingOrder(accessToken, orderId, payload);
+            setEditingOrder(null);
+            showWatchlistToast(
+                `سفارش ${result.order.sideLabel} نماد ${result.order.symbol} ویرایش شد.`,
+                'success'
+            );
+            await refreshAccountStatus();
+            return null;
+        } catch (error) {
+            return error instanceof Error ? error.message : 'ویرایش سفارش ناموفق بود.';
+        } finally {
+            updatingOrderIdRef.current = null;
+            setUpdatingOrderId(null);
+        }
+    }, [accessToken, refreshAccountStatus, showWatchlistToast]);
 
     useEffect(() => {
         void loadTradingAccount();
+        return () => {
+            accountRequestIdRef.current += 1;
+            ordersListGenerationRef.current += 1;
+            profileRequestIdRef.current += 1;
+            ordersLoadingMoreRef.current = false;
+            cancellingOrderIdRef.current = null;
+            updatingOrderIdRef.current = null;
+        };
     }, [loadTradingAccount]);
 
     useEffect(() => {
@@ -199,6 +276,11 @@ export function useTradingAccountState({
         handleOrderPlaced,
         cancellingOrderId,
         handleCancelOrder,
+        editingOrder,
+        setEditingOrder,
+        updatingOrderId,
+        openEditOrder,
+        handleUpdateOrder,
         tradingRules,
     };
 }

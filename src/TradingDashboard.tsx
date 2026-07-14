@@ -1,5 +1,6 @@
 import AccountStatusBar from './features/trading/AccountStatusBar';
 import OrderPlacementModal from './features/trading/order-placement/OrderPlacementModal';
+import EditOrderModal from './features/trading/order-placement/EditOrderModal';
 import AdminSupportPanel from './features/support/AdminSupportPanel';
 import SupportRequestsPanel from './features/support/SupportRequestsPanel';
 import {WalletReportsPanel} from './features/wallet/WalletReportsPanel';
@@ -134,6 +135,19 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                         }, 0);
                     }}
                     onOrderPlaced={vm.handleOrderPlaced}
+                />
+            ) : null}
+
+            {vm.editingOrder ? (
+                <EditOrderModal
+                    key={vm.editingOrder.id}
+                    order={vm.editingOrder}
+                    minimumOrderValue={vm.tradingRules.minimumOrderValue}
+                    submitting={vm.updatingOrderId === vm.editingOrder.id}
+                    onClose={() => {
+                        if (vm.updatingOrderId === null) vm.setEditingOrder(null);
+                    }}
+                    onSubmit={vm.handleUpdateOrder}
                 />
             ) : null}
 

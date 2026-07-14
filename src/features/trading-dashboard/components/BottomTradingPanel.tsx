@@ -1,5 +1,5 @@
 import {Fragment, useRef} from 'react';
-import {AlertCircle, FileText, Loader2, Wallet, X} from 'lucide-react';
+import {AlertCircle, FileText, Loader2, Pencil, Wallet, X} from 'lucide-react';
 import {getInfiniteScrollTriggerIndex} from '../../../config/scrollConfig';
 import {InfiniteScrollSentinel} from '../../../hooks/InfiniteScrollSentinel';
 import {useInfiniteScrollLoadMore} from '../../../hooks/useInfiniteScrollLoadMore';
@@ -183,24 +183,36 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                     </div>
                                                 </div>
                                                 {order.cancellable ? (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isCancelling}
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
-                                                                void vm.handleCancelOrder(order.id);
-                                                            }
-                                                        }}
-                                                        className="mx-3 mb-3 mt-1 inline-flex w-[calc(100%-1.5rem)] items-center justify-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1.5 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                                    >
-                                                        {isCancelling ? (
-                                                            <Loader2 className="h-3 w-3 animate-spin"/>
-                                                        ) : (
-                                                            <X className="h-3 w-3"/>
-                                                        )}
-                                                        لغو سفارش
-                                                    </button>
+                                                    <div className="mx-3 mb-3 mt-1 grid grid-cols-2 gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isCancelling || vm.updatingOrderId !== null}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                vm.openEditOrder(order.id);
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            <Pencil className="h-3 w-3"/>
+                                                            ویرایش
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={isCancelling || vm.updatingOrderId !== null}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
+                                                                    void vm.handleCancelOrder(order.id);
+                                                                }
+                                                            }}
+                                                            className="inline-flex items-center justify-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1.5 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                        >
+                                                            {isCancelling ?
+                                                                <Loader2 className="h-3 w-3 animate-spin"/> :
+                                                                <X className="h-3 w-3"/>}
+                                                            لغو سفارش
+                                                        </button>
+                                                    </div>
                                                 ) : null}
                                             </div>
                                             {canPrefetchMoreOrders && index === ordersLoadTriggerIndex ? (
@@ -281,24 +293,36 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                 </td>
                                                 <td className="px-3 py-3">
                                                     {order.cancellable ? (
-                                                        <button
-                                                            type="button"
-                                                            disabled={isCancelling}
-                                                            onClick={(event) => {
-                                                                event.stopPropagation();
-                                                                if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
-                                                                    void vm.handleCancelOrder(order.id);
-                                                                }
-                                                            }}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
-                                                        >
-                                                            {isCancelling ? (
-                                                                <Loader2 className="h-3 w-3 animate-spin"/>
-                                                            ) : (
-                                                                <X className="h-3 w-3"/>
-                                                            )}
-                                                            لغو
-                                                        </button>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isCancelling || vm.updatingOrderId !== null}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    vm.openEditOrder(order.id);
+                                                                }}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary transition hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            >
+                                                                <Pencil className="h-3 w-3"/>
+                                                                ویرایش
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isCancelling || vm.updatingOrderId !== null}
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
+                                                                        void vm.handleCancelOrder(order.id);
+                                                                    }
+                                                                }}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-negative/40 bg-negative/10 px-2.5 py-1 text-[11px] font-semibold text-negative transition hover:bg-negative/20 disabled:cursor-not-allowed disabled:opacity-50"
+                                                            >
+                                                                {isCancelling ?
+                                                                    <Loader2 className="h-3 w-3 animate-spin"/> :
+                                                                    <X className="h-3 w-3"/>}
+                                                                لغو
+                                                            </button>
+                                                        </div>
                                                     ) : (
                                                         <span className="text-[11px] text-muted">—</span>
                                                     )}

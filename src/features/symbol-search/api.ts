@@ -175,20 +175,41 @@ export const getTsetmcMostVisited = async (marketId: number, limit: number, sign
 
 const inflightCodalNoticeRequests = new Map<string, Promise<unknown>>();
 
+const abortError = () => {
+    const error = new Error('The request was aborted.');
+    error.name = 'AbortError';
+    return error;
+};
+
+const waitForSharedRequest = <T>(request: Promise<T>, signal?: AbortSignal): Promise<T> => {
+    if (!signal) return request;
+    if (signal.aborted) return Promise.reject(abortError());
+
+    return new Promise<T>((resolve, reject) => {
+        const handleAbort = () => reject(abortError());
+        signal.addEventListener('abort', handleAbort, {once: true});
+        request.then(resolve, reject).finally(() => {
+            signal.removeEventListener('abort', handleAbort);
+        });
+    });
+};
+
 export const getCodalNotices = async <T>(queryString: string, signal?: AbortSignal) => {
     const inflight = inflightCodalNoticeRequests.get(queryString);
     if (inflight) {
-        return inflight as Promise<T>;
+        return waitForSharedRequest(inflight as Promise<T>, signal);
     }
 
+    // The shared network request must not inherit one component's AbortSignal. Otherwise
+    // leaving a tab aborts the promise kept in this map and an immediate revisit receives
+    // that already-rejected promise. Each caller only cancels its own wait below.
     const request = fetchApi<T>(
         joinUrl(
             appConfig.codalApiBaseUrl,
             applyTemplate(appConfig.codalNoticesApiPath, {
                 queryString,
             })
-        ),
-        signal
+        )
     ).finally(() => {
         if (inflightCodalNoticeRequests.get(queryString) === request) {
             inflightCodalNoticeRequests.delete(queryString);
@@ -196,5 +217,5 @@ export const getCodalNotices = async <T>(queryString: string, signal?: AbortSign
     });
 
     inflightCodalNoticeRequests.set(queryString, request);
-    return request;
+    return waitForSharedRequest(request, signal);
 };

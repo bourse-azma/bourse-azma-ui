@@ -1,4 +1,5 @@
 import {AlertCircle} from 'lucide-react';
+import type {RefObject} from 'react';
 import IndustriesTabContent from '../industries/IndustriesTabContent';
 import PopularSymbolsTabContent from '../popular-symbols/PopularSymbolsTabContent';
 import type {AccountSummary} from '../trading/accountSummary';
@@ -19,6 +20,8 @@ export type WatchlistPanelProps = {
     hideTabBar?: boolean;
     /** Expand list height to fill drawer viewport. */
     fillHeight?: boolean;
+    /** Actual scroll container used by the mobile drawer. */
+    scrollRootRef?: RefObject<HTMLElement | null>;
     watchlists: Watchlist[];
     selectedWatchlistId: number | null;
     onSelectWatchlist: (watchlistId: number) => void;
@@ -48,6 +51,7 @@ export function WatchlistPanel({
                                    onTabChange,
                                    hideTabBar = false,
                                    fillHeight = false,
+                                   scrollRootRef,
                                    watchlists,
                                    selectedWatchlistId,
                                    onSelectWatchlist,
@@ -84,6 +88,7 @@ export function WatchlistPanel({
                     activeSymbolKey={currentSymbolKey}
                     onSelectSymbol={onSelectSymbol}
                     fillHeight={fillHeight}
+                    scrollRootRef={scrollRootRef}
                 />
             ) : null}
 

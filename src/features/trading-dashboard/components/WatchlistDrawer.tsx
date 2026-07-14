@@ -1,4 +1,5 @@
 import {X} from 'lucide-react';
+import {useRef} from 'react';
 import {WatchlistPanel} from '../../watchlist/WatchlistPanel';
 import type {SidebarTab, TradingDashboardProps} from '../types';
 import type {TradingDashboardVm} from './types';
@@ -16,6 +17,8 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
     userProfile?: TradingDashboardProps['userProfile'];
     onProfileUpdated?: TradingDashboardProps['onProfileUpdated']
 }) {
+    const drawerScrollRef = useRef<HTMLDivElement | null>(null);
+
     if (!vm.drawerOpen) return null;
 
     return (
@@ -35,12 +38,14 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
             </header>
 
             <div
+                ref={drawerScrollRef}
                 className="thin-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch]">
                 <WatchlistPanel
                     activeTab={vm.sidebarTab}
                     onTabChange={vm.setSidebarTab}
                     hideTabBar
                     fillHeight
+                    scrollRootRef={drawerScrollRef}
                     watchlists={vm.watchlists}
                     selectedWatchlistId={vm.selectedWatchlistId}
                     onSelectWatchlist={vm.setSelectedWatchlistId}

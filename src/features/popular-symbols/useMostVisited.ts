@@ -94,6 +94,8 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
     const limitRef = useRef(MOST_VISITED_PAGE_SIZE);
     const loadingMoreRef = useRef(false);
     const marketIdRef = useRef(marketId);
+    const requestEpochRef = useRef(0);
+    const marketAbortControllerRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         hasItemsRef.current = items.length > 0;
@@ -127,8 +129,14 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
         setItems(mapped);
     }, []);
 
-    const fetchPage = useCallback(async (requestedLimit: number, mode: 'initial' | 'background' | 'more') => {
-        const market = MOST_VISITED_MARKET_OPTIONS.find((option) => option.id === marketIdRef.current)
+    const fetchPage = useCallback(async (
+        requestedMarketId: MostVisitedMarketId,
+        requestedLimit: number,
+        mode: 'initial' | 'background' | 'more',
+        requestEpoch: number,
+        signal?: AbortSignal,
+    ) => {
+        const market = MOST_VISITED_MARKET_OPTIONS.find((option) => option.id === requestedMarketId)
             ?? MOST_VISITED_MARKET_OPTIONS[0];
 
         if (mode === 'initial') {
@@ -139,7 +147,11 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
         }
 
         try {
-            const result = await getTsetmcMostVisited(marketIdRef.current, requestedLimit);
+            const result = await getTsetmcMostVisited(requestedMarketId, requestedLimit, signal);
+            if (signal?.aborted || requestEpoch !== requestEpochRef.current
+                || requestedMarketId !== marketIdRef.current) {
+                return false;
+            }
             const mapped = mapInstruments(result.mostVisitedInstruments, market.type);
 
             applyItems(mapped, mode);
@@ -147,6 +159,10 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
             setError(null);
             return true;
         } catch (loadError: unknown) {
+            if (signal?.aborted || requestEpoch !== requestEpochRef.current
+                || requestedMarketId !== marketIdRef.current) {
+                return false;
+            }
             if (mode === 'more') {
                 limitRef.current = Math.max(MOST_VISITED_PAGE_SIZE, requestedLimit - MOST_VISITED_PAGE_SIZE);
             } else if (!hasItemsRef.current) {
@@ -163,9 +179,11 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
 
             return false;
         } finally {
-            if (mode === 'initial') {
+            const isCurrentRequest = requestEpoch === requestEpochRef.current
+                && requestedMarketId === marketIdRef.current;
+            if (mode === 'initial' && isCurrentRequest) {
                 setLoading(false);
-            } else if (mode === 'more') {
+            } else if (mode === 'more' && isCurrentRequest) {
                 loadingMoreRef.current = false;
                 setLoadingMore(false);
             }
@@ -179,7 +197,13 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
 
         const nextLimit = limitRef.current + MOST_VISITED_PAGE_SIZE;
         limitRef.current = nextLimit;
-        void fetchPage(nextLimit, 'more');
+        void fetchPage(
+            marketIdRef.current,
+            nextLimit,
+            'more',
+            requestEpochRef.current,
+            marketAbortControllerRef.current?.signal,
+        );
     }, [enabled, fetchPage, hasMore, loading]);
 
     useEffect(() => {
@@ -189,10 +213,19 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
 
         let active = true;
         let timeoutId: number | undefined;
+        const requestEpoch = ++requestEpochRef.current;
+        const controller = new AbortController();
+        marketAbortControllerRef.current?.abort();
+        marketAbortControllerRef.current = controller;
+        let loadedInThisCycle = false;
 
         limitRef.current = MOST_VISITED_PAGE_SIZE;
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+        setLoading(true);
         setHasMore(true);
         setItems([]);
+        setError(null);
 
         const scheduleNext = (hadError: boolean) => {
             if (!active) {
@@ -215,7 +248,15 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
                 return;
             }
 
-            const success = await fetchPage(limitRef.current, hasItemsRef.current ? 'background' : 'initial');
+            const mode = loadedInThisCycle && hasItemsRef.current ? 'background' : 'initial';
+            const success = await fetchPage(
+                marketId,
+                limitRef.current,
+                mode,
+                requestEpoch,
+                controller.signal,
+            );
+            if (success) loadedInThisCycle = true;
             if (active) {
                 scheduleNext(!success);
             }
@@ -225,6 +266,10 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
 
         return () => {
             active = false;
+            controller.abort();
+            if (requestEpochRef.current === requestEpoch) {
+                requestEpochRef.current += 1;
+            }
             if (timeoutId !== undefined) {
                 window.clearTimeout(timeoutId);
             }

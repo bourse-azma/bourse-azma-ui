@@ -1,4 +1,4 @@
-import {Fragment, useRef} from 'react';
+import {Fragment, type RefObject, useRef} from 'react';
 import {AlertCircle} from 'lucide-react';
 import {getInfiniteScrollTriggerIndex} from '../../config/scrollConfig';
 import {useCalmVerticalScroll} from '../../hooks/useCalmVerticalScroll';
@@ -54,12 +54,14 @@ type PopularSymbolsTabContentProps = {
     activeSymbolKey: string | null;
     onSelectSymbol: (symbol: SymbolSearchSuggestion) => void;
     fillHeight?: boolean;
+    scrollRootRef?: RefObject<HTMLElement | null>;
 };
 
 export default function PopularSymbolsTabContent({
                                                      activeSymbolKey,
                                                      onSelectSymbol,
                                                      fillHeight = false,
+                                                     scrollRootRef,
                                                  }: PopularSymbolsTabContentProps) {
     const {
         items,
@@ -79,7 +81,10 @@ export default function PopularSymbolsTabContent({
 
     useCalmVerticalScroll(listRef, {contentLength: items.length});
     useInfiniteScrollLoadMore({
-        rootRef: listRef,
+        // In the mobile drawer this list intentionally has overflow:visible; the drawer,
+        // not the list, is the scroll container. Using the list as IntersectionObserver's
+        // root makes its sentinel permanently visible and eagerly requests every page.
+        rootRef: fillHeight ? scrollRootRef : listRef,
         sentinelRef: loadMoreRef,
         enabled: canPrefetchMore,
         isFetching: loadingMore,
