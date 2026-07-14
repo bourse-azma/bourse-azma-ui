@@ -83,13 +83,6 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
             <OrderTypeToggle value={values.orderType} side={values.side} onChange={setOrderType}
                              disabled={isEditing}/>
 
-            {isEditing ? (
-                <p className="rounded-xl border border-primary/25 bg-primary/10 px-3 py-2 text-xs leading-6 text-primary">
-                    در ویرایش سفارش، سمت معامله، نوع سفارش و نوع قیمت ثابت می‌مانند؛ تعداد کل
-                    {values.priceType === 'CUSTOM' ? ' و قیمت' : ''} قابل تغییر است.
-                </p>
-            ) : null}
-
             <div className={`flex flex-1 flex-col gap-3 rounded-2xl border p-4 ${themeBg}`}>
                 <div className="space-y-1.5">
                     <label className="block text-xs font-medium text-muted">نوع قیمت</label>
