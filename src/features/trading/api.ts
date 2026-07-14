@@ -106,6 +106,16 @@ export type CreateTradingOrderRequest = {
     trigger: CreateTradingOrderTrigger | null;
 };
 
+export type TradingRules = {
+    minimumOrderValue: number;
+    maximumWalletAdjustment: number;
+};
+
+export const DEFAULT_TRADING_RULES: TradingRules = {
+    minimumOrderValue: 5_000_000,
+    maximumWalletAdjustment: 1_000_000_000_000,
+};
+
 const tryParseJson = (text: string) => {
     if (text.trim() === '') return null;
     try {
@@ -174,6 +184,9 @@ export const getTradingOrders = (
 
 export const getPortfolioHoldings = (accessToken: string) =>
     request<PortfolioHolding[]>('/api/v1/trading/portfolio', accessToken, 'دریافت سبد سهام ناموفق بود.', {method: 'GET'});
+
+export const getTradingRules = (accessToken: string) =>
+    request<TradingRules>('/api/v1/trading/rules', accessToken, 'دریافت محدودیت‌های معاملاتی ناموفق بود.', {method: 'GET'});
 
 export const getPrivateOrderBook = (
     accessToken: string,

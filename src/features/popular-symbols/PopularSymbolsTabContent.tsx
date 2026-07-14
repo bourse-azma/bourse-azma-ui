@@ -1,5 +1,5 @@
-import {Fragment, useMemo, useRef, useState} from 'react';
-import {AlertCircle, Search} from 'lucide-react';
+import {Fragment, useRef} from 'react';
+import {AlertCircle} from 'lucide-react';
 import {getInfiniteScrollTriggerIndex} from '../../config/scrollConfig';
 import {useCalmVerticalScroll} from '../../hooks/useCalmVerticalScroll';
 import {InfiniteScrollSentinel} from '../../hooks/InfiniteScrollSentinel';
@@ -71,39 +71,24 @@ export default function PopularSymbolsTabContent({
         loadMore,
         hasMore,
     } = useMostVisited(true);
-    const [searchQuery, setSearchQuery] = useState('');
     const listRef = useRef<HTMLDivElement | null>(null);
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-    const filteredItems = useMemo(() => {
-        const normalized = searchQuery.trim().toLowerCase();
-        if (!normalized) {
-            return items;
-        }
+    const canPrefetchMore = hasMore && !loading;
+    const loadTriggerIndex = getInfiniteScrollTriggerIndex(items.length);
 
-        return items.filter(
-            (item) =>
-                item.suggestion.symbol.toLowerCase().includes(normalized)
-                || item.suggestion.name.toLowerCase().includes(normalized),
-        );
-    }, [items, searchQuery]);
-
-    const canPrefetchMore = hasMore && !loading && searchQuery.trim() === '';
-    const loadTriggerIndex = getInfiniteScrollTriggerIndex(filteredItems.length);
-
-    useCalmVerticalScroll(listRef, {contentLength: filteredItems.length});
+    useCalmVerticalScroll(listRef, {contentLength: items.length});
     useInfiniteScrollLoadMore({
         rootRef: listRef,
         sentinelRef: loadMoreRef,
         enabled: canPrefetchMore,
         isFetching: loadingMore,
         onLoadMore: loadMore,
-        itemCount: filteredItems.length,
+        itemCount: items.length,
     });
 
     const handleMarketChange = (nextMarketId: MostVisitedMarketId) => {
         setMarketId(nextMarketId);
-        setSearchQuery('');
     };
 
     if (loading && items.length === 0) {
@@ -157,17 +142,6 @@ export default function PopularSymbolsTabContent({
                 })}
             </div>
 
-            <div className="relative">
-                <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"/>
-                <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="جستجو در پرطرفدارها..."
-                    className="h-10 w-full rounded-xl border border-border/80 bg-surface px-3 pr-9 text-xs text-text outline-none transition placeholder:text-muted focus:border-primary/35"
-                />
-            </div>
-
             {error ? (
                 <div className="rounded-xl border border-warning/35 bg-warning/10 px-3 py-2 text-[11px] text-warning">
                     {error}
@@ -184,15 +158,11 @@ export default function PopularSymbolsTabContent({
                     <span className="text-center">تغییر</span>
                 </header>
 
-                {filteredItems.length === 0 ? (
+                {items.length === 0 ? (
                     <div className="flex min-h-[220px] flex-col items-center justify-center px-4 py-8 text-center">
-                        <div
-                            className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-border/70 bg-surface-2 text-muted">
-                            <Search className="h-5 w-5"/>
-                        </div>
-                        <h4 className="text-sm font-semibold text-text">نمادی یافت نشد</h4>
+                        <h4 className="text-sm font-semibold text-text">اطلاعاتی برای نمایش وجود ندارد</h4>
                         <p className="mt-1 text-xs leading-5 text-muted">
-                            عبارت جستجو را تغییر دهید یا بازار دیگری را انتخاب کنید.
+                            بازار دیگری را انتخاب کنید یا کمی بعد دوباره تلاش کنید.
                         </p>
                     </div>
                 ) : (
@@ -205,7 +175,7 @@ export default function PopularSymbolsTabContent({
                             fillHeight ? 'min-h-[50vh] overflow-visible' : 'max-h-[292px] overflow-y-auto'
                         }`}
                     >
-                        {filteredItems.map((item, index) => {
+                        {items.map((item, index) => {
                             const isActive = activeSymbolKey === item.suggestion.key;
                             const displayPrice = resolveMostVisitedDisplayPrice(item.instrument);
                             const changePercent = resolveMostVisitedChangePercent(item.instrument);

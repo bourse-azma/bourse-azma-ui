@@ -12,6 +12,7 @@ export type DemoOrderRow = {
     id: number;
     type: 'buy' | 'sell';
     symbol: string;
+    instrumentCode: string;
     quantity: number;
     remainingQuantity: number;
     executedQuantity: number;
@@ -28,6 +29,7 @@ export type DemoPortfolioRow = {
     id: string;
     time: string;
     symbol: string;
+    instrumentCode: string;
     quantity: number;
     buyPrice: number;
     livePrice: number | null;

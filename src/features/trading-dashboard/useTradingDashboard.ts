@@ -1,4 +1,4 @@
-import {useMemo} from 'react';
+import {useCallback, useMemo} from 'react';
 import {formatNumberFa} from '../../utils/numberFormat';
 import {useDashboardNavigation} from './hooks/useDashboardNavigation';
 import {useSelectedSymbolState} from './hooks/useSelectedSymbolState';
@@ -56,6 +56,7 @@ export function useTradingDashboard({
         tradingAccountError: account.tradingAccountError,
         selectedWatchlist,
         userProfile,
+        minimumOrderValue: account.tradingRules.minimumOrderValue,
     });
 
     const notices = useNoticeBoardState({
@@ -91,5 +92,23 @@ export function useTradingDashboard({
         [metrics.demoOrders]
     );
 
-    return {...nav, ...symbol, ...metrics, ...accountVm, ...watchlistVm, ...notices, orderFilters};
+    const openTradingSymbol = useCallback((symbolLabel: string, instrumentCode: string) => {
+        const normalizedCode = instrumentCode.trim();
+        if (!normalizedCode) return;
+        symbol.handleSelectSymbol({
+            key: `UNKNOWN:${symbolLabel}:${normalizedCode}`,
+            type: 'UNKNOWN',
+            symbol: symbolLabel,
+            name: symbolLabel,
+            instrumentCode: normalizedCode,
+            isin: null,
+            oldInstrumentCodes: [],
+        });
+        navigation.setMainNavTab('بازار');
+        navigation.setOrderbookTab('info');
+        navigation.setSymbolTab('details');
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }, [navigation, symbol]);
+
+    return {...nav, ...symbol, ...metrics, ...accountVm, ...watchlistVm, ...notices, orderFilters, openTradingSymbol};
 }

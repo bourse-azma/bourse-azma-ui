@@ -92,6 +92,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                                     userProfile={userProfile}
                                     accountSummary={vm.accountSummary}
                                     accessToken={accessToken}
+                                    maximumWalletAdjustment={vm.tradingRules.maximumWalletAdjustment}
                                     onProfileUpdated={onProfileUpdated}
                                 />
                             </div>

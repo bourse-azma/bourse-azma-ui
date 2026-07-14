@@ -27,6 +27,23 @@ export const parseWalletAmount = (raw: string): number | null => {
     return value;
 };
 
+export const validateWalletAmount = (raw: string, maximum: number): string | null => {
+    const trimmed = raw.trim();
+    if (trimmed === '' || !/^\d+$/.test(trimmed)) {
+        return 'مبلغ باید عدد صحیح مثبت باشد.';
+    }
+
+    try {
+        if (BigInt(trimmed) > BigInt(Math.trunc(maximum))) {
+            return `مبلغ واردشده بیش از حد مجاز است؛ حداکثر مبلغ هر تراکنش کیف پول ${maximum.toLocaleString('en-US')} ریال است.`;
+        }
+    } catch {
+        return 'مبلغ باید عدد صحیح مثبت باشد.';
+    }
+
+    return parseWalletAmount(trimmed) === null ? 'مبلغ باید عدد صحیح مثبت باشد.' : null;
+};
+
 export const computeProjectedBalance = (currentBalance: number, actionType: WalletActionType, rawValue: number) => {
     switch (actionType) {
         case 'ADD':

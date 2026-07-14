@@ -61,6 +61,7 @@ export function WatchlistDrawer({vm, accessToken, userProfile, onProfileUpdated}
                     userProfile={userProfile}
                     accountSummary={vm.accountSummary}
                     accessToken={accessToken}
+                    maximumWalletAdjustment={vm.tradingRules.maximumWalletAdjustment}
                     onProfileUpdated={onProfileUpdated}
                 />
             </div>

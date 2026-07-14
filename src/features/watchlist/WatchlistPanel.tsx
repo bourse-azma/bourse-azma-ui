@@ -39,6 +39,7 @@ export type WatchlistPanelProps = {
     userProfile?: UserProfile;
     accountSummary: AccountSummary;
     accessToken: string;
+    maximumWalletAdjustment: number;
     onProfileUpdated?: (profile: UserProfile) => void;
 };
 
@@ -67,6 +68,7 @@ export function WatchlistPanel({
                                    userProfile,
                                    accountSummary,
                                    accessToken,
+                                   maximumWalletAdjustment,
                                    onProfileUpdated,
                                }: WatchlistPanelProps) {
     const selectedWatchlist =
@@ -94,6 +96,7 @@ export function WatchlistPanel({
                     userProfile={userProfile}
                     accountSummary={accountSummary}
                     accessToken={accessToken}
+                    maximumWalletAdjustment={maximumWalletAdjustment}
                     onProfileUpdated={onProfileUpdated}
                 />
             ) : null}

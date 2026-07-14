@@ -63,6 +63,7 @@ export function mapDemoOrders(
         id: order.id,
         type: order.side === 'BUY' ? 'buy' : 'sell',
         symbol: order.symbol,
+        instrumentCode: order.instrumentCode,
         quantity: order.quantity,
         remainingQuantity: order.remainingQuantity,
         executedQuantity: order.executedQuantity,
@@ -103,6 +104,7 @@ export function mapDemoPortfolioRows(
             id: String(holding.id),
             time: formatDateTimeFa(holding.acquiredAt),
             symbol: holding.symbol,
+            instrumentCode: holding.instrumentCode,
             quantity: holding.quantity,
             buyPrice: Number(holding.buyPrice),
             livePrice:

@@ -32,6 +32,8 @@ export type OrderValidationContext = {
     buyingPower: number | null;
     /** Whether at least one exchange market (بورس/فرابورس) is currently open; null while loading. */
     marketOpen: boolean | null;
+    /** Minimum allowed total order value in Rial. */
+    minimumOrderValue: number;
 };
 
 export type OrderFieldErrors = Partial<

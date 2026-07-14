@@ -67,6 +67,19 @@ export function useDashboardNavigation({userProfile}: UseDashboardNavigationPara
         setSymbolTab('details');
     }, []);
 
+    const resetDashboardView = useCallback(() => {
+        setMainNavTab('بازار');
+        setOrderbookTab('info');
+        setSymbolTab('details');
+        setSidebarTab('watchlist');
+        setOrderFilter('all');
+        setBottomPanelTab('orders');
+        setDrawerOpen(false);
+        setMarketPanelOpen(false);
+        setProfileMenuOpen(false);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }, [setMainNavTab]);
+
     useEffect(() => {
         if (!profileMenuOpen) return;
 
@@ -122,6 +135,7 @@ export function useDashboardNavigation({userProfile}: UseDashboardNavigationPara
         clockValue,
         openWalletPanel,
         resetSymbolTab,
+        resetDashboardView,
         bottomPanelTabs,
         orderbookTabs,
     };

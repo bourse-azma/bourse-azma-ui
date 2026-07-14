@@ -117,6 +117,10 @@ export const validateOrder = (
     const orderValue =
         quantityValid && effectivePrice !== null ? quantity * effectivePrice : null;
 
+    if (orderValue !== null && orderValue < context.minimumOrderValue) {
+        errors.general = `حداقل ارزش هر سفارش ${context.minimumOrderValue.toLocaleString('en-US')} ریال است.`;
+    }
+
     if (
         values.side === 'BUY' &&
         context.buyingPower !== null &&

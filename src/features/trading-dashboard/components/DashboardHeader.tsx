@@ -297,14 +297,19 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
             <div className="mx-auto w-full max-w-[1800px] [direction:ltr]">
                 {/* Mobile layout — compact, single visual group */}
                 <div dir="rtl" className="flex items-center gap-1.5 lg:hidden">
-                    <div className="flex shrink-0 items-center">
+                    <button
+                        type="button"
+                        onClick={vm.resetDashboardView}
+                        className="flex shrink-0 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                        aria-label="بازگشت به نمای اصلی داشبورد"
+                    >
                         <img
                             src={bourseAzmaLogo}
                             alt="بورس آزما"
                             className="h-7 w-auto max-w-[80px] object-contain sm:h-8 sm:max-w-[96px]"
                         />
                         <span className="sr-only">بورس آزما</span>
-                    </div>
+                    </button>
 
                     <div className="min-w-[132px] flex-1">
                         <MarketIndexPanel vm={vm} compact/>
@@ -350,15 +355,19 @@ export function DashboardHeader({vm, theme, onToggleTheme, profileDisplayName, o
                     </div>
 
                     <div dir="rtl" className="col-span-4 flex min-w-0 items-center justify-end gap-2">
-                        <div
-                            className="inline-flex h-12 items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 py-1">
+                        <button
+                            type="button"
+                            onClick={vm.resetDashboardView}
+                            className="inline-flex h-12 items-center gap-2 rounded-xl border border-border/80 bg-surface-2 px-3 py-1 transition hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+                            aria-label="بازگشت به نمای اصلی داشبورد"
+                        >
                             <span className="whitespace-nowrap text-sm font-extrabold text-text">بورس آزما</span>
                             <img
                                 src={bourseAzmaLogo}
                                 alt="بورس آزما"
                                 className="h-10 w-auto max-w-[142px] object-contain"
                             />
-                        </div>
+                        </button>
 
                         <div className="flex min-w-0 items-center gap-2">
                             <nav

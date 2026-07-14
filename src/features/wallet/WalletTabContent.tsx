@@ -5,18 +5,20 @@ import {withAuthRequest} from '../../lib/authRequest';
 import {formatNumberFa} from '../../utils/numberFormat';
 import type {AccountSummary} from '../trading/accountSummary';
 import type {UserProfile} from '../trading-dashboard/types';
-import {computeProjectedBalance, parseWalletAmount, WALLET_ACTIONS} from './walletUtils';
+import {computeProjectedBalance, parseWalletAmount, validateWalletAmount, WALLET_ACTIONS} from './walletUtils';
 import type {WalletActionType} from './types';
 
 export function WalletTabContent({
                                      userProfile,
                                      accountSummary,
                                      accessToken,
+                                     maximumWalletAdjustment,
                                      onProfileUpdated,
                                  }: {
     userProfile?: UserProfile;
     accountSummary: AccountSummary;
     accessToken: string;
+    maximumWalletAdjustment: number;
     onProfileUpdated?: (profile: UserProfile) => void;
 }) {
     const [actionType, setActionType] = useState<WalletActionType>('ADD');
@@ -29,6 +31,8 @@ export function WalletTabContent({
     const currentBalance = accountSummary.customerBalance;
     const {buyingPower, blockedAmount} = accountSummary;
     const parsedValue = parseWalletAmount(value);
+    const amountValidationError = value === '' ? null : validateWalletAmount(value, maximumWalletAdjustment);
+    const displayedError = error ?? amountValidationError;
     const projectedBalance =
         parsedValue !== null
             ? computeProjectedBalance(currentBalance, actionType, parsedValue)
@@ -38,8 +42,8 @@ export function WalletTabContent({
         e.preventDefault();
         setError(null);
         setSuccess(null);
-        if (!value || parsedValue === null) {
-            setError('مبلغ باید عدد صحیح مثبت باشد.');
+        if (!value || amountValidationError || parsedValue === null) {
+            setError(amountValidationError ?? 'مبلغ باید عدد صحیح مثبت باشد.');
             return;
         }
         if (actionType === 'SUBTRACT' && parsedValue > buyingPower) {
@@ -181,9 +185,9 @@ export function WalletTabContent({
                 <div>
                     <label className="mb-1 block text-[10px] text-muted">مبلغ (ریال)</label>
                     <input
-                        type="number"
-                        min="0"
-                        step="1"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={value}
                         onChange={(e) => {
                             setValue(e.target.value);
@@ -199,6 +203,9 @@ export function WalletTabContent({
                             معادل تومان: {(parsedValue / 10).toLocaleString('en-US')}
                         </div>
                     ) : null}
+                    <div className="mt-1.5 text-[10px] text-muted">
+                        سقف هر تراکنش: {formatNumberFa(maximumWalletAdjustment)} ریال
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
@@ -206,7 +213,11 @@ export function WalletTabContent({
                         <button
                             key={preset}
                             type="button"
-                            onClick={() => setValue(String(preset))}
+                            onClick={() => {
+                                setValue(String(preset));
+                                setError(null);
+                                setSuccess(null);
+                            }}
                             className="rounded-lg border border-border/70 bg-surface-2 px-2.5 py-1 text-[10px] text-text transition hover:border-primary/35"
                         >
                             {formatNumberFa(preset)}
@@ -240,11 +251,11 @@ export function WalletTabContent({
                     />
                 </div>
 
-                {error ? (
+                {displayedError ? (
                     <div
                         className="flex items-start gap-1.5 rounded-xl border border-negative/30 bg-negative/8 px-2.5 py-2 text-[10px] text-negative">
                         <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0"/>
-                        <span>{error}</span>
+                        <span>{displayedError}</span>
                     </div>
                 ) : null}
                 {success ? (
@@ -257,7 +268,7 @@ export function WalletTabContent({
 
                 <button
                     type="submit"
-                    disabled={isSubmitting || (projectedBalance !== null && projectedBalance < 0)}
+                    disabled={isSubmitting || Boolean(amountValidationError) || (projectedBalance !== null && projectedBalance < 0)}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-text py-2 text-xs font-bold text-surface transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-slate-950"
                 >
                     {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Coins className="h-3.5 w-3.5"/>}

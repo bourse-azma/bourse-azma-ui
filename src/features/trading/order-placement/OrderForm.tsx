@@ -7,6 +7,7 @@ import {MARKET_CLOSED_ERROR} from './orderValidation';
 import type {useOrderPlacement} from './useOrderPlacement';
 import type {OrderValidationContext} from './types';
 import {appConfig} from '../../../config/appConfig';
+import {ORDER_PERCENTAGES} from './orderPercentage';
 
 type OrderFormProps = {
     controller: ReturnType<typeof useOrderPlacement>;
@@ -24,6 +25,9 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
         setOrderType,
         setPriceType,
         setQuantity,
+        setQuantityFromPercentage,
+        selectedPercentage,
+        isPercentageAvailable,
         setPrice,
         setTriggerComparator,
         setTriggerPrice,
@@ -131,6 +135,32 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                         placeholder="تعداد سهم"
                         className={inputClass(Boolean(validation.errors.quantity)).replace('pl-12', 'pl-3')}
                     />
+                    <div className="grid grid-cols-4 gap-1.5"
+                         aria-label={isBuy ? 'درصد قدرت خرید' : 'درصد موجودی قابل فروش'}>
+                        {ORDER_PERCENTAGES.map((percentage) => (
+                            <button
+                                key={percentage}
+                                type="button"
+                                disabled={!isPercentageAvailable(percentage)}
+                                onClick={() => setQuantityFromPercentage(percentage)}
+                                className={`rounded-lg border px-2 py-1.5 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                                    selectedPercentage === percentage
+                                        ? isBuy
+                                            ? 'border-positive/45 bg-positive/15 text-positive'
+                                            : 'border-negative/45 bg-negative/15 text-negative'
+                                        : 'border-border/70 bg-surface text-muted hover:border-primary/35 hover:text-text'
+                                }`}
+                                aria-pressed={selectedPercentage === percentage}
+                            >
+                                {percentage}%
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[10px] leading-5 text-muted">
+                        {isBuy
+                            ? 'تعداد سهم بر اساس درصد انتخابی از قدرت خرید و قیمت سفارش، رو به پایین گرد می‌شود.'
+                            : 'تعداد سهم بر اساس درصد انتخابی از موجودی قابل فروش، رو به پایین گرد می‌شود.'}
+                    </p>
                     {validation.errors.quantity ? (
                         <div className="flex items-center gap-1.5 text-xs text-negative">
                             <AlertCircle className="h-3.5 w-3.5"/>
@@ -176,6 +206,12 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                             {validation.orderValue === null
                                 ? '0 ریال'
                                 : `${formatNumber(validation.orderValue)} ریال`}
+                        </dd>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                        <dt className="text-muted">حداقل ارزش سفارش</dt>
+                        <dd className="tabular-nums font-semibold text-text">
+                            {formatNumber(context.minimumOrderValue)} ریال
                         </dd>
                     </div>
                 </dl>

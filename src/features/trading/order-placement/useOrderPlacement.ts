@@ -2,6 +2,7 @@ import {useCallback, useEffect, useMemo, useState} from 'react';
 import {type CreateOrderResult, createTradingOrder} from '../api';
 import {parseNumericInput, validateOrder} from './orderValidation';
 import {appConfig} from '../../../config/appConfig';
+import {calculatePercentageQuantity, type OrderPercentage} from './orderPercentage';
 import type {
     OrderFormValues,
     OrderSide,
@@ -43,6 +44,7 @@ export const useOrderPlacement = ({
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [successResult, setSuccessResult] = useState<CreateOrderResult | null>(null);
+    const [selectedPercentage, setSelectedPercentage] = useState<OrderPercentage | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -50,11 +52,13 @@ export const useOrderPlacement = ({
         setSubmitError(null);
         setSubmitting(false);
         setSuccessResult(null);
+        setSelectedPercentage(null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialSide, symbol.instrumentCode]);
 
     const setSide = useCallback((side: OrderSide) => {
         setSubmitError(null);
+        setSelectedPercentage(null);
         setValues((prev) => ({...prev, side}));
     }, []);
 
@@ -74,8 +78,17 @@ export const useOrderPlacement = ({
 
     const setQuantity = useCallback((quantity: string) => {
         setSubmitError(null);
+        setSelectedPercentage(null);
         setValues((prev) => ({...prev, quantity}));
     }, []);
+
+    const setQuantityFromPercentage = useCallback((percentage: OrderPercentage) => {
+        const quantity = calculatePercentageQuantity(values, context, percentage);
+        if (quantity === null) return;
+        setSubmitError(null);
+        setSelectedPercentage(percentage);
+        setValues((prev) => ({...prev, quantity: String(quantity)}));
+    }, [context, values]);
 
     const setPrice = useCallback((price: string) => {
         setSubmitError(null);
@@ -99,6 +112,18 @@ export const useOrderPlacement = ({
     }, []);
 
     const validation = useMemo(() => validateOrder(values, context, appConfig.uiDebugMode), [values, context]);
+    const isPercentageAvailable = useCallback((percentage: OrderPercentage) => {
+        const quantity = calculatePercentageQuantity(values, context, percentage);
+        return quantity !== null && quantity > 0;
+    }, [context, values]);
+
+    useEffect(() => {
+        if (selectedPercentage === null) return;
+        const quantity = calculatePercentageQuantity(values, context, selectedPercentage);
+        if (quantity === null) return;
+        const nextQuantity = String(quantity);
+        setValues((prev) => prev.quantity === nextQuantity ? prev : {...prev, quantity: nextQuantity});
+    }, [context, selectedPercentage, values.price, values.priceType, values.side]);
 
     const instrumentMissing = !symbol.instrumentCode || symbol.instrumentCode.trim() === '';
     const canSubmit = validation.isValid && !instrumentMissing && !submitting && !successResult;
@@ -107,6 +132,7 @@ export const useOrderPlacement = ({
         setSuccessResult(null);
         setValues(buildDefaults(values.side, context.livePrice));
         setSubmitError(null);
+        setSelectedPercentage(null);
     }, [context.livePrice, values.side]);
 
     const submit = useCallback(
@@ -169,6 +195,9 @@ export const useOrderPlacement = ({
         setOrderType,
         setPriceType,
         setQuantity,
+        setQuantityFromPercentage,
+        selectedPercentage,
+        isPercentageAvailable,
         setPrice,
         setTriggerComparator,
         setTriggerPrice,

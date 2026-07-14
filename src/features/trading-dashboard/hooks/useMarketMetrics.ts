@@ -39,6 +39,7 @@ type UseMarketMetricsParams = {
     tradingAccountError: string | null;
     selectedWatchlist: Watchlist | null;
     userProfile?: UserProfile;
+    minimumOrderValue: number;
 };
 
 export function useMarketMetrics({
@@ -56,6 +57,7 @@ export function useMarketMetrics({
                                      tradingAccountError,
                                      selectedWatchlist,
                                      userProfile,
+                                     minimumOrderValue,
                                  }: UseMarketMetricsParams) {
     const {
         data: activeSymbolData,
@@ -252,8 +254,9 @@ export function useMarketMetrics({
             availableToSell,
             buyingPower: accountSummary.buyingPower,
             marketOpen: isMarketOpen,
+            minimumOrderValue,
         }),
-        [accountSummary.buyingPower, availableToSell, isMarketOpen, orderLivePrice]
+        [accountSummary.buyingPower, availableToSell, isMarketOpen, minimumOrderValue, orderLivePrice]
     );
 
     const tsetmcInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';

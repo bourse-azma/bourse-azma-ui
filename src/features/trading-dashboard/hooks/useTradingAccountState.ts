@@ -4,11 +4,14 @@ import {withAuthRequest} from '../../../lib/authRequest';
 import {
     cancelTradingOrder,
     type CreateOrderResult,
+    DEFAULT_TRADING_RULES,
     getPortfolioHoldings,
     getTradingOrders,
+    getTradingRules,
     type OrderSide,
     type PortfolioHolding,
     type TradingOrder,
+    type TradingRules,
 } from '../../trading/api';
 import {ACTIVE_ORDER_STATUSES, ORDERS_PAGE_SIZE} from '../constants';
 import type {BottomPanelTab, UserProfile} from '../types';
@@ -38,6 +41,7 @@ export function useTradingAccountState({
     const [tradingAccountError, setTradingAccountError] = useState<string | null>(null);
     const [orderModalSide, setOrderModalSide] = useState<OrderSide | null>(null);
     const [cancellingOrderId, setCancellingOrderId] = useState<number | null>(null);
+    const [tradingRules, setTradingRules] = useState<TradingRules>(DEFAULT_TRADING_RULES);
 
     const loadTradingAccount = useCallback(async (silent = false, appendOrders = false) => {
         if (!silent && !appendOrders) {
@@ -147,6 +151,20 @@ export function useTradingAccountState({
     }, [loadTradingAccount]);
 
     useEffect(() => {
+        let active = true;
+        void getTradingRules(accessToken)
+            .then((rules) => {
+                if (active) setTradingRules(rules);
+            })
+            .catch(() => {
+                // Keep safe UI defaults; the API remains the source of truth on submission.
+            });
+        return () => {
+            active = false;
+        };
+    }, [accessToken]);
+
+    useEffect(() => {
         if (!isMarketViewActive) {
             return;
         }
@@ -181,5 +199,6 @@ export function useTradingAccountState({
         handleOrderPlaced,
         cancellingOrderId,
         handleCancelOrder,
+        tradingRules,
     };
 }

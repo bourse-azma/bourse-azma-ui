@@ -17,6 +17,9 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
         !vm.tradingAccountLoading &&
         !vm.tradingAccountError;
     const ordersLoadTriggerIndex = getInfiniteScrollTriggerIndex(vm.filteredOrders.length);
+    const openSymbol = (symbol: string, instrumentCode: string) => {
+        vm.openTradingSymbol(symbol, instrumentCode);
+    };
 
     useInfiniteScrollLoadMore({
         rootRef: ordersListRef,
@@ -132,9 +135,11 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                     return (
                                         <Fragment key={order.id}>
                                             <div
-                                                className="overflow-hidden rounded-xl border border-border/70 bg-surface">
-                                                <div
-                                                    className="flex items-center justify-between gap-2 border-b border-border/60 bg-surface-2/55 px-3 py-2.5">
+                                                onClick={() => openSymbol(order.symbol, order.instrumentCode)}
+                                                className="cursor-pointer overflow-hidden rounded-xl border border-border/70 bg-surface transition hover:border-primary/35">
+                                                <button
+                                                    type="button"
+                                                    className="flex w-full items-center justify-between gap-2 border-b border-border/60 bg-surface-2/55 px-3 py-2.5 text-right focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/35">
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-bold text-text">{order.symbol}</span>
                                                         <span
@@ -152,7 +157,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                     >
                                                         {order.statusLabel}
                                                     </span>
-                                                </div>
+                                                </button>
                                                 <div className="divide-y divide-border/50 px-3 text-[11px]">
                                                     <div className="flex items-center justify-between gap-3 py-2">
                                                         <span className="text-muted">تعداد سفارش</span>
@@ -181,7 +186,8 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                     <button
                                                         type="button"
                                                         disabled={isCancelling}
-                                                        onClick={() => {
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
                                                             if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
                                                                 void vm.handleCancelOrder(order.id);
                                                             }
@@ -238,7 +244,8 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                     return (
                                         <Fragment key={order.id}>
                                             <tr
-                                                className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                                onClick={() => openSymbol(order.symbol, order.instrumentCode)}
+                                                className="cursor-pointer border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
                                             >
                                                 <td className="px-3 py-3">
                                                     <span
@@ -251,7 +258,14 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                         {isBuy ? 'خرید' : 'فروش'}
                                                     </span>
                                                 </td>
-                                                <td className="px-3 py-3 font-bold text-text">{order.symbol}</td>
+                                                <td className="px-3 py-3 font-bold text-text">
+                                                    <button
+                                                        type="button"
+                                                        className="rounded text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                                                    >
+                                                        {order.symbol}
+                                                    </button>
+                                                </td>
                                                 <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.quantity)}</td>
                                                 <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.executedQuantity)}</td>
                                                 <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(order.remainingQuantity)}</td>
@@ -270,7 +284,8 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                         <button
                                                             type="button"
                                                             disabled={isCancelling}
-                                                            onClick={() => {
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
                                                                 if (confirm('آیا از لغو این سفارش اطمینان دارید؟')) {
                                                                     void vm.handleCancelOrder(order.id);
                                                                 }
@@ -324,7 +339,12 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                     const gainPercent = row.buyPrice > 0 ? ((livePrice - row.buyPrice) / row.buyPrice) * 100 : null;
 
                                     return (
-                                        <div key={row.id} className="rounded-xl border border-border/70 bg-surface p-3">
+                                        <button
+                                            key={row.id}
+                                            type="button"
+                                            onClick={() => openSymbol(row.symbol, row.instrumentCode)}
+                                            className="w-full rounded-xl border border-border/70 bg-surface p-3 text-right transition hover:border-primary/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                                        >
                                             <div className="mb-2 flex items-center justify-between gap-2">
                                                 <span className="font-bold text-text">{row.symbol}</span>
                                                 <span
@@ -353,7 +373,7 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                                     <p className="font-bold tabular-nums text-text">{formatNumberWithUnit(netValue, 'ریال')}</p>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </button>
                                     );
                                 })}
                             </div>
@@ -378,9 +398,17 @@ export function BottomTradingPanel({vm}: { vm: TradingDashboardVm }) {
                                     return (
                                         <tr
                                             key={row.id}
-                                            className="border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
+                                            onClick={() => openSymbol(row.symbol, row.instrumentCode)}
+                                            className="cursor-pointer border-b border-border/50 bg-surface/35 transition last:border-b-0 hover:bg-surface"
                                         >
-                                            <td className="px-3 py-3 font-bold text-text">{row.symbol}</td>
+                                            <td className="px-3 py-3 font-bold text-text">
+                                                <button
+                                                    type="button"
+                                                    className="rounded text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                                                >
+                                                    {row.symbol}
+                                                </button>
+                                            </td>
                                             <td className="px-3 py-3 tabular-nums text-muted"
                                                 dir="ltr">{row.time}</td>
                                             <td className="px-3 py-3 tabular-nums text-text">{formatNumberFa(row.quantity)}</td>
