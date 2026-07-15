@@ -1,4 +1,3 @@
-import {INFINITE_SCROLL_PAGE_SIZE} from '../../config/scrollConfig';
 import type {CodalNoticesQuery} from './types';
 
 export const JALALI_MONTHS = [
@@ -16,7 +15,8 @@ export const JALALI_MONTHS = [
     {value: 12, label: 'اسفند'},
 ] as const;
 
-export const CODAL_MAX_LENGTH = INFINITE_SCROLL_PAGE_SIZE;
+// Codal's Length parameter is a date-range selector (maximum 12), not page size.
+export const CODAL_MAX_LENGTH = 12;
 export const CODAL_MAX_PAGE_LENGTH = CODAL_MAX_LENGTH;
 
 export const DEFAULT_CODAL_NOTICE_QUERY: CodalNoticesQuery = {

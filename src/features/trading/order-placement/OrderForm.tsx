@@ -163,8 +163,8 @@ export default function OrderForm({controller, context, formatNumber}: OrderForm
                         {isEditing
                             ? `تعداد اجراشده ثابت است (${formatNumber(editingOrder?.executedQuantity ?? 0)} سهم) و درصدها فقط بخش باقیمانده را محاسبه می‌کنند.`
                             : isBuy
-                            ? 'تعداد سهم بر اساس درصد انتخابی از قدرت خرید و قیمت سفارش، رو به پایین گرد می‌شود.'
-                            : 'تعداد سهم بر اساس درصد انتخابی از موجودی قابل فروش، رو به پایین گرد می‌شود.'}
+                                ? 'تعداد سهم بر اساس درصد انتخابی از قدرت خرید و قیمت سفارش، رو به پایین گرد می‌شود.'
+                                : 'تعداد سهم بر اساس درصد انتخابی از موجودی قابل فروش، رو به پایین گرد می‌شود.'}
                     </p>
                     {validation.errors.quantity ? (
                         <div className="flex items-center gap-1.5 text-xs text-negative">

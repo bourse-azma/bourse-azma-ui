@@ -13,12 +13,14 @@ export function useCodalNotices(
         autoRefresh?: boolean;
         errorMessage?: string;
         pagesPerLoad?: number;
+        batchSize?: number;
     }
 ) {
     const enabled = options?.enabled ?? true;
     const autoRefresh = options?.autoRefresh ?? true;
     const errorMessage = options?.errorMessage ?? 'دریافت پیام‌های ناظر با خطا مواجه شد.';
     const pagesPerLoad = clamp(Math.floor(options?.pagesPerLoad ?? 1), 1, 4);
+    const batchSize = Math.max(1, Math.floor(options?.batchSize ?? 40));
 
     const [state, setState] = useState<{
         notices: CodalNotice[];
@@ -45,6 +47,7 @@ export function useCodalNotices(
     const didInitRef = useRef(false);
     const requestInFlightRef = useRef(false);
     const loadedPageRef = useRef(0);
+    const bufferedNoticesRef = useRef<CodalNotice[]>([]);
 
     const querySignature = useMemo(() => {
         const params = buildCodalNoticeParams({...query, page: 1});
@@ -66,8 +69,8 @@ export function useCodalNotices(
                 error: null,
             });
             loadedPageRef.current = 0;
+            bufferedNoticesRef.current = [];
             setPageToLoad(1);
-            loadedPageRef.current = 0;
             return;
         }
 
@@ -88,6 +91,7 @@ export function useCodalNotices(
             error: null,
         }));
         loadedPageRef.current = 0;
+        bufferedNoticesRef.current = [];
         setPageToLoad(1);
         setReloadKey((prev) => prev + 1);
     }, [enabled, querySignature]);
@@ -138,16 +142,20 @@ export function useCodalNotices(
                 }
 
                 setState((prev) => {
-                    const notices = isFirstPage
+                    const bufferedNotices = isFirstPage
                         ? mergedNotices
-                        : mergeUniqueNotices(prev.notices, mergedNotices);
+                        : mergeUniqueNotices(bufferedNoticesRef.current, mergedNotices);
                     const resolvedTotalCount = totalCount > 0 ? totalCount : prev.totalCount;
-                    const hasMore =
-                        resolvedTotalCount > 0
-                            ? notices.length < resolvedTotalCount
-                            : mergedNotices.length >= requestLength;
+                    const visibleTarget = isFirstPage
+                        ? batchSize
+                        : prev.notices.length + batchSize;
+                    const notices = bufferedNotices.slice(0, visibleTarget);
+                    const hasMore = resolvedTotalCount > 0
+                        ? notices.length < resolvedTotalCount
+                        : notices.length < bufferedNotices.length || mergedNotices.length >= requestLength;
 
                     loadedPageRef.current = lastLoadedPage;
+                    bufferedNoticesRef.current = bufferedNotices;
 
                     return {
                         notices,
@@ -181,11 +189,29 @@ export function useCodalNotices(
             requestInFlightRef.current = false;
             controller.abort();
         };
-    }, [enabled, errorMessage, pagesPerLoad, pageToLoad, stableQuery, reloadKey]);
+    }, [batchSize, enabled, errorMessage, pagesPerLoad, pageToLoad, stableQuery, reloadKey]);
 
     const loadMore = () => {
         if (requestInFlightRef.current) return;
         if (state.loading || state.loadingMore || state.refreshing || !state.hasMore) return;
+
+        const bufferedNotices = bufferedNoticesRef.current;
+        const bufferedRemaining = bufferedNotices.length - state.notices.length;
+        const reachedKnownTotal = state.totalCount > 0 && bufferedNotices.length >= state.totalCount;
+        if (bufferedRemaining >= batchSize || (bufferedRemaining > 0 && reachedKnownTotal)) {
+            setState((prev) => {
+                const notices = bufferedNotices.slice(0, prev.notices.length + batchSize);
+                return {
+                    ...prev,
+                    notices,
+                    hasMore: prev.totalCount > 0
+                        ? notices.length < prev.totalCount
+                        : notices.length < bufferedNotices.length,
+                };
+            });
+            return;
+        }
+
         setState((prev) => ({...prev, loadingMore: true}));
         requestInFlightRef.current = true;
         setPageToLoad(loadedPageRef.current + 1);

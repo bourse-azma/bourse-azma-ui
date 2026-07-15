@@ -1,10 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {
-    type CreateOrderResult,
-    createTradingOrder,
-    type TradingOrder,
-    updateTradingOrder,
-} from '../api';
+import {type CreateOrderResult, createTradingOrder, type TradingOrder, updateTradingOrder,} from '../api';
 import {parseNumericInput, validateOrder} from './orderValidation';
 import {buildEditingValidationContext, validateOrderEdit} from './orderEditValidation';
 import {appConfig} from '../../../config/appConfig';

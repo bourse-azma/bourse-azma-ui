@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {appConfig} from '../../../config/appConfig';
 import {getInfiniteScrollTriggerIndex} from '../../../config/scrollConfig';
 import {useCalmVerticalScroll} from '../../../hooks/useCalmVerticalScroll';
 import {useInfiniteScrollLoadMore} from '../../../hooks/useInfiniteScrollLoadMore';
@@ -43,6 +44,7 @@ export function useNoticeBoardState({
     const boardNotices = useCodalNotices(codalQuery, {
         enabled: isMarketViewActive,
         autoRefresh: isMarketViewActive,
+        batchSize: appConfig.supervisorNoticesBatchSize,
     });
 
     const noticeSymbolQuery = noticeFilterDraft.symbol.trim();
@@ -63,6 +65,7 @@ export function useNoticeBoardState({
         enabled: symbolNoticesEnabled,
         autoRefresh: symbolNoticesEnabled,
         errorMessage: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
+        batchSize: appConfig.symbolNoticesBatchSize,
     });
 
     const noticeYearOptions = useMemo(

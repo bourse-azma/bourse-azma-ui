@@ -53,6 +53,9 @@ const parsePositiveInt = (raw: string, key: string) => {
     return Math.floor(parsed);
 };
 
+const parseOptionalPositiveInt = (raw: string | undefined, fallback: number, key: string) =>
+    parsePositiveInt(raw?.trim() || String(fallback), key);
+
 const parseBoolean = (raw: string | undefined) => raw?.trim().toLowerCase() === 'true';
 
 export const appConfig = Object.freeze({
@@ -136,6 +139,16 @@ export const appConfig = Object.freeze({
     codalNoticesRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_CODAL_NOTICES_REFRESH_MS'),
         'VITE_CODAL_NOTICES_REFRESH_MS'
+    ),
+    supervisorNoticesBatchSize: parseOptionalPositiveInt(
+        import.meta.env.VITE_SUPERVISOR_NOTICES_BATCH_SIZE,
+        40,
+        'VITE_SUPERVISOR_NOTICES_BATCH_SIZE'
+    ),
+    symbolNoticesBatchSize: parseOptionalPositiveInt(
+        import.meta.env.VITE_SYMBOL_NOTICES_BATCH_SIZE,
+        40,
+        'VITE_SYMBOL_NOTICES_BATCH_SIZE'
     ),
     apiErrorRetryMs: parsePositiveInt(
         getRequiredEnv('VITE_API_ERROR_RETRY_MS'),
