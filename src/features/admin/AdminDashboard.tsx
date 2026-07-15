@@ -15,7 +15,9 @@ import {
     Trash2,
     UserPlus,
     UserRound,
-    Users
+    Users,
+    Wallet,
+    X
 } from 'lucide-react';
 import type {Theme} from '../../hooks/useTheme';
 import AdminSupportPanel from '../support/AdminSupportPanel';
@@ -26,7 +28,8 @@ import {
     getAdminUserDetail,
     getAdminUsers,
     setAdminUserBlocked,
-    updateAdminUser
+    updateAdminUser,
+    updateAdminUserBalance
 } from './api';
 import type {AdminStats, AdminUser, AdminUserDetail, AdminUserFormValues} from './types';
 import {adminConfig} from './config';
@@ -70,6 +73,7 @@ export default function AdminDashboard({
     const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
     const [actionBusyId, setActionBusyId] = useState<number | null>(null);
     const [pendingAction, setPendingAction] = useState<AdminUserAction | null>(null);
+    const [balanceUser, setBalanceUser] = useState<AdminUser | null>(null);
 
     const loadStats = useCallback(async (silent = false) => {
         try {
@@ -164,6 +168,21 @@ export default function AdminDashboard({
     const toggleBlocked = (user: AdminUser) => setPendingAction({type: user.blocked ? 'unblock' : 'block', user});
     const removeUser = (user: AdminUser) => setPendingAction({type: 'delete', user});
 
+    const submitBalance = async (balance: number, note: string) => {
+        if (!balanceUser) return;
+        setActionBusyId(balanceUser.id);
+        try {
+            const result = await updateAdminUserBalance(accessToken, balanceUser.id, balance, note);
+            if (result) setSelected(result);
+            setBalanceUser(null);
+            await Promise.all([loadStats(true), loadUsers(true)]);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'ویرایش موجودی ناموفق بود.');
+        } finally {
+            setActionBusyId(null);
+        }
+    };
+
     const confirmUserAction = async (reason?: string) => {
         if (!pendingAction) return;
         const {type, user} = pendingAction;
@@ -235,6 +254,7 @@ export default function AdminDashboard({
                         className="mb-4 rounded-xl border border-negative/30 bg-negative/10 p-3 text-sm text-negative">{error}</div> : null}
                     {section === 'tickets' ? <AdminSupportPanel accessToken={accessToken} enabled/> : selected ? (
                         <UserDetail detail={selected} onBack={() => setSelected(null)} onEdit={openEditForm}
+                                    onEditBalance={setBalanceUser}
                                     onToggleBlocked={toggleBlocked} onDelete={removeUser}
                                     busy={actionBusyId === selected.user.id}/>
                     ) : (
@@ -257,6 +277,8 @@ export default function AdminDashboard({
             <AdminUserActionModal action={pendingAction} busy={actionBusyId !== null} onCancel={() => {
                 if (actionBusyId === null) setPendingAction(null);
             }} onConfirm={confirmUserAction}/>
+            <AdminBalanceModal user={balanceUser} busy={actionBusyId !== null}
+                               onClose={() => setBalanceUser(null)} onSubmit={submitBalance}/>
         </div>
     );
 }
@@ -407,10 +429,11 @@ function UserTable({users, loading, onOpenUser, onEdit, onToggleBlocked, onDelet
     </div>;
 }
 
-function UserDetail({detail, onBack, onEdit, onToggleBlocked, onDelete, busy}: {
+function UserDetail({detail, onBack, onEdit, onEditBalance, onToggleBlocked, onDelete, busy}: {
     detail: AdminUserDetail;
     onBack: () => void;
     onEdit: (user: AdminUser) => void;
+    onEditBalance: (user: AdminUser) => void;
     onToggleBlocked: (user: AdminUser) => void;
     onDelete: (user: AdminUser) => void;
     busy: boolean
@@ -442,6 +465,10 @@ function UserDetail({detail, onBack, onEdit, onToggleBlocked, onDelete, busy}: {
                 className="h-4 w-4"/>بازگشت به کاربران
             </button>
             <div className="flex gap-2">
+                <button disabled={busy} onClick={() => onEditBalance(u)}
+                        className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">
+                    <Wallet className="h-3.5 w-3.5"/>ویرایش موجودی
+                </button>
                 <button disabled={busy} onClick={() => onEdit(u)}
                         className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs"><Edit3
                     className="h-3.5 w-3.5"/>ویرایش
@@ -502,8 +529,10 @@ function DetailTable({detail, tab}: { detail: AdminUserDetail; tab: DetailTab })
         rows = detail.portfolio.map(x => [x.symbol, number.format(x.quantity), money(x.buyPrice), money(x.livePrice), money(x.netValue), dateTime(x.acquiredAt)]);
     }
     if (tab === 'wallet') {
-        headers = ['شرح', 'مبلغ', 'مانده', 'زمان'];
-        rows = detail.walletTransactions.map(x => [x.description, money(x.amount), money(x.balanceAfter), dateTime(x.createdAt)]);
+        headers = ['شرح', 'مبلغ', 'مانده', 'انجام‌دهنده / یادداشت', 'زمان'];
+        rows = detail.walletTransactions.map(x => [x.description, money(x.amount), money(x.balanceAfter),
+            x.source === 'ADMIN' ? `ادمین: ${x.performedByAdminName || 'مدیر'}${x.adminNote ? ` — ${x.adminNote}` : ''}` : 'سیستم / کاربر',
+            dateTime(x.createdAt)]);
     }
     if (tab === 'activities') {
         headers = ['نوع فعالیت', 'زمان'];
@@ -519,5 +548,60 @@ function DetailTable({detail, tab}: { detail: AdminUserDetail; tab: DetailTab })
             <tbody>{rows.map((row, i) => <tr key={i} className="border-b border-border/50">{row.map((cell, j) => <td
                 dir="rtl" key={j} className="p-3 text-right">{cell}</td>)}</tr>)}</tbody>
         </table>
+    </div>;
+}
+
+function AdminBalanceModal({user, busy, onClose, onSubmit}: {
+    user: AdminUser | null;
+    busy: boolean;
+    onClose: () => void;
+    onSubmit: (balance: number, note: string) => Promise<void>;
+}) {
+    const [balance, setBalance] = useState('');
+    const [note, setNote] = useState('');
+    useEffect(() => {
+        if (user) {
+            setBalance(String(user.balance ?? 0));
+            setNote('');
+        }
+    }, [user]);
+    if (!user) return null;
+    const parsed = Number(balance);
+    const valid = balance.trim() !== '' && Number.isFinite(parsed) && parsed >= 0;
+    return <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onMouseDown={e => {
+        if (e.target === e.currentTarget && !busy) onClose();
+    }}>
+        <form onSubmit={e => {
+            e.preventDefault();
+            if (valid) void onSubmit(parsed, note);
+        }} className="w-full max-w-md rounded-2xl border border-border bg-surface p-5 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+                <div><h3 className="font-black">ویرایش موجودی کاربر</h3><p className="mt-1 text-xs text-muted">
+                    {user.firstName} {user.lastName} — موجودی فعلی: {money(user.balance)}</p></div>
+                <button type="button" disabled={busy} onClick={onClose} className="text-muted"><X className="h-5 w-5"/>
+                </button>
+            </div>
+            <label className="block text-xs font-bold">موجودی جدید (ریال)
+                <input autoFocus type="number" min="0" step="1" value={balance}
+                       onChange={e => setBalance(e.target.value)}
+                       className="mt-2 w-full rounded-xl border border-border bg-surface-2 px-3 py-3 outline-none focus:border-primary"/>
+            </label>
+            <label className="mt-4 block text-xs font-bold">یادداشت ادمین (اختیاری)
+                <textarea maxLength={1000} rows={4} value={note} onChange={e => setNote(e.target.value)}
+                          placeholder="مثلاً علت اصلاح موجودی یا شماره پیگیری..."
+                          className="mt-2 w-full resize-none rounded-xl border border-border bg-surface-2 px-3 py-3 outline-none focus:border-primary"/>
+            </label>
+            <p className="mt-3 text-[11px] text-muted">این تغییر با نام ادمین و یادداشت واردشده در سوابق کیف پول ثبت
+                می‌شود.</p>
+            <div className="mt-5 flex justify-end gap-2">
+                <button type="button" disabled={busy} onClick={onClose}
+                        className="rounded-xl border border-border px-4 py-2 text-xs">انصراف
+                </button>
+                <button type="submit" disabled={busy || !valid}
+                        className="rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white disabled:opacity-50">
+                    {busy ? 'در حال ثبت...' : 'ثبت موجودی جدید'}
+                </button>
+            </div>
+        </form>
     </div>;
 }

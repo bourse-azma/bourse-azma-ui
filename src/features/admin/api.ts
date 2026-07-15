@@ -53,6 +53,10 @@ export const setAdminUserBlocked = (token: string, id: number, blocked: boolean,
     `/api/v1/admin/users/${id}/block`, token, 'PATCH', {blocked, reason: optional(reason ?? '')},
 );
 
+export const updateAdminUserBalance = (token: string, id: number, balance: number, note: string) => mutate<AdminUserDetail>(
+    `/api/v1/admin/users/${id}/balance`, token, 'PATCH', {balance, note: optional(note)},
+);
+
 export const deleteAdminUser = (token: string, id: number) => mutate(
     `/api/v1/admin/users/${id}`, token, 'DELETE',
 );

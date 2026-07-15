@@ -53,6 +53,7 @@ export type AdminHolding = {
 };
 export type AdminWalletTransaction = {
     id: number; amount: number; balanceAfter: number; description: string; createdAt: string;
+    source?: string; performedByAdminId?: number; performedByAdminName?: string; adminNote?: string;
 };
 export type AdminActivity = {
     id: number; activityType: 'LOGIN' | 'LOGOUT'; occurredAt: string;
