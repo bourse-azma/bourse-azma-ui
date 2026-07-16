@@ -535,8 +535,8 @@ function DetailTable({detail, tab}: { detail: AdminUserDetail; tab: DetailTab })
             dateTime(x.createdAt)]);
     }
     if (tab === 'activities') {
-        headers = ['نوع فعالیت', 'زمان'];
-        rows = detail.activities.map(x => [x.activityType === 'LOGIN' ? 'ورود' : 'خروج', dateTime(x.occurredAt)]);
+        headers = ['نوع فعالیت', 'IP', 'زمان'];
+        rows = detail.activities.map(x => [x.activityType === 'LOGIN' ? 'ورود' : 'خروج', x.ipAddress || 'ثبت نشده', dateTime(x.occurredAt)]);
     }
     if (!rows.length) return <div className="py-12 text-center text-sm text-muted">رکوردی وجود ندارد.</div>;
     return <div className="overflow-x-auto">
@@ -546,7 +546,8 @@ function DetailTable({detail, tab}: { detail: AdminUserDetail; tab: DetailTab })
                                                                                     className="p-3 text-right">{h}</th>)}</tr>
             </thead>
             <tbody>{rows.map((row, i) => <tr key={i} className="border-b border-border/50">{row.map((cell, j) => <td
-                dir="rtl" key={j} className="p-3 text-right">{cell}</td>)}</tr>)}</tbody>
+                dir={tab === 'activities' && j === 1 ? 'ltr' : 'rtl'} key={j}
+                className="p-3 text-right">{cell}</td>)}</tr>)}</tbody>
         </table>
     </div>;
 }

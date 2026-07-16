@@ -56,7 +56,7 @@ export type AdminWalletTransaction = {
     source?: string; performedByAdminId?: number; performedByAdminName?: string; adminNote?: string;
 };
 export type AdminActivity = {
-    id: number; activityType: 'LOGIN' | 'LOGOUT'; occurredAt: string;
+    id: number; activityType: 'LOGIN' | 'LOGOUT'; ipAddress?: string; occurredAt: string;
 };
 export type AdminUserDetail = {
     user: AdminUser; orders: AdminOrder[]; trades: AdminTrade[]; portfolio: AdminHolding[];
