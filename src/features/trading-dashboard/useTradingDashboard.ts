@@ -57,6 +57,7 @@ export function useTradingDashboard({
         selectedWatchlist,
         userProfile,
         minimumOrderValue: account.tradingRules.minimumOrderValue,
+        orderTicketOpen: account.orderModalSide !== null || account.editingOrder !== null,
     });
 
     const notices = useNoticeBoardState({

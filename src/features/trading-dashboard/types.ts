@@ -1,6 +1,9 @@
 import type {Theme} from '../../hooks/useTheme';
 import type {SymbolSearchSuggestion} from '../symbol-search/types';
 import type {OrderStatusType} from '../trading/api';
+import type {UserProfile} from '../app/types';
+
+export type {UserProfile} from '../app/types';
 
 export type SidebarTab = 'watchlist' | 'popular' | 'industries' | 'wallet';
 export type SymbolTab = 'notices' | 'details';
@@ -33,17 +36,6 @@ export type DemoPortfolioRow = {
     quantity: number;
     buyPrice: number;
     livePrice: number | null;
-};
-
-export type UserProfile = {
-    id: number;
-    username: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber: string;
-    email: string;
-    role: string;
-    balance?: number;
 };
 
 export type TradingDashboardProps = {

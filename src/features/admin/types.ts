@@ -12,16 +12,16 @@ export type AdminUser = {
     username: string;
     firstName: string;
     lastName: string;
-    phoneNumber?: string;
-    email?: string;
+    phoneNumber: string | null;
+    email: string | null;
     balance: number;
     createdAt: string;
-    lastLoginAt?: string;
-    lastSeenAt?: string;
-    lastLoginIp?: string;
+    lastLoginAt: string | null;
+    lastSeenAt: string | null;
+    lastLoginIp: string | null;
     blocked: boolean;
-    blockedAt?: string;
-    blockedReason?: string;
+    blockedAt: string | null;
+    blockedReason: string | null;
     online: boolean;
     orderCount: number;
     tradeCount: number;
@@ -52,11 +52,18 @@ export type AdminHolding = {
     acquiredAt: string;
 };
 export type AdminWalletTransaction = {
-    id: number; amount: number; balanceAfter: number; description: string; createdAt: string;
-    source?: string; performedByAdminId?: number; performedByAdminName?: string; adminNote?: string;
+    id: number;
+    amount: number;
+    balanceAfter: number;
+    description: string;
+    createdAt: string;
+    source: string | null;
+    performedByAdminId: number | null;
+    performedByAdminName: string | null;
+    adminNote: string | null;
 };
 export type AdminActivity = {
-    id: number; activityType: 'LOGIN' | 'LOGOUT'; ipAddress?: string; occurredAt: string;
+    id: number; activityType: 'LOGIN' | 'LOGOUT'; ipAddress: string | null; occurredAt: string;
 };
 export type AdminUserDetail = {
     user: AdminUser; orders: AdminOrder[]; trades: AdminTrade[]; portfolio: AdminHolding[];

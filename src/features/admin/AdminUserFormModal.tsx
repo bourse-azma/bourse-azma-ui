@@ -1,4 +1,4 @@
-import {type FormEvent, useEffect, useState} from 'react';
+import {type FormEvent, useEffect, useRef, useState} from 'react';
 import {Loader2, X} from 'lucide-react';
 import type {AdminUser, AdminUserFormValues} from './types';
 
@@ -15,6 +15,7 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
 }) {
     const [form, setForm] = useState<AdminUserFormValues>(emptyForm);
     const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const editing = user !== null;
 
@@ -37,6 +38,8 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
         setForm(current => ({...current, [key]: value}));
     const submit = async (event: FormEvent) => {
         event.preventDefault();
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setSubmitting(true);
         setError(null);
         try {
@@ -44,6 +47,7 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
         } catch (e) {
             setError(e instanceof Error ? e.message : 'ذخیره اطلاعات ناموفق بود.');
         } finally {
+            submittingRef.current = false;
             setSubmitting(false);
         }
     };

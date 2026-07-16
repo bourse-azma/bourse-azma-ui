@@ -41,7 +41,7 @@ type Section = 'users' | 'tickets';
 type DetailTab = 'orders' | 'trades' | 'portfolio' | 'wallet' | 'activities';
 const number = new Intl.NumberFormat('fa-IR');
 const money = (value: number) => `${number.format(value ?? 0)} ریال`;
-const dateTime = (value?: string) => value ? new Intl.DateTimeFormat('fa-IR', {
+const dateTime = (value?: string | null) => value ? new Intl.DateTimeFormat('fa-IR', {
     dateStyle: 'medium',
     timeStyle: 'short'
 }).format(new Date(value)) : 'ثبت نشده';
@@ -453,7 +453,7 @@ function UserDetail({detail, onBack, onEdit, onEditBalance, onToggleBlocked, onD
         label: 'لاگ فعالیت',
         count: detail.activities.length
     }];
-    const infoItems: Array<[string, string | undefined, 'rtl' | 'ltr']> = [
+    const infoItems: Array<[string, string | null | undefined, 'rtl' | 'ltr']> = [
         ['موبایل', u.phoneNumber, 'ltr'], ['ایمیل', u.email, 'ltr'],
         ['IP آخرین ورود', u.lastLoginIp, 'ltr'], ['تاریخ عضویت', dateTime(u.createdAt), 'rtl'],
         ['آخرین ورود', dateTime(u.lastLoginAt), 'rtl'], ['آخرین فعالیت', dateTime(u.lastSeenAt), 'rtl'],

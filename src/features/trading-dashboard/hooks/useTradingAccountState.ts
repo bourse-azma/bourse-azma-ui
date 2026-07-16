@@ -24,6 +24,19 @@ type UseTradingAccountStateParams = {
     showWatchlistToast: (message: string, tone?: 'success' | 'error', title?: string) => void;
 };
 
+const upsertOrder = (orders: TradingOrder[], nextOrder: TradingOrder): TradingOrder[] => {
+    const existingIndex = orders.findIndex((order) => order.id === nextOrder.id);
+    if (existingIndex === -1) return [nextOrder, ...orders];
+    return orders.map((order) => order.id === nextOrder.id ? nextOrder : order);
+};
+
+const updateActiveOrders = (orders: TradingOrder[], nextOrder: TradingOrder): TradingOrder[] => {
+    const withoutCurrent = orders.filter((order) => order.id !== nextOrder.id);
+    return nextOrder.remainingQuantity > 0 && ACTIVE_ORDER_STATUSES.includes(nextOrder.status)
+        ? [nextOrder, ...withoutCurrent]
+        : withoutCurrent;
+};
+
 export function useTradingAccountState({
                                            accessToken,
                                            onProfileUpdated,
@@ -149,9 +162,9 @@ export function useTradingAccountState({
     }, [accessToken, loadTradingAccount, onProfileUpdated]);
 
     const handleOrderPlaced = useCallback(
-        (_result: CreateOrderResult, _closeAfter: boolean) => {
-            void _result;
-            void _closeAfter;
+        (result: CreateOrderResult, _closeAfter: boolean) => {
+            setTradingOrders((orders) => upsertOrder(orders, result.order));
+            setActiveOrdersForSummary((orders) => updateActiveOrders(orders, result.order));
             setBottomPanelTab('orders');
             void refreshAccountStatus();
         },
@@ -165,6 +178,8 @@ export function useTradingAccountState({
             setCancellingOrderId(orderId);
             try {
                 const result = await cancelTradingOrder(accessToken, orderId);
+                setTradingOrders((orders) => upsertOrder(orders, result.order));
+                setActiveOrdersForSummary((orders) => updateActiveOrders(orders, result.order));
                 showWatchlistToast(`سفارش ${result.order.sideLabel} نماد ${result.order.symbol} لغو شد.`, 'success');
                 void refreshAccountStatus();
             } catch (error) {

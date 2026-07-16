@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import {AlertCircle, Check, Coins, Loader2, Wallet} from 'lucide-react';
 import {toApiErrorMessage} from '../../lib/apiError';
 import {withAuthRequest} from '../../lib/authRequest';
@@ -25,6 +25,7 @@ export function WalletTabContent({
     const [value, setValue] = useState('');
     const [description, setDescription] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export function WalletTabContent({
 
     const handleAdjust = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submittingRef.current) return;
         setError(null);
         setSuccess(null);
         if (!value || amountValidationError || parsedValue === null) {
@@ -55,6 +57,7 @@ export function WalletTabContent({
             return;
         }
 
+        submittingRef.current = true;
         setIsSubmitting(true);
         try {
             const res = await fetch('/api/v1/wallet/adjust', withAuthRequest(accessToken, {
@@ -78,6 +81,7 @@ export function WalletTabContent({
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'خطا در ثبت تغییرات');
         } finally {
+            submittingRef.current = false;
             setIsSubmitting(false);
         }
     };

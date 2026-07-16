@@ -1,4 +1,4 @@
-import {useCallback, useState} from 'react';
+import {useCallback, useRef, useState} from 'react';
 import {
     PASSWORD_VALIDATION_MESSAGE,
     USERNAME_VALIDATION_MESSAGE,
@@ -14,6 +14,7 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
     const [profileModalOpen, setProfileModalOpen] = useState(false);
     const [profileEditMode, setProfileEditMode] = useState(false);
     const [saveLoading, setSaveLoading] = useState(false);
+    const saveInFlightRef = useRef(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
     const [editFirstName, setEditFirstName] = useState('');
@@ -28,8 +29,8 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
         setEditFirstName(targetProfile.firstName);
         setEditLastName(targetProfile.lastName);
         setEditUsername(targetProfile.username);
-        setEditPhoneNumber(targetProfile.phoneNumber);
-        setEditEmail(targetProfile.email);
+        setEditPhoneNumber(targetProfile.phoneNumber ?? '');
+        setEditEmail(targetProfile.email ?? '');
         setEditPassword('');
         setEditCurrentPassword('');
     }, []);
@@ -57,7 +58,8 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
     }, []);
 
     const submitProfileUpdate = async () => {
-        if (!session || !profile) return;
+        if (!session || !profile || saveInFlightRef.current) return;
+        saveInFlightRef.current = true;
         setSaveLoading(true);
         setSaveError(null);
         setSaveSuccess(null);
@@ -113,6 +115,7 @@ export function useProfileEditor(session: SessionState | null, profile: UserProf
             const message = error instanceof Error ? error.message : 'خطا در ویرایش پروفایل.';
             setSaveError(message);
         } finally {
+            saveInFlightRef.current = false;
             setSaveLoading(false);
         }
     };

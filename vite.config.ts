@@ -18,15 +18,25 @@ export default defineConfig(({mode}) => {
         plugins: [react()],
         build: {
             target: 'es2020',
-            minify: 'esbuild',
+            minify: 'oxc',
             cssMinify: true,
             sourcemap: false,
             rollupOptions: {
                 output: {
-                    manualChunks: {
-                        vendor: ['react', 'react-dom'],
-                        charts: ['lightweight-charts', 'lightweight-charts-drawing'],
-                        icons: ['lucide-react'],
+                    manualChunks: (id: string) => {
+                        if (id.indexOf('/node_modules/react/') !== -1
+                            || id.indexOf('/node_modules/react-dom/') !== -1
+                            || id.indexOf('/node_modules/scheduler/') !== -1) {
+                            return 'vendor';
+                        }
+                        if (id.indexOf('/node_modules/lightweight-charts/') !== -1
+                            || id.indexOf('/node_modules/lightweight-charts-drawing/') !== -1) {
+                            return 'charts';
+                        }
+                        if (id.indexOf('/node_modules/lucide-react/') !== -1) {
+                            return 'icons';
+                        }
+                        return undefined;
                     },
                 },
             },

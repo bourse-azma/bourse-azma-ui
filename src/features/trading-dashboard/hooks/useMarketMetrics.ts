@@ -6,6 +6,7 @@ import type {SymbolSearchSuggestion} from '../../symbol-search/types';
 import {useSymbolDetails} from '../../symbol-search/useSymbolDetails';
 import {usePeerGroup} from '../../symbol-search/usePeerGroup';
 import type {PortfolioHolding, TradingOrder} from '../../trading/api';
+import {buildPrivateOrderBookRefreshKey, shouldLoadPrivateOrderBook,} from '../../trading/privateOrderBookUtils';
 import {useInstrumentLivePrices} from '../../trading/useInstrumentLivePrices';
 import {usePrivateOrderBook} from '../../trading/usePrivateOrderBook';
 import type {OrderSymbolContext} from '../../trading/order-placement/types';
@@ -40,6 +41,7 @@ type UseMarketMetricsParams = {
     selectedWatchlist: Watchlist | null;
     userProfile?: UserProfile;
     minimumOrderValue: number;
+    orderTicketOpen: boolean;
 };
 
 export function useMarketMetrics({
@@ -58,6 +60,7 @@ export function useMarketMetrics({
                                      selectedWatchlist,
                                      userProfile,
                                      minimumOrderValue,
+                                     orderTicketOpen,
                                  }: UseMarketMetricsParams) {
     const {
         data: activeSymbolData,
@@ -171,16 +174,18 @@ export function useMarketMetrics({
     }, [dailyMax, dailyMin, symbolPrice]);
 
     const privateBookRefreshKey = useMemo(
-        () => tradingOrders
-            .filter((order) => order.instrumentCode === activeInstrumentCode && order.remainingQuantity > 0)
-            .map((order) => `${order.id}:${order.status}:${order.remainingQuantity}`)
-            .join('|'),
-        [activeInstrumentCode, tradingOrders]
+        () => buildPrivateOrderBookRefreshKey(activeOrdersForSummary, activeInstrumentCode),
+        [activeInstrumentCode, activeOrdersForSummary]
+    );
+    const privateOrderBookRequired = shouldLoadPrivateOrderBook(
+        isMarketViewActive,
+        orderbookTab,
+        orderTicketOpen
     );
     const privateOrderBook = usePrivateOrderBook(
         accessToken,
         activeInstrumentCode,
-        isMarketViewActive && orderbookTab === 'info',
+        privateOrderBookRequired,
         privateBookRefreshKey
     );
     const orderBookRows = useMemo(() => {
@@ -198,8 +203,18 @@ export function useMarketMetrics({
                 ownBidVolume: row.ownBidVolume,
             })));
         }
+        // Never flash the shared public book inside a surface that promises an isolated
+        // user-specific book. Empty rows are replaced as soon as the private request returns.
+        if (privateOrderBookRequired) {
+            return normalizeOrderBookRows([]);
+        }
         return normalizeOrderBookRows(activeSymbolData?.orderBook ?? []);
-    }, [activeInstrumentCode, activeSymbolData?.orderBook, privateOrderBook.data]);
+    }, [
+        activeInstrumentCode,
+        activeSymbolData?.orderBook,
+        privateOrderBook.data,
+        privateOrderBookRequired,
+    ]);
     const depthRows = useMemo(() => activeSymbolData?.depth ?? [], [activeSymbolData?.depth]);
     const symbolDetails = useMemo(() => activeSymbolData?.detailRows ?? [], [activeSymbolData?.detailRows]);
     const marketLabel = activeSymbolData?.marketLabel ?? toMarketLabel(selectedSymbol.type);

@@ -37,6 +37,8 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
     const [closeSubmitting, setCloseSubmitting] = useState(false);
     const [success, setSuccess] = useState<string | null>(null);
     const hasLoadedOnceRef = useRef(false);
+    const replySubmittingRef = useRef(false);
+    const closeSubmittingRef = useRef(false);
 
     const fetchTickets = useCallback(async (silent = false, pageToLoad = 0, append = false) => {
         if (!silent && !append) {
@@ -152,11 +154,13 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
                 replyInputId="admin-reply"
                 onSubmitReply={async (event: FormEvent<HTMLFormElement>) => {
                     event.preventDefault();
+                    if (replySubmittingRef.current) return;
                     const normalized = reply.trim().replace(/\s+/g, ' ');
                     if (!normalized) {
                         setError('متن پاسخ را وارد کنید.');
                         return;
                     }
+                    replySubmittingRef.current = true;
                     setReplySubmitting(true);
                     setError(null);
                     setSuccess(null);
@@ -168,10 +172,13 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
                     } catch (submitError) {
                         setError(submitError instanceof Error ? submitError.message : 'ارسال پاسخ ناموفق بود.');
                     } finally {
+                        replySubmittingRef.current = false;
                         setReplySubmitting(false);
                     }
                 }}
                 onClose={async () => {
+                    if (closeSubmittingRef.current) return;
+                    closeSubmittingRef.current = true;
                     setCloseSubmitting(true);
                     setError(null);
                     setSuccess(null);
@@ -183,6 +190,7 @@ export default function AdminSupportPanel({accessToken, enabled}: AdminSupportPa
                     } catch (closeError) {
                         setError(closeError instanceof Error ? closeError.message : 'بستن تیکت ناموفق بود.');
                     } finally {
+                        closeSubmittingRef.current = false;
                         setCloseSubmitting(false);
                     }
                 }}

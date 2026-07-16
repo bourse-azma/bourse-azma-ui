@@ -1,4 +1,4 @@
-import {FormEvent, useEffect, useMemo, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
 import {validatePassword, validateUsername} from '../../../lib/authValidation';
 import {isPersianName, normalizePhoneNumber, toEnglishDigits} from '../../../lib/stringUtils';
 import {loginDescription, registerDescription} from '../constants';
@@ -24,6 +24,7 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
     const [selectedBalancePreset, setSelectedBalancePreset] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const submittingRef = useRef(false);
 
     const description = useMemo(
         () => (mode === 'login' ? loginDescription : registerDescription),
@@ -83,6 +84,8 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (submittingRef.current) return;
+        submittingRef.current = true;
         setIsSubmitting(true);
         setError(null);
 
@@ -140,6 +143,7 @@ export function useAuthForm({onAuthenticated, initialMode = 'login', onModeChang
                 requestError instanceof Error ? requestError.message : 'خطایی در احراز هویت رخ داد.';
             setError(message);
         } finally {
+            submittingRef.current = false;
             setIsSubmitting(false);
         }
     };

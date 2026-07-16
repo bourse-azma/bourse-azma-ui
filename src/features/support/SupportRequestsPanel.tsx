@@ -26,6 +26,7 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
     const [priority, setPriority] = useState<SupportRequestPriority>('MEDIUM');
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const submittingRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const hasLoadedOnceRef = useRef(false);
@@ -61,6 +62,7 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
 
     const submitTicket = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (submittingRef.current) return;
         const normalizedSubject = subject.trim().replace(/\s+/g, ' ');
         const normalizedMessage = message.trim().replace(/\s+/g, ' ');
         if (!normalizedSubject || !normalizedMessage) {
@@ -68,6 +70,7 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
             return;
         }
 
+        submittingRef.current = true;
         setSubmitting(true);
         setError(null);
         setSuccess(null);
@@ -89,6 +92,7 @@ export default function SupportRequestsPanel({accessToken, enabled}: SupportRequ
         } catch (submitError) {
             setError(submitError instanceof Error ? submitError.message : 'ثبت تیکت ناموفق بود.');
         } finally {
+            submittingRef.current = false;
             setSubmitting(false);
         }
     };

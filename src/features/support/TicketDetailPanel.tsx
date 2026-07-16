@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {Loader2} from 'lucide-react';
 import {
     addSupportTicketMessage,
@@ -39,6 +39,9 @@ export default function TicketDetailPanel({
     const [rating, setRating] = useState(0);
     const [ratingComment, setRatingComment] = useState('');
     const [ratingSubmitting, setRatingSubmitting] = useState(false);
+    const replySubmittingRef = useRef(false);
+    const closeSubmittingRef = useRef(false);
+    const ratingSubmittingRef = useRef(false);
     const [ratingSuccess, setRatingSuccess] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -119,11 +122,13 @@ export default function TicketDetailPanel({
             showRating={isTicketRateable(ticket.status) && ticket.rating == null}
             onSubmitReply={async (event) => {
                 event.preventDefault();
+                if (replySubmittingRef.current) return;
                 const normalized = reply.trim().replace(/\s+/g, ' ');
                 if (!normalized) {
                     setError('متن پیام را وارد کنید.');
                     return;
                 }
+                replySubmittingRef.current = true;
                 setReplySubmitting(true);
                 setError(null);
                 setSuccess(null);
@@ -134,10 +139,13 @@ export default function TicketDetailPanel({
                 } catch (submitError) {
                     setError(submitError instanceof Error ? submitError.message : 'ارسال پیام ناموفق بود.');
                 } finally {
+                    replySubmittingRef.current = false;
                     setReplySubmitting(false);
                 }
             }}
             onClose={async () => {
+                if (closeSubmittingRef.current) return;
+                closeSubmittingRef.current = true;
                 setCloseSubmitting(true);
                 setError(null);
                 setSuccess(null);
@@ -149,14 +157,17 @@ export default function TicketDetailPanel({
                 } catch (closeError) {
                     setError(closeError instanceof Error ? closeError.message : 'بستن تیکت ناموفق بود.');
                 } finally {
+                    closeSubmittingRef.current = false;
                     setCloseSubmitting(false);
                 }
             }}
             onSubmitRating={async () => {
+                if (ratingSubmittingRef.current) return;
                 if (rating < 1) {
                     setError('امتیاز را انتخاب کنید.');
                     return;
                 }
+                ratingSubmittingRef.current = true;
                 setRatingSubmitting(true);
                 setError(null);
                 setRatingSuccess(null);
@@ -171,6 +182,7 @@ export default function TicketDetailPanel({
                 } catch (submitError) {
                     setError(submitError instanceof Error ? submitError.message : 'ثبت امتیاز ناموفق بود.');
                 } finally {
+                    ratingSubmittingRef.current = false;
                     setRatingSubmitting(false);
                 }
             }}
