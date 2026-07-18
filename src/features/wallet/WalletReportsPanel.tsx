@@ -1,6 +1,5 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Loader2, Wallet,} from 'lucide-react';
-import {appConfig} from '../../config/appConfig';
 import {getInfiniteScrollTriggerIndex} from '../../config/scrollConfig';
 import {useInfiniteScrollLoadMore} from '../../hooks/useInfiniteScrollLoadMore';
 import {type PagedResult, withAuthRequest} from '../../lib/authRequest';
@@ -8,6 +7,9 @@ import {cardClass} from '../trading-dashboard/styles';
 import type {WalletTx, WalletTxSummary} from './types';
 import WalletReportsSummary from './WalletReportsSummary';
 import WalletTransactionList from './WalletTransactionList';
+import type {TradingOrder} from '../trading/api';
+import {ORDER_UPDATES_QUEUE} from '../../services/realtimeTypes';
+import {webSocketService} from '../../services/webSocketService';
 
 export function WalletReportsPanel({
                                        accessToken,
@@ -95,14 +97,25 @@ export function WalletReportsPanel({
         }
 
         let timer: number | undefined;
-        const tick = async () => {
-            await fetchTxs(true, 0, false);
-            await fetchSummary();
-            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        const reconcile = () => {
+            void fetchTxs(true, 0, false);
+            void fetchSummary();
         };
-        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
+        const unsubscribe = webSocketService.subscribeJson<TradingOrder>(
+            accessToken,
+            ORDER_UPDATES_QUEUE,
+            () => {
+                if (timer !== undefined) window.clearTimeout(timer);
+                timer = window.setTimeout(() => {
+                    void fetchTxs(true, 0, false);
+                    void fetchSummary();
+                }, 100);
+            },
+            {onReconnect: reconcile}
+        );
 
         return () => {
+            unsubscribe();
             if (timer !== undefined) {
                 window.clearTimeout(timer);
             }

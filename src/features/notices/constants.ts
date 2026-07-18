@@ -18,6 +18,9 @@ export const JALALI_MONTHS = [
 // Codal's Length parameter is a date-range selector (maximum 12), not page size.
 export const CODAL_MAX_LENGTH = 12;
 export const CODAL_MAX_PAGE_LENGTH = CODAL_MAX_LENGTH;
+// The CODAL search endpoint returns at most 20 notices per page. `length` above
+// controls the date range, so larger UI batches must span multiple API pages.
+export const CODAL_NOTICES_PER_PAGE = 20;
 
 export const DEFAULT_CODAL_NOTICE_QUERY: CodalNoticesQuery = {
     includeAudited: true,

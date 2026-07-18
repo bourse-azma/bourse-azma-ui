@@ -3,6 +3,7 @@ export type WalletTx = {
     amount: number;
     balanceAfter: number;
     description: string;
+    source?: string | null;
     createdAt: string;
 };
 

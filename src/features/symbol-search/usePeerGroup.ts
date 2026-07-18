@@ -1,5 +1,4 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {appConfig} from '../../config/appConfig';
 import {getTsetmcInstrumentInfo, getTsetmcRelatedCompanies} from './api';
 import {mapRelatedCompaniesToPeerRows} from './peerGroupMapper';
 import type {PeerGroupRow} from './types';
@@ -97,23 +96,10 @@ export const usePeerGroup = (instrumentCode: string | null, enabled: boolean) =>
         }
 
         const controller = new AbortController();
-        let timer = 0;
-
-        const tick = async () => {
-            await load(controller.signal, hasRowsRef.current);
-            if (controller.signal.aborted) return;
-            timer = window.setTimeout(tick, appConfig.tsetmcRelatedCompaniesRefreshMs);
-        };
-
         void load(controller.signal);
-
-        timer = window.setTimeout(() => {
-            void tick();
-        }, appConfig.tsetmcRelatedCompaniesRefreshMs);
 
         return () => {
             controller.abort();
-            window.clearTimeout(timer);
         };
     }, [enabled, instrumentCode, load]);
 

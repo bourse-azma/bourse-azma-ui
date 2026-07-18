@@ -1,5 +1,7 @@
 import {useEffect, useState} from 'react';
 import {appConfig} from '../../config/appConfig';
+import {marketOverviewTopic, type MarketOverviewUpdate} from '../../services/realtimeTypes';
+import {webSocketService} from '../../services/webSocketService';
 import type {MarketOverviewApiResponse, MarketOverviewResult} from '../trading-dashboard/types';
 
 const normalizePath = (value: string) => (value.startsWith('/') ? value : `/${value}`);
@@ -13,7 +15,7 @@ const applyTemplate = (template: string, values: Record<string, string>) => {
     return resolved;
 };
 
-export function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
+export function useMarketOverview(marketId: '1' | '2', accessToken: string, enabled: boolean) {
     const [data, setData] = useState<MarketOverviewResult | null>(null);
     const [loading, setLoading] = useState(enabled);
 
@@ -23,9 +25,21 @@ export function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
             return;
         }
 
-        let timer = 0;
         let active = true;
+        const controller = new AbortController();
         setLoading(true);
+
+        const applyOverview = (overview: NonNullable<MarketOverviewApiResponse['result']>['marketOverview']) => {
+            if (!active || !overview) return;
+            setData({
+                indexValue: overview.totalIndexValue,
+                indexChange: overview.totalIndexChange,
+                totalTrades: overview.totalTradeCount,
+                totalTradeValue: overview.totalTradeValue,
+                totalTradeVolume: overview.totalTradeVolume,
+                marketStateTitle: overview.marketStateTitle,
+            });
+        };
 
         const fetchOverview = async () => {
             try {
@@ -33,7 +47,8 @@ export function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
                     joinUrl(
                         appConfig.marketOverviewApiBaseUrl,
                         applyTemplate(appConfig.marketOverviewApiPath, {marketId})
-                    )
+                    ),
+                    {signal: controller.signal}
                 );
                 if (!response.ok) return;
 
@@ -41,14 +56,7 @@ export function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
                 const overview = payload.result?.marketOverview;
                 if (!active || payload.code !== 200 || !overview) return;
 
-                setData({
-                    indexValue: overview.totalIndexValue,
-                    indexChange: overview.totalIndexChange,
-                    totalTrades: overview.totalTradeCount,
-                    totalTradeValue: overview.totalTradeValue,
-                    totalTradeVolume: overview.totalTradeVolume,
-                    marketStateTitle: overview.marketStateTitle,
-                });
+                applyOverview(overview);
             } catch {
                 // Keep previously rendered data on transient network failures.
             } finally {
@@ -58,19 +66,22 @@ export function useMarketOverview(marketId: '1' | '2', enabled: boolean) {
             }
         };
 
-        const tick = async () => {
-            await fetchOverview();
-            if (!active) return;
-            timer = window.setTimeout(tick, appConfig.marketOverviewRefreshMs);
-        };
-
-        void tick();
+        void fetchOverview();
+        const unsubscribe = webSocketService.subscribeJson<MarketOverviewUpdate>(
+            accessToken,
+            marketOverviewTopic(marketId),
+            (update) => {
+                if (update.marketId === Number(marketId)) applyOverview(update.marketOverview);
+            },
+            {onReconnect: () => void fetchOverview()}
+        );
 
         return () => {
             active = false;
-            window.clearTimeout(timer);
+            controller.abort();
+            unsubscribe();
         };
-    }, [enabled, marketId]);
+    }, [accessToken, enabled, marketId]);
 
     return {data, loading: enabled && loading};
 }

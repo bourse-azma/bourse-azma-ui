@@ -12,7 +12,7 @@ import {
 } from '../formatters';
 import type {TradingDashboardVm} from './types';
 
-export function OrderBookSection({vm}: { vm: TradingDashboardVm }) {
+export function OrderBookSection({vm, accessToken}: { vm: TradingDashboardVm; accessToken: string }) {
     return (
         <>
             <section dir="rtl" className={`${cardClass} self-start p-3 md:col-span-2 xl:col-span-6`}>
@@ -84,6 +84,7 @@ export function OrderBookSection({vm}: { vm: TradingDashboardVm }) {
                         ) : vm.orderbookTab === 'technical' ? (
                             <TechnicalChartPanel
                                 instrumentCode={vm.selectedSymbol.instrumentCode}
+                                accessToken={accessToken}
                                 symbol={vm.selectedSymbol.symbol}
                                 symbolName={vm.selectedSymbol.name}
                             />

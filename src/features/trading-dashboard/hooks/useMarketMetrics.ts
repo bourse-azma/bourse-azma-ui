@@ -69,6 +69,7 @@ export function useMarketMetrics({
         refresh: refreshSymbolDetails,
     } = useSymbolDetails(selectedSymbol, {
         enabled: isMarketViewActive,
+        accessToken,
         includeDetailSources: isMarketViewActive && symbolTab === 'details',
         includeClientType: isMarketViewActive && orderbookTab === 'info',
     });
@@ -81,8 +82,8 @@ export function useMarketMetrics({
         refresh: refreshPeerGroup,
     } = usePeerGroup(selectedSymbol.instrumentCode, isMarketViewActive && orderbookTab === 'peers');
 
-    const bourseOverview = useMarketOverview('1', isMarketViewActive);
-    const farabourseOverview = useMarketOverview('2', isMarketViewActive);
+    const bourseOverview = useMarketOverview('1', accessToken, isMarketViewActive);
+    const farabourseOverview = useMarketOverview('2', accessToken, isMarketViewActive);
 
     const {
         marketIndex,
@@ -148,7 +149,7 @@ export function useMarketMetrics({
     );
 
     const {prices: instrumentLivePrices, changePercents: instrumentLiveChangePercents} =
-        useInstrumentLivePrices(tradingInstrumentCodes, isMarketViewActive);
+        useInstrumentLivePrices(tradingInstrumentCodes, accessToken, isMarketViewActive);
 
     const activeInstrumentCode = selectedSymbol.instrumentCode?.trim() ?? '';
     const resolveDisplayLivePrice = useCallback(

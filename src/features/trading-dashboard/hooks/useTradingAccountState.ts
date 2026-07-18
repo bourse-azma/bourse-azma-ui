@@ -1,5 +1,4 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {appConfig} from '../../../config/appConfig';
 import {withAuthRequest} from '../../../lib/authRequest';
 import {
     cancelTradingOrder,
@@ -15,6 +14,8 @@ import {
 } from '../../trading/api';
 import {ACTIVE_ORDER_STATUSES, ORDERS_PAGE_SIZE} from '../constants';
 import type {BottomPanelTab, UserProfile} from '../types';
+import {ORDER_UPDATES_QUEUE} from '../../../services/realtimeTypes';
+import {webSocketService} from '../../../services/webSocketService';
 
 type UseTradingAccountStateParams = {
     accessToken: string;
@@ -61,6 +62,7 @@ export function useTradingAccountState({
     const accountRequestIdRef = useRef(0);
     const ordersListGenerationRef = useRef(0);
     const profileRequestIdRef = useRef(0);
+    const marketSocketActivatedRef = useRef(false);
 
     const loadTradingAccount = useCallback(async (silent = false, appendOrders = false) => {
         if (appendOrders) {
@@ -151,8 +153,7 @@ export function useTradingAccountState({
                             onProfileUpdated(data.result);
                         }
                     } catch {
-                        // Portfolio/orders have their own refresh lifecycle; a transient profile
-                        // request failure must not stop polling or turn a successful edit into an error.
+                        // A transient profile request failure must not invalidate pushed order state.
                     }
                 })()
             );
@@ -160,6 +161,30 @@ export function useTradingAccountState({
 
         await Promise.all(tasks);
     }, [accessToken, loadTradingAccount, onProfileUpdated]);
+
+    const refreshPortfolioAndProfile = useCallback(async () => {
+        const profileRequestId = ++profileRequestIdRef.current;
+        const tasks: Promise<void>[] = [
+            getPortfolioHoldings(accessToken)
+                .then(setPortfolioHoldings)
+                .catch(() => undefined),
+        ];
+        if (onProfileUpdated) {
+            tasks.push((async () => {
+                try {
+                    const response = await fetch('/api/v1/users/me', withAuthRequest(accessToken, {method: 'GET'}));
+                    if (!response.ok) return;
+                    const data = (await response.json()) as { result?: UserProfile };
+                    if (data.result && profileRequestId === profileRequestIdRef.current) {
+                        onProfileUpdated(data.result);
+                    }
+                } catch {
+                    // The pushed order remains authoritative even if supplementary account data fails.
+                }
+            })());
+        }
+        await Promise.all(tasks);
+    }, [accessToken, onProfileUpdated]);
 
     const handleOrderPlaced = useCallback(
         (result: CreateOrderResult, _closeAfter: boolean) => {
@@ -228,24 +253,38 @@ export function useTradingAccountState({
     }, [accessToken]);
 
     useEffect(() => {
-        if (!isMarketViewActive) {
-            return;
+        if (!isMarketViewActive) return;
+
+        // Reconcile events that may have happened after a previously active market view was hidden.
+        if (marketSocketActivatedRef.current) {
+            void loadTradingAccount(true);
         }
+        marketSocketActivatedRef.current = true;
+        let accountRefreshTimer: number | undefined;
+        const unsubscribe = webSocketService.subscribeJson<TradingOrder>(
+            accessToken,
+            ORDER_UPDATES_QUEUE,
+            (order) => {
+                setTradingOrders((orders) => upsertOrder(orders, order));
+                setActiveOrdersForSummary((orders) => updateActiveOrders(orders, order));
+                setEditingOrder((current) => current?.id === order.id
+                    ? (order.cancellable ? order : null)
+                    : current);
+                setTradingAccountError(null);
 
-        let timer: number | undefined;
+                if (accountRefreshTimer !== undefined) window.clearTimeout(accountRefreshTimer);
+                accountRefreshTimer = window.setTimeout(() => {
+                    void refreshPortfolioAndProfile();
+                }, 100);
+            },
+            {onReconnect: () => void refreshAccountStatus()}
+        );
 
-        const tick = async () => {
-            await refreshAccountStatus();
-            timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
-        };
-
-        timer = window.setTimeout(tick, appConfig.tradingOrdersRefreshMs);
         return () => {
-            if (timer !== undefined) {
-                window.clearTimeout(timer);
-            }
+            unsubscribe();
+            if (accountRefreshTimer !== undefined) window.clearTimeout(accountRefreshTimer);
         };
-    }, [isMarketViewActive, refreshAccountStatus]);
+    }, [accessToken, isMarketViewActive, loadTradingAccount, refreshAccountStatus, refreshPortfolioAndProfile]);
 
     return {
         tradingOrders,

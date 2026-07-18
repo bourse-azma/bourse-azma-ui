@@ -1,7 +1,8 @@
 import {useEffect, useState} from 'react';
-import {appConfig} from '../../config/appConfig';
 import {getTsetmcClosingPriceInfo} from '../symbol-search/api';
 import {resolveLivePriceFromClosing, resolveLivePricePercentFromClosing} from './livePrice';
+import {type MarketDataUpdate, marketTopic} from '../../services/realtimeTypes';
+import {webSocketService} from '../../services/webSocketService';
 
 const normalizeInstrumentCode = (value: string) => value.trim();
 
@@ -27,7 +28,7 @@ export const buildInstrumentCodesSignature = (instrumentCodes: string[]) =>
 const parseInstrumentCodesSignature = (signature: string) =>
     signature === '' ? [] : signature.split('|');
 
-export const useInstrumentLivePrices = (instrumentCodes: string[], enabled = true) => {
+export const useInstrumentLivePrices = (instrumentCodes: string[], accessToken: string, enabled = true) => {
     const codesSignature = buildInstrumentCodesSignature(instrumentCodes);
 
     const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -46,8 +47,8 @@ export const useInstrumentLivePrices = (instrumentCodes: string[], enabled = tru
         }
 
         let active = true;
-        let timeoutId: number | undefined;
         const controllers = new Set<AbortController>();
+        const socketUpdatedCodes = new Set<string>();
 
         const fetchPrices = async () => {
             const entries = await Promise.all(
@@ -75,6 +76,7 @@ export const useInstrumentLivePrices = (instrumentCodes: string[], enabled = tru
             setPrices((prev) => {
                 const next = {...prev};
                 for (const [instrumentCode, livePrice] of entries) {
+                    if (socketUpdatedCodes.has(instrumentCode)) continue;
                     next[instrumentCode] = livePrice;
                 }
                 return next;
@@ -82,33 +84,50 @@ export const useInstrumentLivePrices = (instrumentCodes: string[], enabled = tru
             setChangePercents((prev) => {
                 const next = {...prev};
                 for (const [instrumentCode, , changePercent] of entries) {
+                    if (socketUpdatedCodes.has(instrumentCode)) continue;
                     next[instrumentCode] = changePercent;
                 }
                 return next;
             });
         };
 
-        const schedule = async () => {
-            await fetchPrices();
-            if (!active) return;
-            timeoutId = window.setTimeout(() => {
-                void schedule();
-            }, appConfig.tsetmcClosingPriceRefreshMs);
+        const reconcile = () => {
+            // Values received before the disconnect are no longer authoritative. A socket update
+            // that arrives while this request is in flight will mark its code and win the race.
+            socketUpdatedCodes.clear();
+            void fetchPrices();
         };
+        const unsubscribers = codes.map((instrumentCode) =>
+            webSocketService.subscribeJson<MarketDataUpdate>(
+                accessToken,
+                marketTopic(instrumentCode),
+                (update) => {
+                    if (!active || update.instrumentCode !== instrumentCode || !update.closingPrice) return;
+                    socketUpdatedCodes.add(instrumentCode);
+                    setPrices((prev) => ({
+                        ...prev,
+                        [instrumentCode]: resolveLivePriceFromClosing(update.closingPrice),
+                    }));
+                    setChangePercents((prev) => ({
+                        ...prev,
+                        [instrumentCode]: resolveLivePricePercentFromClosing(update.closingPrice),
+                    }));
+                },
+                {onReconnect: reconcile}
+            )
+        );
 
-        void schedule();
+        void fetchPrices();
 
         return () => {
             active = false;
-            if (timeoutId !== undefined) {
-                window.clearTimeout(timeoutId);
-            }
+            unsubscribers.forEach((unsubscribe) => unsubscribe());
             for (const controller of controllers) {
                 controller.abort();
             }
             controllers.clear();
         };
-    }, [codesSignature, enabled]);
+    }, [accessToken, codesSignature, enabled]);
 
     return {prices, changePercents};
 };

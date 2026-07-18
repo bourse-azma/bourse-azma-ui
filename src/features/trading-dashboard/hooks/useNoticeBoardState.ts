@@ -43,7 +43,6 @@ export function useNoticeBoardState({
 
     const boardNotices = useCodalNotices(codalQuery, {
         enabled: isMarketViewActive,
-        autoRefresh: isMarketViewActive,
         batchSize: appConfig.supervisorNoticesBatchSize,
     });
 
@@ -63,7 +62,6 @@ export function useNoticeBoardState({
     const symbolNoticesEnabled = codalSymbol !== '' && isMarketViewActive && symbolTab === 'notices';
     const symbolNotices = useCodalNotices(symbolCodalQuery, {
         enabled: symbolNoticesEnabled,
-        autoRefresh: symbolNoticesEnabled,
         errorMessage: 'دریافت اطلاعیه‌های نماد با خطا مواجه شد.',
         batchSize: appConfig.symbolNoticesBatchSize,
     });

@@ -66,7 +66,7 @@ export default function TradingDashboard(props: TradingDashboardProps) {
                 ) : (
                     <>
                         <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12 [direction:ltr]">
-                            <OrderBookSection vm={vm}/>
+                            <OrderBookSection vm={vm} accessToken={accessToken}/>
                             <SymbolInfoSection vm={vm}/>
                             <div className="hidden self-start md:col-span-2 md:block xl:col-span-3">
                                 <WatchlistPanel

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.1.1",
+    "@stomp/stompjs": "^7.3.0",
     "lightweight-charts": "^5.2.0",
     "lightweight-charts-drawing": "^0.1.1",
     "lucide-react": "^0.475.0",

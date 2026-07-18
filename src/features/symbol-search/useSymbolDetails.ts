@@ -1,22 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {appConfig} from '../../config/appConfig';
-import {
-    getTsetmcBestLimits,
-    getTsetmcClientType,
-    getTsetmcClosingPriceInfo,
-    getTsetmcEtfInfo,
-    getTsetmcInstrumentInfo,
-} from './api';
 import {toSymbolDetailsViewModel} from './mappers';
 import type {SymbolSearchSuggestion} from './types';
 import {detailCache} from './symbolDetailsCache';
-import {
-    fetchClientTypeRaw,
-    fetchCoreRaw,
-    fetchDetailSourcesRaw,
-    type PollController,
-    startPoll,
-} from './symbolDetailsFetch';
+import {fetchClientTypeRaw, fetchCoreRaw, fetchDetailSourcesRaw,} from './symbolDetailsFetch';
 import {
     emptyRaw,
     isAbortError,
@@ -26,6 +12,8 @@ import {
     type SymbolDetailsState,
     type UseSymbolDetailsOptions,
 } from './symbolDetailsTypes';
+import {type MarketDataUpdate, marketTopic} from '../../services/realtimeTypes';
+import {webSocketService} from '../../services/webSocketService';
 
 const toViewModel = (symbol: SymbolSearchSuggestion, raw: RawDetailsSources) =>
     toSymbolDetailsViewModel({
@@ -44,6 +32,7 @@ export const useSymbolDetails = (
     options?: UseSymbolDetailsOptions
 ) => {
     const enabled = options?.enabled ?? true;
+    const accessToken = options?.accessToken?.trim() ?? '';
     const includeClientType = options?.includeClientType ?? true;
     const includeDetailSources = options?.includeDetailSources ?? true;
 
@@ -101,6 +90,7 @@ export const useSymbolDetails = (
         const requestVersion = requestVersionRef.current + 1;
         requestVersionRef.current = requestVersion;
         let active = true;
+        let marketUpdateReceived = false;
         const isActive = () => active && requestVersionRef.current === requestVersion;
 
         const cached = detailCache.get(cacheKey) ?? null;
@@ -116,8 +106,16 @@ export const useSymbolDetails = (
         const runFetch = async (fetcher: (signal: AbortSignal) => Promise<Partial<RawDetailsSources>>) => {
             const controller = new AbortController();
             try {
-                const patch = await fetcher(controller.signal);
+                const fetchedPatch = await fetcher(controller.signal);
                 if (!isActive() || controller.signal.aborted) return;
+                const patch = marketUpdateReceived
+                    ? {
+                        ...fetchedPatch,
+                        tsetmcClosing: rawRef.current.tsetmcClosing,
+                        tsetmcBestLimits: rawRef.current.tsetmcBestLimits,
+                        tsetmcClientType: rawRef.current.tsetmcClientType,
+                    }
+                    : fetchedPatch;
                 applyRaw(patch, symbol, requestVersion);
             } catch (error) {
                 if (!controller.signal.aborted && !isAbortError(error) && isActive()) {
@@ -128,54 +126,30 @@ export const useSymbolDetails = (
 
         void runFetch((signal) => fetchCoreRaw(symbol, signal));
 
-        const polls: PollController[] = [];
+        let unsubscribeMarket: (() => void) | undefined;
         if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
             const instrumentCode = symbol.instrumentCode;
-
-            polls.push(
-                startPoll(
-                    appConfig.tsetmcClosingPriceRefreshMs,
-                    async (signal) => {
-                        const tsetmcClosing = await getTsetmcClosingPriceInfo(instrumentCode, signal).catch(() => null);
-                        applyRaw({tsetmcClosing}, symbol, requestVersion);
-                    },
-                    isActive,
-                    isAbortError
-                )
-            );
-
-            polls.push(
-                startPoll(
-                    appConfig.tsetmcInstrumentInfoRefreshMs,
-                    async (signal) => {
-                        const tsetmcInfo = await getTsetmcInstrumentInfo(instrumentCode, signal).catch(() => null);
-                        applyRaw({tsetmcInfo}, symbol, requestVersion);
-                    },
-                    isActive,
-                    isAbortError
-                )
-            );
-
-            polls.push(
-                startPoll(
-                    appConfig.tsetmcBestLimitsRefreshMs,
-                    async (signal) => {
-                        const tsetmcBestLimits = await getTsetmcBestLimits(instrumentCode, signal)
-                            .then((result) => result.orderBookLevels)
-                            .catch(() => null);
-                        applyRaw({tsetmcBestLimits}, symbol, requestVersion);
-                    },
-                    isActive,
-                    isAbortError
-                )
+            unsubscribeMarket = webSocketService.subscribeJson<MarketDataUpdate>(
+                accessToken,
+                marketTopic(instrumentCode),
+                (update) => {
+                    if (!isActive() || update.instrumentCode !== instrumentCode) return;
+                    marketUpdateReceived = true;
+                    applyRaw({
+                        tsetmcClosing: update.closingPrice ?? rawRef.current.tsetmcClosing,
+                        tsetmcBestLimits: update.bestLimits ?? rawRef.current.tsetmcBestLimits,
+                        tsetmcClientType: update.clientType ?? rawRef.current.tsetmcClientType,
+                    }, symbol, requestVersion);
+                },
+                {onReconnect: () => setReloadToken((current) => current + 1)}
             );
         }
 
         return () => {
             active = false;
-            polls.forEach((poll) => poll.abort());
+            unsubscribeMarket?.();
         };
-    }, [applyRaw, cacheKey, enabled, markError, reloadToken, symbol]);
+    }, [accessToken, applyRaw, cacheKey, enabled, markError, reloadToken, symbol]);
 
     useEffect(() => {
         if (!enabled || !includeClientType || !symbol || !cacheKey) return;
@@ -199,25 +173,8 @@ export const useSymbolDetails = (
 
         void runFetch();
 
-        const polls: PollController[] = [];
-        if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
-            const instrumentCode = symbol.instrumentCode;
-            polls.push(
-                startPoll(
-                    appConfig.tsetmcClientTypeRefreshMs,
-                    async (signal) => {
-                        const tsetmcClientType = await getTsetmcClientType(instrumentCode, signal).catch(() => null);
-                        applyRaw({tsetmcClientType}, symbol, requestVersion);
-                    },
-                    isActive,
-                    isAbortError
-                )
-            );
-        }
-
         return () => {
             active = false;
-            polls.forEach((poll) => poll.abort());
         };
     }, [applyRaw, cacheKey, enabled, includeClientType, markError, reloadToken, symbol]);
 
@@ -245,25 +202,8 @@ export const useSymbolDetails = (
 
         void runFetch();
 
-        const polls: PollController[] = [];
-        if (symbol.instrumentCode && isMarketSymbol(symbol.type)) {
-            const instrumentCode = symbol.instrumentCode;
-            polls.push(
-                startPoll(
-                    appConfig.tsetmcEtfInfoRefreshMs,
-                    async (signal) => {
-                        const tsetmcEtf = await getTsetmcEtfInfo(instrumentCode, signal).catch(() => null);
-                        applyRaw({tsetmcEtf}, symbol, requestVersion);
-                    },
-                    isActive,
-                    isAbortError
-                )
-            );
-        }
-
         return () => {
             active = false;
-            polls.forEach((poll) => poll.abort());
         };
     }, [applyRaw, cacheKey, enabled, includeDetailSources, markError, reloadToken, symbol]);
 

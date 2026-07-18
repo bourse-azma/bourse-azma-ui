@@ -7,11 +7,17 @@ import type {ChartTimeframe, DrawingToolId} from './chartConfig';
 
 type TechnicalChartPanelProps = {
     instrumentCode: string | null;
+    accessToken: string;
     symbol: string;
     symbolName: string;
 };
 
-export default function TechnicalChartPanel({instrumentCode, symbol, symbolName}: TechnicalChartPanelProps) {
+export default function TechnicalChartPanel({
+                                                instrumentCode,
+                                                accessToken,
+                                                symbol,
+                                                symbolName
+                                            }: TechnicalChartPanelProps) {
     const instrumentCodeRef = useRef<string | null>(instrumentCode);
     instrumentCodeRef.current = instrumentCode;
 
@@ -27,6 +33,7 @@ export default function TechnicalChartPanel({instrumentCode, symbol, symbolName}
 
     const chartContainerRef = useChartLifecycle({
         instrumentCode,
+        accessToken,
         retryKey,
         timeframe,
         activeDrawingTool,

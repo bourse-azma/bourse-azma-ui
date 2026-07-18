@@ -1,8 +1,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {appConfig} from '../../config/appConfig';
 import {getCodalNotices} from '../symbol-search/api';
 import {clamp} from '../trading-dashboard/formatters';
-import {CODAL_MAX_PAGE_LENGTH} from './constants';
+import {CODAL_MAX_PAGE_LENGTH, CODAL_NOTICES_PER_PAGE} from './constants';
 import {buildCodalNoticeParams, mergeUniqueNotices} from './noticeParams';
 import type {CodalNotice, CodalNoticesQuery, CodalNoticesResult} from './types';
 
@@ -10,17 +9,21 @@ export function useCodalNotices(
     query: CodalNoticesQuery,
     options?: {
         enabled?: boolean;
-        autoRefresh?: boolean;
         errorMessage?: string;
         pagesPerLoad?: number;
         batchSize?: number;
     }
 ) {
     const enabled = options?.enabled ?? true;
-    const autoRefresh = options?.autoRefresh ?? true;
     const errorMessage = options?.errorMessage ?? 'دریافت پیام‌های ناظر با خطا مواجه شد.';
-    const pagesPerLoad = clamp(Math.floor(options?.pagesPerLoad ?? 1), 1, 4);
     const batchSize = Math.max(1, Math.floor(options?.batchSize ?? 40));
+    // Keep fetching API pages until the configured UI batch is full. CODAL's
+    // `length` query parameter is a date range and cannot increase its 20-row pages.
+    const pagesPerLoad = clamp(
+        Math.floor(options?.pagesPerLoad ?? batchSize),
+        1,
+        batchSize
+    );
 
     const [state, setState] = useState<{
         notices: CodalNotice[];
@@ -118,10 +121,11 @@ export function useCodalNotices(
                 let mergedNotices: CodalNotice[] = [];
                 let totalCount = 0;
                 let lastLoadedPage = isFirstPage ? 0 : pageToLoad - 1;
-                const pagesToFetch = isFirstPage ? 1 : pagesPerLoad;
+                const visibleTarget = isFirstPage ? batchSize : state.notices.length + batchSize;
+                const pagesToFetch = pagesPerLoad;
 
                 for (let index = 0; index < pagesToFetch; index += 1) {
-                    const requestPage = isFirstPage ? 1 : pageToLoad + index;
+                    const requestPage = pageToLoad + index;
                     const requestQuery: CodalNoticesQuery = {
                         ...stableQuery,
                         page: requestPage,
@@ -137,8 +141,11 @@ export function useCodalNotices(
                     lastLoadedPage = requestPage;
 
                     const reachedTotal = totalCount > 0 && mergedNotices.length >= totalCount;
-                    const pageIncomplete = incoming.length < requestLength;
-                    if (reachedTotal || pageIncomplete) break;
+                    const pageIncomplete = incoming.length < CODAL_NOTICES_PER_PAGE;
+                    const bufferedCount = isFirstPage
+                        ? mergedNotices.length
+                        : mergeUniqueNotices(bufferedNoticesRef.current, mergedNotices).length;
+                    if (reachedTotal || pageIncomplete || bufferedCount >= visibleTarget) break;
                 }
 
                 setState((prev) => {
@@ -221,29 +228,6 @@ export function useCodalNotices(
         setPageToLoad(1);
         setReloadKey((prev) => prev + 1);
     };
-
-    useEffect(() => {
-        if (!enabled || !autoRefresh) return;
-
-        let timer: number;
-        let active = true;
-        const tick = () => {
-            if (!active) return;
-            if (requestInFlightRef.current) {
-                timer = window.setTimeout(tick, 1000);
-                return;
-            }
-            setPageToLoad(1);
-            setReloadKey((prev) => prev + 1);
-            timer = window.setTimeout(tick, state.error ? appConfig.apiErrorRetryMs : appConfig.codalNoticesRefreshMs);
-        };
-        timer = window.setTimeout(tick, state.error ? appConfig.apiErrorRetryMs : appConfig.codalNoticesRefreshMs);
-
-        return () => {
-            active = false;
-            window.clearTimeout(timer);
-        };
-    }, [autoRefresh, enabled, querySignature, state.error]);
 
     return {...state, loadMore, refresh};
 }

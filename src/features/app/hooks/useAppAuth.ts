@@ -11,6 +11,7 @@ import {
     SESSION_STORAGE_KEY_TEMP,
 } from '../sessionStorage';
 import type {ApiResponse, AuthState, PersistedSession, SessionState, UserProfile} from '../types';
+import {webSocketService} from '../../../services/webSocketService';
 
 export function useAppAuth() {
     const [session, setSession] = useState<SessionState | null>(() => (
@@ -23,6 +24,7 @@ export function useAppAuth() {
     const [profileError, setProfileError] = useState<string | null>(null);
 
     const clearSession = useCallback(() => {
+        webSocketService.disconnect();
         window.localStorage.removeItem(SESSION_STORAGE_KEY);
         window.sessionStorage.removeItem(SESSION_STORAGE_KEY_TEMP);
         window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_STORAGE_KEY);

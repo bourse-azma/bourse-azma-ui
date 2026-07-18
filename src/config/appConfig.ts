@@ -20,22 +20,9 @@ type RequiredEnvKey =
     | 'VITE_CODAL_API_BASE_URL'
     | 'VITE_CODAL_NOTICES_API_PATH'
     | 'VITE_AUTH_API_BASE_URL'
+    | 'VITE_WS_BASE_URL'
     | 'VITE_SYMBOL_SEARCH_DEBOUNCE_MS'
-    | 'VITE_MARKET_OVERVIEW_REFRESH_MS'
-    | 'VITE_LANDING_MARKET_REFRESH_MS'
-    | 'VITE_LANDING_CODAL_REFRESH_MS'
-    | 'VITE_CODAL_NOTICES_REFRESH_MS'
-    | 'VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'
-    | 'VITE_TSETMC_CHART_REFRESH_MS'
-    | 'VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'
-    | 'VITE_TSETMC_BEST_LIMITS_REFRESH_MS'
-    | 'VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'
-    | 'VITE_TSETMC_ETF_INFO_REFRESH_MS'
-    | 'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
-    | 'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
-    | 'VITE_TRADING_ORDERS_REFRESH_MS'
-    | 'VITE_SUPPORT_TICKETS_REFRESH_MS'
-    | 'VITE_API_ERROR_RETRY_MS';
+    | 'VITE_SUPPORT_TICKETS_REFRESH_MS';
 
 const getRequiredEnv = (key: RequiredEnvKey) => {
     const value = import.meta.env[key];
@@ -60,6 +47,7 @@ const parseBoolean = (raw: string | undefined) => raw?.trim().toLowerCase() === 
 
 export const appConfig = Object.freeze({
     uiDebugMode: parseBoolean(import.meta.env.VITE_UI_DEBUG_MODE),
+    wsBaseUrl: getRequiredEnv('VITE_WS_BASE_URL'),
     marketOverviewApiBaseUrl: getRequiredEnv('VITE_MARKET_OVERVIEW_API_BASE_URL'),
     marketOverviewApiPath: getRequiredEnv('VITE_MARKET_OVERVIEW_API_PATH'),
     tsetmcApiBaseUrl: getRequiredEnv('VITE_TSETMC_API_BASE_URL'),
@@ -82,64 +70,12 @@ export const appConfig = Object.freeze({
         getRequiredEnv('VITE_SYMBOL_SEARCH_DEBOUNCE_MS'),
         'VITE_SYMBOL_SEARCH_DEBOUNCE_MS'
     ),
-    tsetmcClosingPriceRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'),
-        'VITE_TSETMC_CLOSING_PRICE_REFRESH_MS'
-    ),
-    tsetmcChartRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_CHART_REFRESH_MS'),
-        'VITE_TSETMC_CHART_REFRESH_MS'
-    ),
-    tsetmcInstrumentInfoRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'),
-        'VITE_TSETMC_INSTRUMENT_INFO_REFRESH_MS'
-    ),
-    tsetmcBestLimitsRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_BEST_LIMITS_REFRESH_MS'),
-        'VITE_TSETMC_BEST_LIMITS_REFRESH_MS'
-    ),
-    tsetmcClientTypeRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'),
-        'VITE_TSETMC_CLIENT_TYPE_REFRESH_MS'
-    ),
-    tsetmcEtfInfoRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_ETF_INFO_REFRESH_MS'),
-        'VITE_TSETMC_ETF_INFO_REFRESH_MS'
-    ),
-    tsetmcRelatedCompaniesRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'),
-        'VITE_TSETMC_RELATED_COMPANIES_REFRESH_MS'
-    ),
-    tsetmcMostVisitedRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TSETMC_MOST_VISITED_REFRESH_MS'),
-        'VITE_TSETMC_MOST_VISITED_REFRESH_MS'
-    ),
-    tradingOrdersRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_TRADING_ORDERS_REFRESH_MS'),
-        'VITE_TRADING_ORDERS_REFRESH_MS'
-    ),
     supportTicketsRefreshMs: parsePositiveInt(
         getRequiredEnv('VITE_SUPPORT_TICKETS_REFRESH_MS'),
         'VITE_SUPPORT_TICKETS_REFRESH_MS'
     ),
-    marketOverviewRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_MARKET_OVERVIEW_REFRESH_MS'),
-        'VITE_MARKET_OVERVIEW_REFRESH_MS'
-    ),
-    landingMarketRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_LANDING_MARKET_REFRESH_MS'),
-        'VITE_LANDING_MARKET_REFRESH_MS'
-    ),
-    landingCodalRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_LANDING_CODAL_REFRESH_MS'),
-        'VITE_LANDING_CODAL_REFRESH_MS'
-    ),
     codalApiBaseUrl: getRequiredEnv('VITE_CODAL_API_BASE_URL'),
     codalNoticesApiPath: getRequiredEnv('VITE_CODAL_NOTICES_API_PATH'),
-    codalNoticesRefreshMs: parsePositiveInt(
-        getRequiredEnv('VITE_CODAL_NOTICES_REFRESH_MS'),
-        'VITE_CODAL_NOTICES_REFRESH_MS'
-    ),
     supervisorNoticesBatchSize: parseOptionalPositiveInt(
         import.meta.env.VITE_SUPERVISOR_NOTICES_BATCH_SIZE,
         40,
@@ -149,10 +85,6 @@ export const appConfig = Object.freeze({
         import.meta.env.VITE_SYMBOL_NOTICES_BATCH_SIZE,
         40,
         'VITE_SYMBOL_NOTICES_BATCH_SIZE'
-    ),
-    apiErrorRetryMs: parsePositiveInt(
-        getRequiredEnv('VITE_API_ERROR_RETRY_MS'),
-        'VITE_API_ERROR_RETRY_MS'
     ),
     authApiBaseUrl: getRequiredEnv('VITE_AUTH_API_BASE_URL'),
 });

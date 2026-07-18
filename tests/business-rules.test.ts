@@ -122,6 +122,18 @@ describe('wallet and account invariants', () => {
         expect(getWalletTransactionMeta({
             id: 1, amount: -250, balanceAfter: 750, description: 'خرید سهم', createdAt: 'now',
         })).toMatchObject({isIncrease: false, balanceBefore: 1000, title: 'کاهش موجودی'});
+        expect(getWalletTransactionMeta({
+            id: 2, amount: -250, balanceAfter: 750,
+            description: 'خرید فملی به تعداد 10 با قیمت 1000 ریال', createdAt: 'now',
+        })).toMatchObject({title: 'خرید فملی'});
+        expect(getWalletTransactionMeta({
+            id: 3, amount: 250, balanceAfter: 1000, description: 'افزایش موجودی به میزان 250 ریال',
+            source: 'DEPOSIT', createdAt: 'now',
+        })).toMatchObject({title: 'واریز به کیف پول'});
+        expect(getWalletTransactionMeta({
+            id: 4, amount: 250, balanceAfter: 250,
+            description: 'موجودی اولیه به مبلغ 250 ریال هنگام ثبت‌نام', createdAt: 'now',
+        })).toMatchObject({title: 'موجودی اولیه'});
     });
 
     it('reserves only remaining quantities of active buy orders', () => {

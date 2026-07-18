@@ -1,6 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {INFINITE_SCROLL_PAGE_SIZE} from '../../config/scrollConfig';
-import {appConfig} from '../../config/appConfig';
 import {getTsetmcMostVisited} from '../symbol-search/api';
 import {toSymbolSuggestionFromMostVisited} from '../symbol-search/mappers';
 import type {SymbolSearchSuggestion, TsetmcMostVisitedInstrument} from '../symbol-search/types';
@@ -211,13 +210,10 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
             return;
         }
 
-        let active = true;
-        let timeoutId: number | undefined;
         const requestEpoch = ++requestEpochRef.current;
         const controller = new AbortController();
         marketAbortControllerRef.current?.abort();
         marketAbortControllerRef.current = controller;
-        let loadedInThisCycle = false;
 
         limitRef.current = MOST_VISITED_PAGE_SIZE;
         loadingMoreRef.current = false;
@@ -227,51 +223,12 @@ export const useMostVisited = (enabled: boolean): UseMostVisitedResult => {
         setItems([]);
         setError(null);
 
-        const scheduleNext = (hadError: boolean) => {
-            if (!active) {
-                return;
-            }
-
-            const delay = hadError ? appConfig.apiErrorRetryMs : appConfig.tsetmcMostVisitedRefreshMs;
-            timeoutId = window.setTimeout(() => {
-                void runBackground();
-            }, delay);
-        };
-
-        const runBackground = async () => {
-            if (!active) {
-                return;
-            }
-
-            if (loadingMoreRef.current) {
-                scheduleNext(false);
-                return;
-            }
-
-            const mode = loadedInThisCycle && hasItemsRef.current ? 'background' : 'initial';
-            const success = await fetchPage(
-                marketId,
-                limitRef.current,
-                mode,
-                requestEpoch,
-                controller.signal,
-            );
-            if (success) loadedInThisCycle = true;
-            if (active) {
-                scheduleNext(!success);
-            }
-        };
-
-        void runBackground();
+        void fetchPage(marketId, limitRef.current, 'initial', requestEpoch, controller.signal);
 
         return () => {
-            active = false;
             controller.abort();
             if (requestEpochRef.current === requestEpoch) {
                 requestEpochRef.current += 1;
-            }
-            if (timeoutId !== undefined) {
-                window.clearTimeout(timeoutId);
             }
         };
     }, [enabled, marketId, fetchPage]);

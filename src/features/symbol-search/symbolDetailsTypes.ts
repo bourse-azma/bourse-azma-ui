@@ -29,6 +29,7 @@ export type SymbolDetailsState = {
 
 export type UseSymbolDetailsOptions = {
     enabled?: boolean;
+    accessToken?: string;
     includeClientType?: boolean;
     includeDetailSources?: boolean;
 };

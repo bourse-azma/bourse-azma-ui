@@ -2,7 +2,7 @@ import type {TradingOrder} from './api';
 
 /**
  * Every field that can move an active order to another private-book level participates in
- * the key, so a price-only edit refreshes the book immediately instead of waiting for polling.
+ * the key, so a price-only edit refreshes the book immediately without waiting for a later reconciliation.
  */
 export const buildPrivateOrderBookRefreshKey = (
     orders: TradingOrder[],

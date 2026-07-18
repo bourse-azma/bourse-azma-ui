@@ -12,10 +12,13 @@ import type {ChartBar} from '../chartBarTypes';
 import {toCandlestickData, toVolumeData} from '../chartBarExport';
 import {applyChartViewport} from '../chartViewport';
 import {isAbortError, measureChartSize, waitForChartContainer} from '../chartPanelUtils';
-import {liveBarPollIntervalMs, pollAndUpdateLiveBar} from '../liveBarPolling';
+import {applyLiveBarUpdate} from '../liveBarUpdates';
+import {type MarketDataUpdate, marketTopic} from '../../../services/realtimeTypes';
+import {webSocketService} from '../../../services/webSocketService';
 
 type UseChartLifecycleParams = {
     instrumentCode: string | null;
+    accessToken: string;
     retryKey: number;
     timeframe: ChartTimeframe;
     activeDrawingTool: DrawingToolId;
@@ -35,6 +38,7 @@ type UseChartLifecycleParams = {
 
 export function useChartLifecycle({
                                       instrumentCode,
+                                      accessToken,
                                       retryKey,
                                       timeframe,
                                       activeDrawingTool,
@@ -59,6 +63,7 @@ export function useChartLifecycle({
     const activeDrawingToolRef = useRef<DrawingToolId>('cursor');
     const timeframeRef = useRef<ChartTimeframe>('1D');
     const [chartMounted, setChartMounted] = useState(false);
+    const [reconnectKey, setReconnectKey] = useState(0);
 
     const onLoadingChangeRef = useRef(onLoadingChange);
     const onErrorRef = useRef(onError);
@@ -255,27 +260,26 @@ export function useChartLifecycle({
             disposed = true;
             controller.abort();
         };
-    }, [instrumentCode, timeframe, retryKey, chartMounted]);
+    }, [instrumentCode, timeframe, retryKey, reconnectKey, chartMounted]);
 
     useEffect(() => {
         if (!instrumentCode || !dataReady || timeframe !== '1D' || barsRef.current.length === 0) return;
 
-        const pollLiveBar = async () => {
-            try {
-                await pollAndUpdateLiveBar(instrumentCode, {
+        const unsubscribe = webSocketService.subscribeJson<MarketDataUpdate>(
+            accessToken,
+            marketTopic(instrumentCode),
+            (update) => {
+                if (update.instrumentCode !== instrumentCode || !update.closingPrice) return;
+                applyLiveBarUpdate(update.closingPrice, {
                     barsRef,
                     candleSeriesRef,
                     volumeSeriesRef,
                 });
-            } catch {
-                // Ignore transient polling errors.
-            }
-        };
-
-        void pollLiveBar();
-        const timerId = window.setInterval(pollLiveBar, liveBarPollIntervalMs);
-        return () => window.clearInterval(timerId);
-    }, [instrumentCode, timeframe, retryKey, dataReady]);
+            },
+            {onReconnect: () => setReconnectKey((current) => current + 1)}
+        );
+        return unsubscribe;
+    }, [accessToken, instrumentCode, timeframe, retryKey, dataReady]);
 
     return chartContainerRef;
 }

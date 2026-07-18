@@ -1,6 +1,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {appConfig} from '../../config/appConfig';
+import type {TradingOrder} from './api';
 import {getPrivateOrderBook, type PrivateOrderBook} from './api';
+import {type MarketDataUpdate, marketTopic, ORDER_UPDATES_QUEUE} from '../../services/realtimeTypes';
+import {webSocketService} from '../../services/webSocketService';
 
 export const usePrivateOrderBook = (
     accessToken: string,
@@ -47,23 +49,37 @@ export const usePrivateOrderBook = (
         }
 
         const controller = new AbortController();
-        let disposed = false;
         let timer: number | undefined;
-        const poll = async () => {
-            await fetchBook(controller.signal);
-            if (!disposed) {
-                timer = window.setTimeout(poll, appConfig.tsetmcBestLimitsRefreshMs);
-            }
+        const scheduleRefresh = () => {
+            if (timer !== undefined) window.clearTimeout(timer);
+            timer = window.setTimeout(() => void fetchBook(controller.signal), 50);
         };
-        void poll();
+        void fetchBook(controller.signal);
+        const unsubscribeMarket = webSocketService.subscribeJson<MarketDataUpdate>(
+            accessToken,
+            marketTopic(instrumentCode),
+            (update) => {
+                if (update.instrumentCode === instrumentCode) scheduleRefresh();
+            },
+            {onReconnect: scheduleRefresh}
+        );
+        const unsubscribeOrders = webSocketService.subscribeJson<TradingOrder>(
+            accessToken,
+            ORDER_UPDATES_QUEUE,
+            (order) => {
+                if (order.instrumentCode === instrumentCode) scheduleRefresh();
+            },
+            {onReconnect: scheduleRefresh}
+        );
 
         return () => {
-            disposed = true;
             controller.abort();
             requestIdRef.current += 1;
             if (timer !== undefined) window.clearTimeout(timer);
+            unsubscribeMarket();
+            unsubscribeOrders();
         };
-    }, [enabled, fetchBook, instrumentCode, refreshKey]);
+    }, [accessToken, enabled, fetchBook, instrumentCode, refreshKey]);
 
     return {data, loading, error, refresh: fetchBook};
 };

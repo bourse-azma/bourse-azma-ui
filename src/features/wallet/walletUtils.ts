@@ -9,8 +9,27 @@ export function getWalletTransactionMeta(tx: WalletTx) {
     const isIncrease = tx.amount > 0;
     const balanceBefore = tx.balanceAfter - tx.amount;
     const trimmedDescription = tx.description.trim();
-    const title = isIncrease ? 'افزایش موجودی' : 'کاهش موجودی';
-    const isAutoDescription = /^(افزایش|کاهش|تغییر) موجودی/.test(trimmedDescription);
+    const trade = trimmedDescription.match(/^(خرید|فروش)\s+(.+?)\s+به تعداد\s+/);
+    const sourceTitles: Record<string, string> = {
+        DEPOSIT: 'واریز به کیف پول',
+        WITHDRAWAL: 'برداشت از کیف پول',
+        INITIAL_BALANCE: 'موجودی اولیه',
+        ADMIN_ADJUSTMENT: 'تعدیل موجودی توسط مدیر',
+        ADMIN: 'تعدیل موجودی توسط مدیر',
+    };
+    const legacyTitle = /^موجودی اولیه|^ثبت‌نام بدون موجودی اولیه/.test(trimmedDescription)
+        ? 'موجودی اولیه'
+        : /^ویرایش موجودی توسط مدیر/.test(trimmedDescription)
+            ? 'تعدیل موجودی توسط مدیر'
+            : /^افزایش موجودی/.test(trimmedDescription)
+                ? 'واریز به کیف پول'
+                : /^کاهش موجودی/.test(trimmedDescription)
+                    ? 'برداشت از کیف پول'
+                    : null;
+    const title = trade ? `${trade[1]} ${trade[2]}` : sourceTitles[tx.source ?? '']
+        ?? legacyTitle
+        ?? (isIncrease ? 'افزایش موجودی' : 'کاهش موجودی');
+    const isAutoDescription = /^(افزایش|کاهش) موجودی/.test(trimmedDescription);
 
     return {isIncrease, balanceBefore, title, isAutoDescription};
 }

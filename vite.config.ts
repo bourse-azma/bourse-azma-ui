@@ -7,11 +7,16 @@ export default defineConfig(({mode}) => {
     const codalProxyTarget = env.VITE_CODAL_PROXY_TARGET ?? marketOverviewProxyTarget;
     const authProxyTarget = env.VITE_AUTH_PROXY_TARGET ?? 'http://localhost:9003';
     const marketSearchProxyTarget = env.VITE_MARKET_SEARCH_PROXY_TARGET ?? authProxyTarget;
+    const wsBaseUrl = env.VITE_WS_BASE_URL;
+    const wsProxyTarget = env.VITE_WS_PROXY_TARGET ?? authProxyTarget;
     if (!marketOverviewProxyTarget) {
         throw new Error('Missing required env: VITE_MARKET_OVERVIEW_PROXY_TARGET');
     }
     if (!codalProxyTarget) {
         throw new Error('Missing required env: VITE_CODAL_PROXY_TARGET');
+    }
+    if (!wsBaseUrl || wsBaseUrl.indexOf('/') !== 0) {
+        throw new Error('VITE_WS_BASE_URL must be an absolute path such as /ws-api');
     }
 
     return {
@@ -44,6 +49,12 @@ export default defineConfig(({mode}) => {
         },
         server: {
             proxy: {
+                [wsBaseUrl]: {
+                    target: wsProxyTarget,
+                    changeOrigin: true,
+                    secure: false,
+                    ws: true,
+                },
                 '/api/tsetmc': {
                     target: marketOverviewProxyTarget,
                     changeOrigin: true,
