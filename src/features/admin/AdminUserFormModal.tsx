@@ -79,11 +79,10 @@ export function AdminUserFormModal({open, user, onClose, onSubmit}: {
                     onChange={e => update(field.key, e.target.value as never)}
                     dir={['username', 'phoneNumber', 'email', 'password'].includes(field.key) ? 'ltr' : 'rtl'}
                     className="mt-1.5 w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right font-normal outline-none focus:border-primary"/></label>)}
-                {!editing ?
-                    <label className="text-xs font-bold text-text">موجودی اولیه<input required min={0} type="number"
+                <label className="text-xs font-bold text-text">{editing ? 'موجودی (ریال)' : 'موجودی اولیه (ریال)'}<input required min={0} step={1} type="number"
                                                                                       value={form.balance}
                                                                                       onChange={e => update('balance', Number(e.target.value))}
-                                                                                      className="mt-1.5 w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right font-normal outline-none focus:border-primary"/></label> : null}
+                                                                                      className="mt-1.5 w-full rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-right font-normal outline-none focus:border-primary"/></label>
                 {error ? <div
                     className="sm:col-span-2 rounded-xl bg-negative/10 p-3 text-xs text-negative">{error}</div> : null}
                 <div className="flex justify-end gap-2 sm:col-span-2">
